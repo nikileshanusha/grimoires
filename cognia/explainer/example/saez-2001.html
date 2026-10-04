@@ -1,0 +1,571 @@
+<!doctype html>
+<!-- Cognia example lesson (Saez 2001). Visual reference only; build new lessons from lesson.html + screens.md. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Saez 2001 · Cognia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>try { const t = localStorage.getItem("cognia:theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}</script>
+<link rel="stylesheet" href="../_shell/cognia.css">
+</head>
+<body data-source="Saez, E. (2001). Using Elasticities to Derive Optimal Income Tax Rates. Review of Economic Studies 68(1), 205–229.">
+
+<main class="stage"><div class="rail" id="rail">
+
+<!-- ============ screen 0 · the question ============ -->
+  <section class="screen" data-title="The question" data-min="2">
+    <div class="text">
+      <div class="kicker"><b>Start</b></div>
+      <h1>How high should the top tax rate be?</h1>
+      <div class="prose">
+        <p>Every income tax ends in a top bracket, and <a class="gl" href="#g-marginal-rate">the rate on that bracket</a> starts more political fights than any other number in the tax code.</p>
+        <p>Saez shows that the best top rate follows from <strong class="key">three numbers you can measure</strong>: how much income sits <a class="gl" href="#g-pareto">far above the top line</a>, how much top earners <a class="gl" href="#g-eti">shrink their income when taxed</a>, and how much society <a class="gl" href="#g-welfare-weight">values their last dollar</a>.</p>
+        <p>By the end you can read his formula, say which of the three numbers each side of the debate is assuming, and say which parts of the argument you should doubt.</p>
+      </div>
+      <div class="note"><b>New here?</b> Press <kbd>?</kbd> or the Help button for how to move and what every mark means. It stays open while you read.</div>
+    </div>
+    <div class="fig">
+      <figure>
+        <svg viewBox="0 0 800 520" preserveAspectRatio="xMidYMid meet" role="img" aria-label="US federal marginal tax rates by income in 2024. The top bracket is 37 percent above 609,350 dollars; levels of 50 and 73 percent are marked as possibilities.">
+          <g class="grid"><line x1="70" x2="770" y1="347.5" y2="347.5"/><line x1="70" x2="770" y1="245" y2="245"/><line x1="70" x2="770" y1="142.5" y2="142.5"/><line x1="70" x2="770" y1="40" y2="40"/></g>
+          <g text-anchor="end"><text class="tm" x="60" y="454">0%</text><text class="tm" x="60" y="351">20%</text><text class="tm" x="60" y="249">40%</text><text class="tm" x="60" y="146">60%</text><text class="tm" x="60" y="44">80%</text></g>
+          <g class="soft-fill" style="stroke:var(--accent-mid);stroke-width:1">
+            <rect x="70" y="398.75" width="75.4" height="51.25"/>
+            <rect x="145.4" y="388.5" width="76.6" height="61.5"/>
+            <rect x="222" y="337.25" width="70" height="112.75"/>
+            <rect x="292" y="327" width="84.7" height="123"/>
+            <rect x="376.7" y="286" width="38.9" height="164"/>
+            <rect x="415.6" y="270.6" width="200.8" height="179.4"/>
+          </g>
+          <rect x="616.4" y="260.4" width="153.6" height="189.6" class="acc-fill"/>
+          <g text-anchor="middle"><text class="tm" x="107.7" y="392">10</text><text class="tm" x="183.7" y="382">12</text><text class="tm" x="257" y="331">22</text><text class="tm" x="334.4" y="321">24</text><text class="tm" x="396" y="280">32</text><text class="tm" x="516" y="264">35</text></g>
+          <text x="693.2" y="292" text-anchor="middle" class="tb" style="fill:var(--plate)">37%</text>
+          <line x1="616.4" x2="770" y1="193.75" y2="193.75" class="dash"/>
+          <line x1="616.4" x2="770" y1="75.9" y2="75.9" class="dash"/>
+          <line x1="693.2" x2="693.2" y1="254" y2="84" class="acc-line" stroke-width="1.6" marker-end="url(#arrA)"/>
+          <text x="604" y="198" text-anchor="end" class="t">50%?</text>
+          <text x="604" y="74" text-anchor="end" class="t">73%?</text>
+          <text x="604" y="92" text-anchor="end" class="ts">the formula with e = 0.25, a = 1.5</text>
+          <line x1="70" x2="770" y1="450" y2="450" class="axis"/>
+          <g text-anchor="middle"><text class="tm" x="140" y="472">$10k</text><text class="tm" x="226.5" y="472">$50k</text><text class="tm" x="291.4" y="472">$100k</text><text class="tm" x="420" y="472">$250k</text><text class="tm" x="616.4" y="472">$609k</text><text class="tm" x="770" y="472">$1M</text></g>
+          <text x="770" y="502" text-anchor="end" class="ts">taxable income (square-root scale)</text>
+          <text x="70" y="24" class="ts">marginal tax rate</text>
+        </svg>
+        <figcaption><b>What to notice:</b> these are US federal rates for a single filer in 2024. Saez's argument is about the dark top step: should it stay at 37%, or rise toward 50% or 73%?</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ============ screen 1 · three effects ============ -->
+  <section class="screen" data-title="Three effects" data-min="3">
+    <div class="text">
+      <div class="kicker"><b>1</b> / 8 · Three effects</div>
+      <p class="sofar">So far: the question is where to set the top step.</p>
+      <h2>Raise the top rate a little, and three things happen.</h2>
+      <div class="prose">
+        <p>Saez does not search over every possible rate. He asks a smaller question instead: <strong class="key">what happens if we raise the current top rate by one small step?</strong></p>
+        <p>The government gains, because top earners pay more on the same income. Economists call this the <a class="gl" href="#g-mechanical">mechanical effect</a>.</p>
+        <p>The government also loses, because some top earners respond by reporting less income, so there is less to tax. This is the <a class="gl" href="#g-behavioural">behavioural effect</a>.</p>
+        <p>Top earners lose too, because they keep less: the <a class="gl" href="#g-welfare-effect">welfare effect</a>. It counts only as much as society values their dollars.</p>
+        <p>If the gain beats the two losses, raise the rate; if not, lower it. The best rate is where they balance, and the next two screens measure each side.</p>
+      </div>
+      <div class="note"><b>Why a small step?</b> At the best rate a small change in either direction makes no difference, so finding where small changes stop paying off finds the best rate. Economists call this a <a class="gl" href="#g-foc">first-order condition</a>.</div>
+    </div>
+    <div class="fig">
+      <figure>
+        <svg viewBox="0 0 870 520" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Raising the top rate creates one gain, the mechanical effect, and two losses, the behavioural and welfare effects. The best rate is where they balance on a scale.">
+          <rect x="16" y="215" width="176" height="90" rx="12" class="card-acc"/>
+          <text x="104" y="252" text-anchor="middle" class="tb">Raise the top rate</text>
+          <text x="104" y="274" text-anchor="middle" class="t">by a small step <tspan class="tx">dτ</tspan></text>
+          <path d="M192,250 C232,250 230,85 264,85" class="ink2" marker-end="url(#arr)"/>
+          <path d="M192,260 L264,260" class="ink2" marker-end="url(#arr)"/>
+          <path d="M192,270 C232,270 230,435 264,435" class="ink2" marker-end="url(#arr)"/>
+          <rect x="270" y="30" width="270" height="110" rx="12" class="card"/>
+          <text x="288" y="60" class="tb">Mechanical effect</text>
+          <text x="288" y="82" class="t">Same income, more tax.</text>
+          <rect x="288" y="104" width="12" height="12" class="acc-fill"/><text x="306" y="114" class="ts">gain for the budget</text>
+          <g transform="translate(456,40)">
+            <rect x="0" y="12" width="22" height="64" class="mid-fill"/><rect x="0" y="12" width="22" height="12" class="acc-fill"/>
+            <rect x="38" y="12" width="22" height="64" class="mid-fill"/><rect x="38" y="12" width="22" height="24" class="acc-fill"/>
+            <text x="11" y="92" text-anchor="middle" class="ts">before</text><text x="49" y="92" text-anchor="middle" class="ts">after</text>
+          </g>
+          <rect x="270" y="205" width="270" height="110" rx="12" class="card"/>
+          <text x="288" y="235" class="tb">Behavioural effect</text>
+          <text x="288" y="257" class="t">Less income is reported.</text>
+          <rect x="288" y="279" width="12" height="12" class="hatch"/><text x="306" y="289" class="ts">loss for the budget</text>
+          <g transform="translate(456,215)">
+            <rect x="0" y="12" width="22" height="64" class="mid-fill"/>
+            <rect x="38" y="12" width="22" height="18" class="hatch"/><rect x="38" y="30" width="22" height="46" class="mid-fill"/>
+            <text x="11" y="92" text-anchor="middle" class="ts">before</text><text x="49" y="92" text-anchor="middle" class="ts">after</text>
+          </g>
+          <rect x="270" y="380" width="270" height="110" rx="12" class="card"/>
+          <text x="288" y="410" class="tb">Welfare effect</text>
+          <text x="288" y="432" class="t">Top earners keep less.</text>
+          <rect x="288" y="454" width="12" height="12" class="hatch"/><text x="306" y="464" class="ts">loss, weighted by <tspan class="tx">ḡ</tspan></text>
+          <g transform="translate(456,390)">
+            <rect x="0" y="12" width="22" height="64" class="soft-fill" style="stroke:var(--accent-mid)"/>
+            <rect x="38" y="12" width="22" height="14" class="hatch"/><rect x="38" y="26" width="22" height="50" class="soft-fill" style="stroke:var(--accent-mid)"/>
+            <text x="11" y="92" text-anchor="middle" class="ts">kept</text><text x="49" y="92" text-anchor="middle" class="ts">after</text>
+          </g>
+          <line x1="725" y1="236" x2="725" y2="420" class="ink"/>
+          <rect x="687" y="420" width="76" height="10" rx="3" style="fill:var(--ink)"/>
+          <line x1="615" y1="230" x2="835" y2="230" style="stroke:var(--ink);stroke-width:3"/>
+          <circle cx="725" cy="230" r="6" style="fill:var(--plate);stroke:var(--ink);stroke-width:2"/>
+          <path d="M625,230 L595,300 M625,230 L655,300" class="ink2"/>
+          <path d="M825,230 L795,300 M825,230 L855,300" class="ink2"/>
+          <path d="M587,300 L663,300 Q657,324 625,324 Q593,324 587,300 Z" style="fill:var(--plate);stroke:var(--ink);stroke-width:1.4"/>
+          <path d="M787,300 L863,300 Q857,324 825,324 Q793,324 787,300 Z" style="fill:var(--plate);stroke:var(--ink);stroke-width:1.4"/>
+          <rect x="603" y="268" width="44" height="32" class="acc-fill"/>
+          <rect x="799" y="276" width="24" height="24" class="hatch"/>
+          <rect x="825" y="282" width="24" height="18" class="hatch"/>
+          <text x="625" y="352" text-anchor="middle" class="tb">gain</text>
+          <text x="825" y="352" text-anchor="middle" class="tb">losses</text>
+          <text x="725" y="468" text-anchor="middle" class="t">Best rate: the beam is level.</text>
+        </svg>
+        <figcaption><b>What to notice:</b> sort the three effects by sign. The gain goes in the left pan and both losses go in the right, so the best rate is the one that levels the beam.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ============ screen 2 · the gain (prerequisite taught in place) ============ -->
+  <section class="screen" data-title="The gain" data-min="4">
+    <div class="text">
+      <div class="kicker"><b>2</b> / 8 · The gain</div>
+      <p class="sofar">So far: a small rate rise brings one gain and two losses.</p>
+      <h2>The gain depends on how much income sits far above the line.</h2>
+      <div class="prose">
+        <p>The <a class="gl" href="#g-top-rate">top rate</a> applies only to income above a line, <a class="gl" href="#g-top-line">\(\bar z\)</a>. When the rate rises, each top earner pays more on their slice above that line, \(z_m - \bar z\), where <a class="gl" href="#g-zm">\(z_m\) is their average income</a>.</p>
+        <p>That makes the size of the slice the whole story for the gain, and the slice depends on the shape of the top of the income distribution.</p>
+        <p>Top incomes follow a <a class="gl" href="#g-pareto">Pareto tail</a>, a shape set by one number, \(a\). Above any line, the average income is</p>
+        <p class="eq">\[ z_m = \frac{a}{a-1}\,\bar z \]</p>
+        <p>so a small \(a\) means a fat tail, with many very high incomes, a big slice and a big gain. Move the slider to see it.</p>
+      </div>
+      <div class="note"><b>Side note.</b> Vilfredo Pareto found this shape in Italian land records in the 1890s, and US tax data shows it too, with \(a\) near 1.5. Screen 5 uses one consequence: \((z_m-\bar z)/z_m = 1/a\) exactly.</div>
+    </div>
+    <div class="fig">
+      <figure>
+        <svg id="figPareto" role="img" aria-label="Distribution of incomes above the top line, with the average income above the line and the taxed slice marked"></svg>
+        <div class="controls">
+          <div class="readout"><small>slice taxed per person</small><span id="sliceOut">$1.2M</span></div>
+          <label for="aPareto"><span>Pareto tail <span class="sym">a</span></span><b id="aParetoVal">1.5</b><input type="range" id="aPareto" min="1.2" max="3" step="0.1" value="1.5"></label>
+        </div>
+        <figcaption><b>What to notice:</b> as \(a\) falls toward 1, the average above the line runs away, and so does the slice the top rate can tax.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ============ screen 3 · the loss (prerequisite taught in place) ============ -->
+  <section class="screen" data-title="The loss" data-min="4">
+    <div class="text">
+      <div class="kicker"><b>3</b> / 8 · The loss</div>
+      <p class="sofar">So far: the gain is the slice above the line, and a fat tail makes it bigger.</p>
+      <h2>The loss depends on how much reported income shrinks.</h2>
+      <div class="prose">
+        <p>A higher rate leaves top earners a smaller take-home share, \(1-\tau\). Some of them respond: they work less, take pay in other forms, or avoid tax.</p>
+        <p>The <a class="gl" href="#g-eti">elasticity of taxable income</a>, \(e\), measures that response. If the take-home share falls by 10%, reported income falls by \(e \times 10\%\).</p>
+        <p>Every lost dollar of income costs the government \(\tau\) in tax, and that is the <a class="gl" href="#g-behavioural">behavioural loss</a>.</p>
+        <p>Estimates of \(e\) run from about 0.1 to above 1, which is why most of the political fight over top rates is really a fight over this one number.</p>
+      </div>
+      <div class="note"><b>Same person as screen 2.</b> The figure follows the average top earner from the last screen, who earns $1.8M a year when \(a = 1.5\), through a rate rise from 37% to 43%.</div>
+    </div>
+    <div class="fig">
+      <figure>
+        <svg id="figElastic" role="img" aria-label="A 10 percent fall in the take-home share makes reported income fall by e times 10 percent, and the government loses tau times that income"></svg>
+        <div class="controls">
+          <div class="readout"><small>tax lost per top earner</small><span id="lostOut">$19.5k</span></div>
+          <label for="eElastic"><span>elasticity <span class="sym">e</span></span><b id="eElasticVal">0.25</b><input type="range" id="eElastic" min="0" max="1.5" step="0.05" value="0.25"></label>
+        </div>
+        <figcaption><b>What to notice:</b> the hatched piece of the income bar is the hatched piece of the share bar, scaled by \(e\). Set \(e = 0\) and the loss disappears.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ============ screen 4 · where they meet (prediction-gated) ============ -->
+  <section class="screen" data-title="Where they meet" data-min="4">
+    <div class="text">
+      <div class="kicker"><b>4</b> / 8 · Where they meet</div>
+      <p class="sofar">So far: the gain comes from the tail, \(a\), and the loss comes from the response, \(e\).</p>
+      <h2>The best rate is where the gain and the loss meet.</h2>
+      <div class="prose">
+        <p>The flat line is the gain from one small step up, and it is the same at every rate. Its height is \((1-\bar g)/a\): the slice from screen 2, minus the part society counts as a <a class="gl" href="#g-welfare-weight">loss to top earners</a>.</p>
+        <p>The curve is the behavioural loss. It stays small at low rates and climbs fast toward 100%, because each lost dollar costs more tax when \(\tau\) is high.</p>
+        <p>Left of the crossing, a step up gains more than it loses, so the rate should rise. Right of it, the rate should fall. The crossing itself is <a class="gl" href="#g-top-rate">\(\tau^*\)</a>, where a small step changes nothing (<a class="gl" href="#g-foc">first-order condition</a>).</p>
+      </div>
+      <div class="note"><b>About \(\bar g\).</b> It is the value society puts on one more dollar for a top earner, compared with a dollar of public money. With \(\bar g = 0\), the best rate is the one that raises the most revenue.</div>
+    </div>
+    <div class="fig">
+      <div class="gate" data-answer="less" data-unlocks="#eM #aM #gM" data-reveals="#meetNotice">
+        <p>Predict first: if top earners respond twice as strongly (\(e\) goes from 0.25 to 0.5), the best top rate…</p>
+        <div class="opts">
+          <button class="btn" data-choice="half" data-why="Not quite. The rate falls from 73% to 57%, which is much less than half. Drag e to 0.5 and watch the crossing move.">halves</button>
+          <button class="btn" data-choice="less" data-why="Right. The rate falls from 73% to 57%. Drag e to 0.5 and watch the crossing move.">falls, but by less than half</button>
+          <button class="btn" data-choice="same" data-why="Not quite. A stronger response bends the loss curve up sooner, so the rate falls from 73% to 57%. Drag e to 0.5 and see.">stays the same</button>
+        </div>
+        <div class="verdict" hidden></div>
+      </div>
+      <figure>
+        <svg id="figMeet" role="img" aria-label="A flat gain line and a rising loss curve plotted against the tax rate; they cross at the best rate"></svg>
+        <div class="controls">
+          <div class="readout"><small>best top rate <span class="sym">τ*</span></small><span id="tauOut">73%</span></div>
+          <label for="eM"><span>elasticity <span class="sym">e</span></span><b id="eMVal">0.25</b><input type="range" id="eM" min="0" max="1.5" step="0.05" value="0.25" disabled></label>
+          <label for="aM"><span>Pareto tail <span class="sym">a</span></span><b id="aMVal">1.5</b><input type="range" id="aM" min="1.1" max="3" step="0.1" value="1.5" disabled></label>
+          <label for="gM"><span>social weight <span class="sym">ḡ</span></span><b id="gMVal">0.00</b><input type="range" id="gM" min="0" max="0.9" step="0.05" value="0" disabled></label>
+        </div>
+        <figcaption id="meetNotice" hidden><b>What to notice:</b> at \(e = 0.5\) the rate is 57%, down from 73%, so it falls but by much less than half. A larger \(a\) or \(\bar g\) lowers the gain line with the same effect, and only \(e = 0\) sends the rate to 100%. This is an illustration with chosen numbers, not a result from the paper.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ============ screen 5 · in symbols (math decoder, Tier 1) ============ -->
+  <section class="screen" data-title="In symbols" data-min="4">
+    <div class="text">
+      <div class="kicker"><b>5</b> / 8 · In symbols · eq. (N), p. N (sample)</div>
+      <p class="sofar">So far: you have seen the argument with pictures and numbers. Here it is as algebra.</p>
+      <h2>The same argument, in symbols.</h2>
+      <p class="eq">\[\tau^* = \frac{1 - \bar g}{1 - \bar g + a\,e}\]</p>
+      <table>
+        <tr><th>Symbol</th><th>Meaning</th><th>Where you met it</th></tr>
+        <tr><td>\(\tau^*\)</td><td><a class="gl" href="#g-top-rate">best top marginal tax rate</a> (a number from 0 to 1)</td><td>the crossing, screen 4</td></tr>
+        <tr><td>\(a\)</td><td><a class="gl" href="#g-pareto">Pareto tail</a>; small means fat</td><td>screen 2</td></tr>
+        <tr><td>\(e\)</td><td><a class="gl" href="#g-eti">elasticity of taxable income</a></td><td>screen 3</td></tr>
+        <tr><td>\(\bar g\)</td><td><a class="gl" href="#g-welfare-weight">social value of a top earner's dollar</a></td><td>screen 4 note</td></tr>
+      </table>
+      <div class="note"><b>Check by limits.</b> Setting \(e = 0\) gives \(\tau^* = 1\), and setting \(\bar g = 1\) gives \(\tau^* = 0\). Both match what the figure on screen 4 does.</div>
+    </div>
+    <div class="fig">
+      <div class="label">Read it step by step · click a step or use the button</div>
+      <ol class="steps">
+        <li><span>Raise the top rate by a small step \(d\tau\) and count each effect per top earner.</span><span class="why">This is the setup from screen 1.</span></li>
+        <li><span><a class="gl" href="#g-mechanical">Mechanical gain</a>: \(d\tau\,(z_m - \bar z)\).</span><span class="why">The slice above the line, taxed at the extra rate.<span class="ref">screen 2</span></span></li>
+        <li><span><a class="gl" href="#g-welfare-effect">Welfare loss</a>: \(\bar g \cdot d\tau\,(z_m - \bar z)\).</span><span class="why">The same money, counted as a loss to the earner and weighted by \(\bar g\).</span></li>
+        <li><span><a class="gl" href="#g-behavioural">Behavioural loss</a>: \(\tau \cdot e\, z_m \frac{d\tau}{1-\tau}\).</span><span class="why">The take-home share falls by \(\frac{d\tau}{1-\tau}\), income falls \(e\) times that, and the tax lost is \(\tau\) times the lost income.<span class="ref">screen 3</span></span></li>
+        <li><span>Set the gain equal to the losses: \((1-\bar g)(z_m - \bar z) = \frac{\tau}{1-\tau}\, e\, z_m\).</span><span class="why">At the best rate a small step changes nothing.<span class="ref">screen 4</span></span></li>
+        <li><span>Divide by \(z_m\) and use \(\frac{z_m - \bar z}{z_m} = \frac{1}{a}\), which gives \(\frac{\tau}{1-\tau} = \frac{1-\bar g}{a\,e}\).</span><span class="why">The Pareto fact from the screen 2 note turns the ratio into one number.</span></li>
+        <li><span>Solve for \(\tau\): \(\tau^* = \frac{1-\bar g}{1-\bar g + a\,e}\).</span><span class="why">Cross-multiply and collect the \(\tau\) terms on one side.</span></li>
+      </ol>
+      <div class="row"><button class="btn solid" data-step="next">Next step</button><button class="btn" data-step="all">Show all</button><span class="hint step-count"></span></div>
+    </div>
+  </section>
+
+  <!-- ============ screen 6 · what to doubt (evidence + limitations) ============ -->
+  <section class="screen" data-title="What to doubt" data-min="3">
+    <div class="text">
+      <div class="kicker"><b>6</b> / 8 · What to doubt</div>
+      <p class="sofar">So far: the formula follows cleanly from the model. Now ask what the model takes for granted.</p>
+      <h2>The formula is proved; the inputs are where the doubt lives.</h2>
+      <div class="prose">
+        <p>The algebra on screen 5 holds whenever the model's assumptions hold, so the useful question is which assumptions could fail. The answer matters most for <a class="gl" href="#g-eti">\(e\)</a>, because the rate is so sensitive to it.</p>
+        <p>The model treats \(e\) as a fixed feature of top earners, but much of their response is avoidance, and avoidance depends on how the tax is designed. If a government closes loopholes, the same people respond less, so \(e\) is partly a policy choice rather than a fact of nature.</p>
+        <p>The <a class="gl" href="#g-welfare-weight">weight \(\bar g\)</a> is different again. No data set measures it, because it is a value judgment about how much a rich person's dollar matters.</p>
+        <p>The result also only applies within its scope: a top bracket with a <a class="gl" href="#g-pareto">Pareto shape</a>, one tax base, and no movement of people or income across borders.</p>
+      </div>
+    </div>
+    <div class="fig">
+      <div class="label">How solid is each claim? · the shape of each tag carries its meaning</div>
+      <table class="evidence">
+        <tr><th>Evidence</th><th>Claim</th><th>Basis</th></tr>
+        <tr><td><span class="tag established"><i></i>Established</span></td><td>\(\tau^*\) follows from the model</td><td>derived in the paper</td></tr>
+        <tr><td><span class="tag established"><i></i>Established</span></td><td>Top US incomes have a Pareto tail</td><td>measured from US tax data in the paper</td></tr>
+        <tr><td><span class="tag derived"><i></i>Derived</span></td><td>The best top rate is 73%</td><td>our arithmetic with \(e = 0.25\), \(a = 1.5\), \(\bar g = 0\)</td></tr>
+        <tr><td><span class="tag interpretation"><i></i>Interpretation</span></td><td>\(\bar g\) is close to 0 for top earners</td><td>a value judgment, not a measurement</td></tr>
+        <tr><td><span class="tag external"><i></i>External</span></td><td>\(e\) depends on how easy avoidance is</td><td>Slemrod and Kopczuk (2002), not this paper</td></tr>
+        <tr><td><span class="tag open"><i></i>Open</span></td><td>Migration and income shifting abroad are small</td><td>not modelled here</td></tr>
+      </table>
+      <p class="hint">If \(e\) is really 0.5 rather than 0.25, the same formula gives 57% instead of 73%, so a doubt about one input moves the answer by 16 points. That is the claim to test first.</p>
+      <div class="note"><b>Reader's own analysis.</b> The paper does not stress the policy-dependence of \(e\) or cross-border shifting; both follow from its assumptions and are worth weighing.</div>
+    </div>
+  </section>
+
+  <!-- ============ screen 7 · the whole picture (concept map with recall mode) ============ -->
+  <section class="screen" data-title="The whole picture" data-min="2">
+    <div class="text">
+      <div class="kicker"><b>7</b> / 8 · The whole picture</div>
+      <p class="sofar">So far: three inputs, two effects, one formula, and a list of doubts.</p>
+      <h2>The whole idea on one page.</h2>
+      <div class="prose">
+        <p>Read the map from left to right: three numbers you can measure or choose feed two effects, and the balance of the two effects sets the rate.</p>
+        <p>In one sentence, the top tax rate should be high when top incomes are concentrated, top earners respond little, and society puts little weight on their extra dollar.</p>
+        <p>Turn on recall mode to hide the boxes, then name each one before you click it.</p>
+      </div>
+      <div class="note"><b>Where this leads.</b> Mirrlees (1971) built the general model this result simplifies, and Diamond (1998) first used the Pareto shortcut. Say “fetch Mirrlees” to Claude to learn either one.</div>
+    </div>
+    <div class="fig">
+      <div class="row"><button class="btn" data-recall="cmap">Recall mode</button><span class="hint recall-hint">Hides every box label; the arrows stay as clues.</span></div>
+      <figure>
+        <svg class="cmap" id="cmap" viewBox="0 0 900 500" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Concept map: the Pareto tail sets income above the line, which sizes the mechanical gain; the social weight discounts the gain; the elasticity sizes the behavioural loss; the gain raises and the loss lowers the best rate">
+          <text x="110" y="30" text-anchor="middle" class="tcap">YOU MEASURE OR CHOOSE</text>
+          <text x="485" y="30" text-anchor="middle" class="tcap">IT DRIVES</text>
+          <text x="820" y="30" text-anchor="middle" class="tcap">YOU GET</text>
+          <path d="M150,110 L262,110" class="ink2" marker-end="url(#arr)"/>
+          <path d="M442,118 C486,124 496,160 522,174" class="ink2" marker-end="url(#arr)"/>
+          <path d="M150,262 C300,262 420,212 522,198" class="ink2" marker-end="url(#arr)"/>
+          <path d="M150,410 L520,410" class="ink2" marker-end="url(#arr)"/>
+          <path d="M702,185 C732,185 736,236 752,258" class="acc-line" stroke-width="1.8" marker-end="url(#arrA)"/>
+          <path d="M702,410 C732,410 736,358 752,336" class="ink2" stroke-dasharray="5 4" marker-end="url(#arr)"/>
+          <rect x="183" y="97" width="44" height="18" rx="4" class="bg"/><text x="205" y="110" text-anchor="middle" class="ts">sets</text>
+          <rect x="462" y="136" width="44" height="18" rx="4" class="bg"/><text x="484" y="149" text-anchor="middle" class="ts">sizes</text>
+          <rect x="300" y="231" width="68" height="18" rx="4" class="bg"/><text x="334" y="244" text-anchor="middle" class="ts">discounts</text>
+          <rect x="312" y="397" width="44" height="18" rx="4" class="bg"/><text x="334" y="410" text-anchor="middle" class="ts">sizes</text>
+          <rect x="716" y="212" width="48" height="18" rx="4" class="bg"/><text x="740" y="225" text-anchor="middle" class="ts">raises</text>
+          <rect x="714" y="366" width="52" height="18" rx="4" class="bg"/><text x="740" y="379" text-anchor="middle" class="ts">lowers</text>
+          <g class="node"><circle cx="110" cy="110" r="40" class="card"/><text x="110" y="119" text-anchor="middle" class="tbig lbl"><tspan class="tx">a</tspan></text><text x="110" y="170" text-anchor="middle" class="t lbl">Pareto tail</text><text x="110" y="119" text-anchor="middle" class="tbig qm">?</text></g>
+          <g class="node"><circle cx="110" cy="262" r="40" class="card"/><text x="110" y="271" text-anchor="middle" class="tbig lbl"><tspan class="tx">ḡ</tspan></text><text x="110" y="322" text-anchor="middle" class="t lbl">social weight</text><text x="110" y="271" text-anchor="middle" class="tbig qm">?</text></g>
+          <g class="node"><circle cx="110" cy="410" r="40" class="card"/><text x="110" y="419" text-anchor="middle" class="tbig lbl"><tspan class="tx">e</tspan></text><text x="110" y="470" text-anchor="middle" class="t lbl">elasticity</text><text x="110" y="419" text-anchor="middle" class="tbig qm">?</text></g>
+          <g class="node"><rect x="268" y="82" width="174" height="56" rx="10" class="card"/><text x="355" y="106" text-anchor="middle" class="tb lbl">Income above the line</text><text x="355" y="126" text-anchor="middle" class="t lbl">z_m − <tspan class="tx">z̄</tspan></text><text x="355" y="116" text-anchor="middle" class="tbig qm">?</text></g>
+          <g class="node"><rect x="526" y="155" width="176" height="60" rx="10" class="card"/><rect x="542" y="171" width="12" height="12" class="acc-fill"/><text x="562" y="182" class="tb lbl">Mechanical gain</text><text x="562" y="201" class="ts lbl">more tax, same income</text><text x="620" y="194" text-anchor="middle" class="tbig qm">?</text></g>
+          <g class="node"><rect x="526" y="380" width="176" height="60" rx="10" class="card"/><rect x="542" y="396" width="12" height="12" class="hatch"/><text x="562" y="407" class="tb lbl">Behavioural loss</text><text x="562" y="426" class="ts lbl">less income to tax</text><text x="620" y="419" text-anchor="middle" class="tbig qm">?</text></g>
+          <g class="node"><rect x="756" y="252" width="128" height="88" rx="12" class="card-acc"/><text x="820" y="294" text-anchor="middle" class="tbig lbl"><tspan class="tx">τ</tspan><tspan baseline-shift="super" font-size="60%">*</tspan></text><text x="820" y="320" text-anchor="middle" class="t lbl">best top rate</text><text x="820" y="304" text-anchor="middle" class="tbig qm">?</text></g>
+        </svg>
+        <figcaption><b>What to notice:</b> every arrow says how one idea feeds the next. The two arrows into \(\tau^*\) pull in opposite directions, and the rate sits where they cancel.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ============ screen 8 · check + explain-back ============ -->
+  <section class="screen" data-title="Check yourself" data-min="2">
+    <div class="text">
+      <div class="kicker"><b>8</b> / 8 · Check yourself</div>
+      <p class="sofar">So far: the whole argument and its weak points. Now make it stick.</p>
+      <h2>Answer before you reveal.</h2>
+      <div class="check">
+        <p>Top earners stop responding to taxes, so \(e = 0\). Where does the curve on screen 4 go, and what is \(\tau^*\)?</p>
+        <div class="row"><button class="btn" data-reveal="r1">Reveal</button></div>
+        <div class="reveal" id="r1" hidden>The loss curve lies flat on zero, so it never meets the gain line before 100%. With \(\bar g = 0\), \(\tau^*\) is 100%, because raising the rate never loses revenue.</div>
+      </div>
+      <div class="check">
+        <p>Two economists agree on \(a\) and \(\bar g\) but recommend 45% and 75%. What do they disagree about?</p>
+        <div class="row"><button class="btn" data-reveal="r2">Reveal</button></div>
+        <div class="reveal" id="r2" hidden>They disagree about \(e\). The economist at 45% believes top earners respond strongly, and the one at 75% believes they respond little, because \(e\) is the only remaining input.</div>
+      </div>
+      <div class="check">
+        <p>Which input to the formula is a value judgment rather than a measurement?</p>
+        <div class="row"><button class="btn" data-reveal="r3">Reveal</button></div>
+        <div class="reveal" id="r3" hidden>The social weight \(\bar g\), because no data can say how much a rich person's extra dollar should matter to society. That is why screen 6 tags it as interpretation.</div>
+      </div>
+    </div>
+    <div class="fig">
+      <div class="label">Explain it back</div>
+      <h2>Why does the elasticity decide the top rate?</h2>
+      <p class="hint">Write 3 to 6 sentences for a friend who never studied economics, then copy it and paste it to Claude. Claude checks the mechanism, the assumptions, any hand-waving and any overclaiming, asks you one question at a time, and saves your best version to your vault.</p>
+      <textarea id="explain" data-concept="[[optimal-top-rate]]" data-source="Saez 2001 explainer" placeholder="When the government raises the top rate…"></textarea>
+      <div class="row"><button class="btn solid" id="copyExplain">Copy for Claude</button><span class="hint" id="copied"></span></div>
+    </div>
+  </section>
+
+</div></main>
+
+<aside class="gloss" id="gloss" aria-label="Glossary" hidden>
+  <article class="entry" id="g-marginal-rate">
+    <h4>Marginal tax rate</h4>
+    <p class="short">The share of your next dollar of income that goes in tax.</p>
+    <div class="more">
+      <p><b>In plain words.</b> Income is taxed in brackets. The marginal rate is the rate on the bracket your last dollar falls in, not the share of all your income paid in tax.</p>
+      <p><b>Example.</b> A single filer earning $700k in 2024 pays 37% on each dollar above $609,350, but much less on the dollars below it.</p>
+      <p><b>Don't confuse with.</b> The average rate: total tax divided by total income, which is always lower for a top earner.</p>
+    </div>
+  </article>
+  <article class="entry" id="g-top-rate" data-sym="\tau">
+    <h4>Top tax rate</h4>
+    <p class="short">The marginal rate on income above the top line; \(\tau^*\) is the best one.</p>
+    <div class="more">
+      <p><b>In plain words.</b> The rate on the highest bracket. Saez asks what value of it is best, and calls the answer \(\tau^*\).</p>
+      <p><b>Example.</b> The US top rate in 2024 is 37%. With \(e = 0.25\), \(a = 1.5\) and \(\bar g = 0\), the formula gives \(\tau^* = 73\%\).</p>
+      <p><b>Symbol.</b> \(\tau\) is the Greek letter tau, a number between 0 and 1.</p>
+    </div>
+  </article>
+  <article class="entry" id="g-top-line" data-sym="\bar z">
+    <h4>Top line</h4>
+    <p class="short">The income where the top bracket starts.</p>
+    <div class="more">
+      <p><b>In plain words.</b> Only income above this line is taxed at the top rate, so only that slice matters for the argument.</p>
+      <p><b>Example.</b> $609,350 for a single US filer in 2024; the figures round it to $600k.</p>
+      <p><b>Symbol.</b> \(\bar z\), read "z bar". \(z\) stands for income throughout the paper.</p>
+    </div>
+  </article>
+  <article class="entry" id="g-zm" data-sym="z_m">
+    <h4>Average income above the line</h4>
+    <p class="short">The mean income of everyone who earns more than the top line.</p>
+    <div class="more">
+      <p><b>In plain words.</b> Take all top earners and average their incomes. The gap \(z_m - \bar z\) is the slice the top rate actually taxes for a typical top earner.</p>
+      <p><b>Example.</b> With \(a = 1.5\) and a $600k line, \(z_m = 3 \times 600\text{k} = 1.8\text{M}\), so the taxed slice is $1.2M.</p>
+      <p><b>Symbol.</b> \(z_m\), read "z sub m", for mean.</p>
+    </div>
+  </article>
+  <article class="entry" id="g-pareto" data-sym="a">
+    <h4>Pareto tail</h4>
+    <p class="short">The shape of top incomes, set by one number \(a\): smaller means more very high incomes.</p>
+    <div class="more">
+      <p><b>In plain words.</b> Above any high line, incomes thin out at the same proportional rate. That makes the average above the line a fixed multiple of the line: \(z_m = \frac{a}{a-1}\bar z\).</p>
+      <p><b>Example.</b> \(a = 1.5\) gives a multiple of 3; \(a = 3\) gives only 1.5. A fatter tail (small \(a\)) means a bigger slice to tax.</p>
+      <p><b>Don't confuse with.</b> The Pareto principle ("80/20") and Pareto efficiency, which are different ideas from the same economist.</p>
+    </div>
+  </article>
+  <article class="entry" id="g-eti" data-sym="e">
+    <h4>Elasticity of taxable income</h4>
+    <p class="short">How much reported income shrinks when take-home pay per dollar falls.</p>
+    <div class="more">
+      <p><b>In plain words.</b> It is a ratio of percentages: the percent fall in reported income for each 1% fall in the take-home share \(1 - \tau\).</p>
+      <p><b>Example.</b> With \(e = 0.25\), cutting the take-home share by 10% cuts reported income by 2.5%: $45k for a $1.8M earner.</p>
+      <p><b>Don't confuse with.</b> Labour supply. Reported income also falls through avoidance and timing, so \(e\) partly reflects how the tax is designed.</p>
+    </div>
+  </article>
+  <article class="entry" id="g-welfare-weight" data-sym="\bar g">
+    <h4>Social welfare weight</h4>
+    <p class="short">How much society values one more dollar for a top earner, in public-money terms.</p>
+    <div class="more">
+      <p><b>In plain words.</b> A value judgment, not a measurement. \(\bar g = 0\) says a top earner's extra dollar adds nothing society cares about; \(\bar g = 1\) says it counts the same as a dollar of public money.</p>
+      <p><b>Example.</b> Raising \(\bar g\) from 0 to 0.5 lowers the gain line on screen 4 by half, and the best rate falls from 73% to 57%.</p>
+      <p><b>Symbol.</b> \(\bar g\), read "g bar", the average weight across top earners.</p>
+    </div>
+  </article>
+  <article class="entry" id="g-mechanical">
+    <h4>Mechanical effect</h4>
+    <p class="short">The extra tax raised if nobody changed their behaviour.</p>
+    <div class="more">
+      <p><b>In plain words.</b> Raise the rate and apply it to the same incomes as before. The extra revenue is the mechanical effect, the only gain from a rate rise.</p>
+      <p><b>Example.</b> One extra point on a $1.2M taxed slice raises $12k per top earner.</p>
+      <p><b>Don't confuse with.</b> The total change in revenue, which also subtracts the behavioural effect.</p>
+    </div>
+  </article>
+  <article class="entry" id="g-behavioural">
+    <h4>Behavioural effect</h4>
+    <p class="short">The tax lost because people report less income after the rate rises.</p>
+    <div class="more">
+      <p><b>In plain words.</b> Some top earners respond to a smaller take-home share by working, earning or reporting less. Every dollar they no longer report costs the government \(\tau\) in tax.</p>
+      <p><b>Example.</b> Screen 3: a 37% to 43% rise with \(e = 0.25\) costs about $19.5k per top earner.</p>
+      <p><b>Don't confuse with.</b> The welfare effect, which is about how top earners feel, not about revenue.</p>
+    </div>
+  </article>
+  <article class="entry" id="g-welfare-effect">
+    <h4>Welfare effect</h4>
+    <p class="short">The loss to top earners from keeping less, counted at the weight \(\bar g\).</p>
+    <div class="more">
+      <p><b>In plain words.</b> The mechanical gain is money taken from top earners. How much that matters to society depends on \(\bar g\); at \(\bar g = 0\) it does not count at all.</p>
+      <p><b>Example.</b> With \(\bar g = 0.3\), a $12k mechanical gain carries a welfare cost of $3.6k, so the net gain is $8.4k.</p>
+    </div>
+  </article>
+  <article class="entry" id="g-foc">
+    <h4>First-order condition</h4>
+    <p class="short">At the best value, a small change in either direction gains nothing.</p>
+    <div class="more">
+      <p><b>In plain words.</b> If a small step up still helped, you would take it; if it hurt, you would step down. So at the best rate, gains and losses from a small step exactly cancel.</p>
+      <p><b>Example.</b> On screen 4 that is the crossing: left of it a step up helps, right of it a step down helps.</p>
+      <p><b>Don't confuse with.</b> A proof that the point is the best overall; the condition finds candidates, and the shape of the curves confirms it.</p>
+    </div>
+  </article>
+</aside>
+
+<aside class="help" id="help" aria-label="Help and legend" hidden></aside>
+
+<script src="../_shell/cognia.js"></script>
+<script>
+  const { $, fig, curve } = cognia;
+  const money = v => v >= 1e6 ? "$" + (v / 1e6).toFixed(2).replace(/0$/, "").replace(/\.0$/, "") + "M" : "$" + (v / 1e3).toFixed(1).replace(/\.0$/, "") + "k";
+  const LINE = 600000; // the top line z̄ in dollars (US 2024: $609,350)
+
+  /* screen 2: Pareto tail */
+  fig("#figPareto", (svg, w, h) => {
+    const a = +$("#aPareto").value, zm = a / (a - 1);
+    $("#aParetoVal").textContent = a.toFixed(1);
+    $("#sliceOut").textContent = money((zm - 1) * LINE);
+    const P = { l: 24, r: 24, t: 70, b: 46 }, xmax = 7, ymax = 3.2;
+    const X = z => P.l + z / xmax * (w - P.l - P.r), Y = f => h - P.b - f / ymax * (h - P.t - P.b);
+    const f = z => a / Math.pow(z, a + 1);
+    const line = curve(z => Math.min(f(z), ymax), 1, xmax, 150, X, Y);
+    let g = "";
+    for (let z = 0; z <= xmax; z++) {
+      g += `<line class="grid" x1="${X(z)}" x2="${X(z)}" y1="${P.t - 18}" y2="${h - P.b}"/>`;
+      g += `<text class="tm" x="${X(z)}" y="${h - P.b + 18}" text-anchor="middle">${z ? money(z * LINE) : "$0"}</text>`;
+    }
+    const zx = Math.min(zm, xmax), off = zm > xmax, by = P.t - 30, mid = (X(1) + X(zx)) / 2;
+    svg.innerHTML = `${g}
+      <path class="soft-fill" d="${line}L${X(xmax)},${Y(0)}L${X(1)},${Y(0)}Z"/>
+      <path class="acc-line" d="${line}"/>
+      <line class="axis" x1="${P.l}" x2="${w - P.r}" y1="${Y(0)}" y2="${Y(0)}"/>
+      <line class="dash" x1="${X(1)}" x2="${X(1)}" y1="${by}" y2="${Y(0)}"/>
+      <line class="acc-line" stroke-width="2" x1="${X(zx)}" x2="${X(zx)}" y1="${by}" y2="${Y(0)}"/>
+      <line class="ink" x1="${X(1) + 2}" x2="${X(zx) - 2}" y1="${by}" y2="${by}" marker-start="url(#arr)" marker-end="url(#arr)"/>
+      <rect class="bg" x="${mid - 80}" y="${by - 27}" width="160" height="19" rx="4"/>
+      <text class="tb" x="${mid}" y="${by - 13}" text-anchor="middle">taxed slice, z_m − <tspan class="tx">z̄</tspan></text>
+      <text class="t" x="${X(1) - 8}" y="${by + 20}" text-anchor="end">top line <tspan class="tx">z̄</tspan></text>
+      <text class="t" x="${X(zx) + 8}" y="${by + 20}">average above the line, z_m${off ? " (off chart →)" : ""}</text>
+      <text class="ts" x="${X(1) - 10}" y="${Y(Math.min(f(1), ymax)) + 4}" text-anchor="end"><tspan>people at</tspan><tspan x="${X(1) - 10}" dy="15">each income →</tspan></text>
+      <text class="ts" x="${w - P.r}" y="${h - 8}" text-anchor="end">annual income</text>`;
+  }, ["#aPareto"]);
+
+  /* screen 3: elasticity, the same person as screen 2 */
+  fig("#figElastic", (svg, w, h) => {
+    const e = +$("#eElastic").value, income = 1.8e6, share0 = .63, share1 = share0 * .9, tau1 = 1 - share1;
+    const lost = income * .1 * e, taxLost = tau1 * lost;
+    $("#eElasticVal").textContent = e.toFixed(2);
+    $("#lostOut").textContent = money(taxLost);
+    const L = 16, R = w - 16, W = R - L, bh = Math.max(30, Math.min(56, h / 9)), gap = (h - 40 - 72) / 2;
+    const y1 = 40, y2 = y1 + gap, y3 = y2 + gap;
+    const head = (y, title, value) => `<text class="tb" x="${L}" y="${y - 12}">${title}</text><text class="tm" x="${R}" y="${y - 12}" text-anchor="end">${value}</text>`;
+    const s0 = L + share0 * W, s1 = L + share1 * W, i1 = L + (1 - .1 * e) * W;
+    const ax = (s0 + s1) / 2, bx = (i1 + R) / 2, cy = (y1 + bh + y2) / 2;
+    svg.innerHTML = `
+      ${head(y1, `Take-home share, 1 − <tspan class="tx">τ</tspan>`, `${(share0 * 100).toFixed(0)}% → ${(share1 * 100).toFixed(1)}%   (−10%)`)}
+      <rect x="${L}" y="${y1}" width="${W}" height="${bh}" class="card"/>
+      <rect x="${L}" y="${y1}" width="${s1 - L}" height="${bh}" class="mid-fill"/>
+      <rect x="${s1}" y="${y1}" width="${s0 - s1}" height="${bh}" class="hatch"/>
+      <text class="ts" x="${L}" y="${y1 + bh + 15}">0%</text><text class="ts" x="${R}" y="${y1 + bh + 15}" text-anchor="end">100%</text>
+      ${head(y2, "Reported income of the average top earner", `${money(income)} → ${money(income - lost)}`)}
+      <rect x="${L}" y="${y2}" width="${W}" height="${bh}" class="mid-fill"/>
+      ${e > 0 ? `<rect x="${i1}" y="${y2}" width="${R - i1}" height="${bh}" class="hatch"/>` : ""}
+      <path class="acc-line" stroke-width="1.8" d="M${ax},${y1 + bh + 4} C${ax},${cy + 20} ${bx},${cy - 10} ${bx},${y2 - 30}" marker-end="url(#arrA)"/>
+      <rect class="bg" x="${(ax + bx) / 2 - 66}" y="${cy - 14}" width="132" height="22" rx="4"/>
+      <text class="tb" x="${(ax + bx) / 2}" y="${cy + 2}" text-anchor="middle">× <tspan class="tx">e</tspan> = ${e.toFixed(2)}</text>
+      ${head(y3, "Tax lost on that income", `<tspan class="tx">τ</tspan> × lost income`)}
+      <text class="tbig" x="${L}" y="${y3 + 26}">${tau1.toFixed(2)} × ${money(lost)} = ${money(taxLost)}</text>
+      <text class="ts" x="${L}" y="${y3 + 50}">${e === 0 ? "No response, so nothing is lost." : "This is the behavioural loss for one top earner."}</text>`;
+  }, ["#eElastic"]);
+
+  /* screen 4: gain meets loss (sliders unlocked by the gate) */
+  fig("#figMeet", (svg, w, h) => {
+    const e = +$("#eM").value, a = +$("#aM").value, g = +$("#gM").value;
+    $("#eMVal").textContent = e.toFixed(2); $("#aMVal").textContent = a.toFixed(1); $("#gMVal").textContent = g.toFixed(2);
+    const gain = (1 - g) / a, ts = (1 - g) / (1 - g + a * e);
+    $("#tauOut").textContent = Math.round(ts * 100) + "%";
+    const P = { l: 44, r: 20, t: 30, b: 44 }, ymax = 1.2, T = .995;
+    const X = t => P.l + t * (w - P.l - P.r), Y = v => h - P.b - Math.min(v, ymax * 1.5) / ymax * (h - P.t - P.b);
+    const loss = t => t * e / (1 - t);
+    const seg = (from, to) => curve(loss, from, to, Math.max(1, Math.round(Math.abs(to - from) / .005)), X, Y).slice(1);
+    const lossPath = "M" + seg(0, T);
+    const raise = `M${X(0)},${Y(gain)}L${X(ts)},${Y(gain)}L${seg(ts, 0)}Z`;
+    const lower = `M${X(ts)},${Y(gain)}L${seg(ts, T)}L${X(1)},${Y(loss(T))}L${X(1)},${Y(gain)}Z`;
+    let grid = "";
+    for (let k = 0; k <= 5; k++) { const t = k / 5; grid += `<line class="grid" x1="${X(t)}" x2="${X(t)}" y1="${P.t}" y2="${h - P.b}"/><text class="tm" x="${X(t)}" y="${h - P.b + 18}" text-anchor="middle">${k * 20}%</text>`; }
+    for (const v of [0, .5, 1]) grid += `<text class="tm" x="${P.l - 8}" y="${Y(v) + 4}" text-anchor="end">${v.toFixed(1)}</text>`;
+    const Lv = gain + (ymax - gain) * .55, lt = e > 0 ? Lv / (e + Lv) : 0;
+    svg.innerHTML = `<defs><clipPath id="clipMeet"><rect x="${P.l}" y="${P.t}" width="${w - P.l - P.r}" height="${h - P.t - P.b}"/></clipPath></defs>${grid}
+      <g clip-path="url(#clipMeet)">
+        <path d="${raise}" class="soft-fill"/>
+        ${e > 0 ? `<path d="${lower}" class="hatch" style="stroke:none;opacity:.5"/>` : ""}
+        <line class="acc-line" x1="${X(0)}" x2="${X(1)}" y1="${Y(gain)}" y2="${Y(gain)}"/>
+        <path class="ink" stroke-width="2.4" d="${lossPath}"/>
+      </g>
+      <line class="axis" x1="${P.l}" x2="${w - P.r}" y1="${Y(0)}" y2="${Y(0)}"/>
+      <line class="dash" x1="${X(ts)}" x2="${X(ts)}" y1="${Y(gain)}" y2="${Y(0)}"/>
+      <circle cx="${X(ts)}" cy="${Y(gain)}" r="7" class="acc-fill" style="stroke:var(--plate);stroke-width:2"/>
+      <rect class="bg" x="${Math.min(X(ts) - 44, w - P.r - 88)}" y="${Y(0) - 32}" width="88" height="22" rx="4"/>
+      <text class="tb" x="${Math.min(X(ts), w - P.r - 44)}" y="${Y(0) - 16}" text-anchor="middle">τ^* = ${Math.round(ts * 100)}%</text>
+      <text class="t" x="${X(.01)}" y="${Y(gain) - 10}">gain from a small step, (1 − <tspan class="tx">ḡ</tspan>)/<tspan class="tx">a</tspan></text>
+      ${e > 0 ? `<text class="t" x="${X(lt) - 12}" y="${Y(loss(lt)) + 4}" text-anchor="end">loss, <tspan class="tx">τe</tspan>/(1 − <tspan class="tx">τ</tspan>)</text>` : `<text class="t" x="${X(.4)}" y="${Y(0) - 12}">the loss is zero when <tspan class="tx">e</tspan> = 0</text>`}
+      ${ts > .18 ? `<text class="tb" x="${X(ts / 2)}" y="${(Y(gain) + Y(0)) / 2 + 24}" text-anchor="middle">raise the rate →</text>` : ""}
+      ${ts < .82 && e > 0 ? `<text class="tb" x="${X((ts + 1) / 2)}" y="${Y(gain) - 14}" text-anchor="middle">← lower the rate</text>` : ""}
+      <text class="ts" x="${P.l}" y="${P.t - 12}">effect of a small step, as a share of top income</text>
+      <text class="ts" x="${w - P.r}" y="${h - 8}" text-anchor="end">current top rate <tspan class="tx">τ</tspan></text>`;
+  }, ["#eM", "#aM", "#gM"]);
+</script>
+</body>
+</html>
