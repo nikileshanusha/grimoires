@@ -62,7 +62,7 @@ Where:
 
 1. $1-\bar g$ is the gain from a small step, after counting what top earners lose at weight $\bar g$.
 2. $a\,e$ is the loss: a fat tail (small $a$) shrinks it, a strong response (large $e$) grows it.
-3. With $e = 0.25$, $a = 1.5$ and $\bar g = 0$: $\tau^* = 1/1.375 \approx 73\%$.
+3. With $e = 0.25$, $a = 1.5$ and $\bar g = 0$, the formula gives 1 divided by 1.375, about 73%.
 
 | Input | Value used | Where it comes from |
 |---|---|---|

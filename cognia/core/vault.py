@@ -21,7 +21,7 @@ Usage:
                                                             new explainer fragment in writing/
   vault.py build  <vault> [source-slug] [--site DIR]        fragments + essays -> site folder pages and hub
   vault.py essay  <vault> <source-slug>                     build just the essay page
-  vault.py check  <fragment-or-page.html>                   build, then layout self-check: failures or OK
+  vault.py check  <fragment-or-page> [--static]             static lint, then (unless --static) build and layout self-check: failures or OK
 """
 import argparse
 import datetime as dt
@@ -34,6 +34,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import quote, unquote
 
@@ -333,6 +334,246 @@ def essay_warnings(md):
             if not re.search(rf'^\s*{axis}\s+"[^"]+"', block, re.M):
                 out.append(f"xychart has no {axis} title")
     return out
+
+
+# ---- static lint: structural rules a script can test without a browser -------------------------
+# Rules live here because prose rules get dropped by a model working fast; a hook runs this on
+# every save (hook-lint). The browser `check` still covers what only rendering shows.
+
+# Why these numbers: an inline equation that runs past 25 TeX characters is already a display
+# equation in disguise (the study bug was 49); a glossary short line is read in one glance, and
+# 20 words is about two lines in the panel; three hues per figure is the most a reader can track
+# without a legend lookup.
+INLINE_TEX_MAX = 25
+SHORT_WORDS_MAX = 20
+GREEK = ("alpha beta gamma delta epsilon varepsilon zeta eta theta vartheta iota kappa lambda mu nu xi pi rho sigma tau "
+         "upsilon phi varphi chi psi omega Gamma Delta Theta Lambda Xi Pi Sigma Phi Psi Omega").split()
+VOID = {"br", "hr", "img", "input", "meta", "link", "line", "path", "circle", "rect", "stop", "use", "polygon", "polyline", "ellipse"}
+INLINE_RE = re.compile(r"\\\((.+?)\\\)", re.S)
+DISPLAY_RE = re.compile(r"\\\[(.+?)\\\]", re.S)
+ASSIGN_RE = re.compile(r"^[^=<>]{1,14}=\s*[-\u2212]?[\d.,]+\s*(\\%|%)?$")  # "a = 1.5": a value, not a floating equation
+ATTR_RE = re.compile(r'([\w-]+)\s*=\s*"([^"]*)"')
+
+
+def inline_tex_problem(tex):
+    """Why one inline \\( \\) span should be an equation block instead, or None."""
+    t = tex.strip()
+    if ASSIGN_RE.match(t) or not re.search(r"[A-Za-z]", re.sub(r"\\(?:times|cdot|div|ln|log|approx|%)", "", t)):
+        return None  # a value, or worked arithmetic with no symbols
+    if re.search(r"=|<|>|\\le(?![a-z])|\\ge(?![a-z])|\\leq|\\geq", t):
+        return "has a relation sign"
+    if len(t) > INLINE_TEX_MAX:
+        return f"is {len(t)} TeX characters (limit {INLINE_TEX_MAX})"
+    return None
+
+
+def tex_symbols(tex):
+    """Symbols a reader must be told about: Greek letters, accented letters, letters with sub/superscripts, \\text names."""
+    out = set()
+    for m in re.finditer(r"\\([A-Za-z]+)", tex):
+        if m.group(1) in GREEK:
+            out.add("\\" + m.group(1))
+    for m in re.finditer(r"\\(?:bar|hat|tilde|dot)\s*\{?\s*([A-Za-z])", tex):
+        out.add(m.group(0).replace("{", "").replace(" ", ""))
+    for m in re.finditer(r"(?<![\\A-Za-z])([A-Za-z])(?=\s*[_^])", tex):
+        out.add(m.group(1) + "_")
+    for m in re.finditer(r"\\text\{([^}]*)\}", tex):
+        out.add("\\text{" + m.group(1) + "}")
+    return out
+
+
+class _Page(HTMLParser):
+    """Collects what the lint needs from a fragment's rail: screens, equation blocks, display math."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.stack, self.screens, self.equations, self.stray, self.inline = [], [], [], [], []
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        cls = (a.get("class") or "").split()
+        node = {"tag": tag, "cls": cls, "attrs": a}
+        if tag == "section" and "screen" in cls:
+            self.screens.append({"tags": set(), "cls": set(), "h2": "", "h1": "", "title": a.get("data-title", "")})
+        if self.screens:
+            self.screens[-1]["tags"].add(tag)
+            self.screens[-1]["cls"].update(cls)
+        if tag == "div" and "equation" in cls:
+            node["eq"] = {"src": a.get("data-src", "").strip(), "where": "", "tex": "", "has_where": False}
+            self.equations.append(node["eq"])
+        if tag not in VOID:
+            self.stack.append(node)
+
+    def handle_startendtag(self, tag, attrs):
+        pass
+
+    def handle_endtag(self, tag):
+        for i in range(len(self.stack) - 1, -1, -1):
+            if self.stack[i]["tag"] == tag:
+                del self.stack[i:]
+                return
+
+    def handle_data(self, data):
+        if not self.stack:
+            return
+        eq = next((n["eq"] for n in reversed(self.stack) if "eq" in n), None)
+        in_steps = any(n["tag"] == "ol" and "steps" in n["cls"] for n in self.stack)
+        if self.screens:
+            for tag in ("h1", "h2"):
+                if any(n["tag"] == tag for n in self.stack):
+                    self.screens[-1][tag] += data
+        for m in DISPLAY_RE.finditer(data):
+            if eq is None:
+                self.stray.append(m.group(1).strip())
+            elif any("eq" in n["cls"] for n in self.stack):
+                eq["tex"] += " " + m.group(1)
+        if eq is not None and any(n["tag"] == "dl" and "where" in n["cls"] for n in self.stack):
+            eq["where"] += " " + data
+            eq["has_where"] = True
+        if not in_steps:
+            for m in INLINE_RE.finditer(data):
+                why = inline_tex_problem(m.group(1))
+                if why:
+                    self.inline.append((m.group(1).strip(), why))
+
+    def handle_comment(self, data):
+        pass
+
+
+def _words(s):
+    return re.findall(r"[a-z0-9]+", s.lower())
+
+
+def lint_fragment(text):
+    """Failures in an explainer fragment, as strings. Lines starting "warning:" do not block."""
+    parts = parse_fragment(text)
+    rail, gloss = parts.get("rail", ""), parts.get("glossary", "")
+    out = []
+    page = _Page()
+    page.feed(re.sub(r"<script\b.*?</script>", "", rail, flags=re.S))
+    # equations: inline, display shape, symbols explained
+    for tex, why in page.inline:
+        out.append(f"inline equation \\({tex[:40]}\\) {why}; make it an .equation block (display, data-src, .where list) or reword it")
+    for tex in page.stray:
+        out.append(f"display equation \\[{tex[:40]}\\] sits outside a .equation block (needs data-src and a .where list)")
+    gsyms = " ".join(re.findall(r'data-sym="([^"]*)"', gloss))
+    for k, eq in enumerate(page.equations, 1):
+        if not eq["src"]:
+            out.append(f"equation block {k} has no data-src (where the equation sits in the source, e.g. \"slide 9\")")
+        if not eq["has_where"]:
+            out.append(f"equation block {k} has no .where list of its symbols")
+            continue
+        have = re.sub(r"[\s{}]", "", eq["where"] + " " + gsyms)
+        for sym in sorted(tex_symbols(eq["tex"])):
+            if re.sub(r"[\s{}]", "", sym) not in have:
+                out.append(f"equation {k}: symbol {sym.rstrip('_')} is in neither its .where list nor a glossary data-sym")
+    # screen skeleton
+    for i, s in enumerate(page.screens):
+        where = f"screen {i} ({s['title']})"
+        if "kicker" not in s["cls"]:
+            out.append(f"{where}: no .kicker")
+        if i == 0 and "h1" not in s["tags"]:
+            out.append(f"{where}: screen 0 needs an h1")
+        if i > 0 and "h2" not in s["tags"]:
+            out.append(f"{where}: no h2 headline")
+        if i > 0 and "sofar" not in s["cls"]:
+            out.append(f"{where}: no .sofar line")
+        if "prose" not in s["cls"] and not ({"check", "evidence"} & s["cls"] or "textarea" in s["tags"]):
+            out.append(f"{where}: no .prose block")
+    # figures
+    figs = re.findall(r"<figure\b.*?</figure>", rail, flags=re.S)
+    nums, last = [], 0
+    for f in figs:
+        cap = re.search(r"<figcaption\b[^>]*>(.*?)</figcaption>", f, flags=re.S)
+        capt = cap.group(1) if cap else ""
+        label = re.search(r'aria-label="([^"]*)"', f)
+        fn = re.search(r"<b>\s*Figure\s+(\d+)\.?\s*</b>", capt)
+        name = f"figure {fn.group(1)}" if fn else "a figure"
+        if not cap:
+            out.append(f"{name} has no figcaption")
+            continue
+        if not fn:
+            out.append(f"{name}: caption lacks <b>Figure n.</b>")
+        else:
+            nums.append(int(fn.group(1)))
+        if "What to notice:" not in capt:
+            out.append(f"{name}: caption lacks \"What to notice:\"")
+        if "Source:" not in capt:
+            out.append(f"{name}: caption lacks \"Source:\"")
+        if label and fn:
+            lw = set(_words(label.group(1)))
+            for s in page.screens:
+                hw = set(_words(s["h2"]))
+                if hw and lw and len(lw & hw) / max(1, len(lw | hw)) > 0.8:
+                    out.append(f"warning: {name} aria-label just restates its screen heading; a figure should show something the prose cannot")
+    if nums and nums != list(range(1, len(nums) + 1)):
+        out.append(f"figure numbers run {', '.join(map(str, nums))}; they must be 1, 2, 3 in page order")
+    # prose
+    flat = re.sub(r"<script\b.*?</script>|<style\b.*?</style>", "", rail + "\n" + gloss, flags=re.S)
+    plain = re.sub(r"<[^>]+>", " ", flat)
+    if "\u2014" in plain:
+        out.append("em dash in the page text")
+    for m in TEASER_RE.finditer(plain):
+        out.append(f'transition points at the page ("{m.group(0)}"); name the concept that comes next instead')
+    # glossary
+    ids = re.findall(r'<article\b[^>]*\bid="([^"]+)"', gloss)
+    links = {m for m in re.findall(r'<a\b[^>]*class="[^"]*\bgl\b[^"]*"[^>]*href="#([^"]+)"', rail)}
+    for l in sorted(links - set(ids)):
+        out.append(f"glossary link #{l} points to no entry")
+    for e in ids:
+        if e not in links:
+            out.append(f"glossary entry #{e} is never linked from a screen")
+    for m in re.finditer(r'<article\b[^>]*\bid="([^"]+)".*?</article>', gloss, flags=re.S):
+        sh = re.search(r'<p class="short">(.*?)</p>', m.group(0), flags=re.S)
+        if sh and len(re.sub(r"<[^>]+>", "", sh.group(1)).split()) > SHORT_WORDS_MAX:
+            out.append(f"glossary entry #{m.group(1)}: .short is over {SHORT_WORDS_MAX} words")
+    return out
+
+
+def lint_essay(md):
+    """Failures in an essay: the existing prose rules plus the equation pattern."""
+    out = list(essay_warnings(md))
+    prose = re.sub(r"```.*?```", "", md, flags=re.S)
+    prose = re.sub(r"\A---\r?\n.*?\r?\n---\r?\n", "", prose, flags=re.S)
+    for m in re.finditer(r"\$\$(.+?)\$\$", prose, flags=re.S):
+        after = prose[m.end():].lstrip("\n").splitlines()
+        rest = "\n".join(after)
+        tex = m.group(1).strip()
+        if not re.match(r"\s*Where:\s*\n\s*\n?(?:\s*[-*\d][^\n]*\n?)+\s*\n?\s*\(Source:", rest + "\n"):
+            out.append(f"display equation $${tex[:30]}$$ needs a line \"Where:\", a bullet per symbol, then \"(Source: ...)\"")
+    for m in re.finditer(r"(?<![\\$])\$([^\s$](?:[^$\n]*?[^\s$])?)\$(?!\d)", re.sub(r"\$\$.+?\$\$", "", prose, flags=re.S)):
+        why = inline_tex_problem(m.group(1))
+        if why:
+            out.append(f"inline equation ${m.group(1)[:40]}$ {why}; make it a $$ block with Where: and a source")
+    return out
+
+
+def lint_failures(items):
+    return [x for x in items if not x.startswith("warning:")]
+
+
+def lint_file(path):
+    """Lint one explainer fragment or essay by file name; None for any other file."""
+    p = Path(path)
+    if p.name.endswith("-explainer.html"):
+        text = p.read_text(encoding="utf-8")
+        return lint_fragment(text) if "<!--@rail-->" in text else []
+    if p.name.endswith("-essay.md"):
+        return lint_essay(p.read_text(encoding="utf-8"))
+    return None
+
+
+def in_writing(path):
+    """A vault writing/**/*-explainer.html or *-essay.md file, or None."""
+    p = Path(path)
+    if not (p.name.endswith("-explainer.html") or p.name.endswith("-essay.md")):
+        return None
+    if not p.parent.exists():
+        return None
+    vault = find_vault(p.parent)
+    if vault is None or "writing" not in p.resolve().relative_to(vault).parts[:1]:
+        return None
+    return vault
 
 
 def build_essay(vault, src, site):
@@ -1259,7 +1500,15 @@ def cmd_check(a):
     page = Path(a.page).resolve()
     if not page.exists():
         raise SystemExit(f"no such page: {page}")
-    if "<!--@rail-->" in page.read_text(encoding="utf-8"):  # a fragment: build it, then check the built page
+    text = page.read_text(encoding="utf-8")
+    items = lint_essay(text) if page.suffix == ".md" else lint_fragment(text) if "<!--@rail-->" in text else []
+    for w in items:
+        print(w)
+    static = lint_failures(items)
+    if a.static or page.suffix == ".md":
+        print("OK" if not static else f"{len(static)} problem(s)")
+        return 1 if static else 0
+    if "<!--@rail-->" in text:  # a fragment: build it, then check the built page
         vault = next((d for d in page.parents if (d / "VAULT.md").exists()), None)
         if not vault:
             raise SystemExit("fragment is not inside a vault (no VAULT.md above it)")
@@ -1283,8 +1532,8 @@ def cmd_check(a):
     res = run(W, H)
     if (res["vw"], res["vh"]) != (W, H):  # headless windows lose some size to browser chrome
         res = run(2 * W - res["vw"], 2 * H - res["vh"])
-    problems = res["problems"]
-    for p in problems:
+    problems = static + res["problems"]
+    for p in res["problems"]:
         print(p)
     print("OK" if not problems else f"{len(problems)} problem(s)")
     return 1 if problems else 0
@@ -1309,7 +1558,7 @@ def main(argv=None):
     s = sub.add_parser("lesson"); s.add_argument("vault"); s.add_argument("slug"); s.add_argument("--concept"); s.add_argument("--title"); s.add_argument("--source"); s.add_argument("--topic"); s.set_defaults(fn=cmd_lesson)
     s = sub.add_parser("build"); s.add_argument("vault"); s.add_argument("slug", nargs="?"); s.add_argument("--site"); s.set_defaults(fn=cmd_build)
     s = sub.add_parser("essay"); s.add_argument("vault"); s.add_argument("slug"); s.add_argument("--site"); s.set_defaults(fn=cmd_essay)
-    s = sub.add_parser("check"); s.add_argument("page"); s.set_defaults(fn=cmd_check)
+    s = sub.add_parser("check"); s.add_argument("page"); s.add_argument("--static", action="store_true"); s.set_defaults(fn=cmd_check)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     a = ap.parse_args(argv)
