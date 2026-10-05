@@ -1,65 +1,94 @@
 # Cognia
 
-A skill that turns any PDF, slide deck, paper or chapter into a personal learning vault that keeps growing. Each source updates one shared wiki of linked concepts instead of starting a new pile of notes, so every paper you add is faster to learn than the last. It is built for a learner with ADHD.
+A Claude Code plugin that turns any PDF, slide deck, paper or chapter into a personal learning vault that keeps growing. Each source updates one shared wiki of linked concepts instead of starting a new pile of notes, so every paper you add is faster to learn than the last. It is built for a learner with ADHD.
+
+This is a private working copy, for use in Claude Code on one machine.
 
 ## Ideas it is built on
 
-- **Karpathy's LLM knowledge base.** Raw sources go in `raw/` and are never edited. Claude compiles them into a linked markdown wiki and keeps it current.
+- **Karpathy's LLM knowledge base.** What you add goes in `library/` and is never edited. Claude compiles it into a linked markdown wiki and keeps it current.
 - **Karpathy's ladder of output formats.** Controlled plain prose (ASD-STE100, "80% of the way"), then diagrams, then interactive HTML, each easier to absorb than the last.
 - **A learning loop**: learn, check, recall, explain, review.
 
-## What you do
+## Commands
 
-| You say | It does |
+Each job is its own skill, so a request loads only the instructions it needs. Claude also picks them from plain requests.
+
+| Command | What it does |
 |---|---|
-| *drop a paper* + "learn this" | Asks how deep (skim, standard, deep), maps the paper, merges its concepts into the vault, cards key references, runs a short diagnostic, builds a path, then offers the explainer, the essay or the essay page |
-| "give me something to read on my phone" | A Substack-style essay in the vault, or the same essay as one scrolling web page |
-| "teach me X properly" | Plans units in chat, waits for your OK, then builds one unit at a time |
-| "next" / "teach me X" | Teaches one concept, then checks you |
-| "learn the paper it cites" | Fetches an open-access copy and ingests it, reusing what you already know |
-| "quiz me" | Spaced recall in chat, at most 6 items, one at a time |
-| "let me explain X" | A Feynman session: one probing question at a time, then your best version is saved |
-| "where was I" | Last step, next step, what's due |
+| `/cognia:ingest` | Maps a new source: asks depth, proposes a controlled name, merges concepts, cards references, runs a diagnostic, builds a path, offers the explainer or essay |
+| `/cognia:explainer <slug>` | Builds the interactive explainer for a source or one concept |
+| `/cognia:essay <slug>` | Writes the on-the-go essay (Markdown for Obsidian) or the one-page essay web page |
+| `/cognia:learn <concept>` | Teaches one concept, then checks you |
+| `/cognia:plan <goal>` | Plans units for a goal in chat, then builds one unit at a time |
+| `/cognia:expand <reference>` | Fetches an open-access copy of a cited work and ingests it |
+| `/cognia:review` | Spaced recall in chat, at most 6 items, one at a time |
+| `/cognia:explain-back <concept>` | A Feynman session: one probing question at a time, your best version saved |
+| `/cognia:resume` | Last step, next step, what is due |
+| `/cognia:tidy` | Files the drop folder by topic, renames a source, finds something, undoes a move |
 
-## The explainer
+## Where things live
 
-One argument told in full-screen screens that you move through with buttons or the arrow keys, never by scrolling. Each screen makes one claim: a short essay column and a hand-built figure showing the mechanism. Each opens with a "So far" line. Prerequisites are taught where the argument needs them. There are live sliders, some locked until you predict the result. The math is decoded step by step, a "What to doubt" screen tags each claim by how solid it is, and a concept map has a recall mode. A docked help panel (`?`) explains every mark, control and symbol. It comes in light and dark themes and uses legibility-first fonts (Lexend, Atkinson Hyperlegible).
+Three places, so the vault stays readable:
 
-A **Glossary** panel (`g`) lists every term and symbol on the page: a clickable index, a one-line definition, Show more for the full explanation with an example, and links to the screens that use it. Dotted terms in the text open it. Figure labels get real subscripts and the KaTeX math font.
+```
+study/                       THE VAULT: only what is written (open it in Obsidian)
+├── VAULT.md                 home; its Topics block is generated
+├── (drop files here)        the root is the inbox: tidy files it automatically
+├── library/<topic>/<slug>/  what you added, renamed by rule, never edited
+├── notes/<topic>/           your own notes
+├── wiki/                    concepts, sources, references, paths, topics/ (generated)
+├── writing/<topic>/<slug>/  essays and explainer sources Claude wrote for you
+└── _meta/                   now, log, parking lot, templates, moves.log, index.json, duplicates/
 
-There is no screen limit: depth decides what is covered, and the lesson is as long as the argument needs.
+study-site/                  BUILT PAGES beside the vault, rebuildable: assets/, hub, explainer and essay pages
+cognia/ (this plugin)        THE BUILD ENGINE: skills, shared rules, vault.py, page templates
+```
 
-## The essay
+### Filing is automatic
 
-The on-the-go reading, in the style of a Substack post or a *Mixtape* chapter: claim headings, short paragraphs, diagrams, decoded math, a pull quote, folding recall questions. **essay** mode writes Markdown that reads in Obsidian on a phone. **essay page** mode runs `vault.py essay`, which turns the same file into one scrolling page with tap-to-peek glossary terms and an A to Z glossary built from your concept pages, at no extra writing cost.
+Drop a file in the vault root. A hook runs `vault.py tidy` at session start and before each prompt, so it is filed before Claude reads your message. The topic comes from, first match wins: frontmatter `tags:` or `topic:`; the first inline `#tag` in a note; a `#tag` or leading `[tag]` in the file name (`.` nests: `[econ.labor]`); a tagged note that links the file; or one question in chat. One tag is one topic folder; nested tags nest. Files identical to one already in `library/` go to `_meta/duplicates/`. Nothing is overwritten or deleted, every move is logged, and `tidy --undo` reverses the last run, links included.
 
-The look, navigation, help legend and controls live in one shared shell (`lessons/_shell/`), so each lesson file holds only its screens.
+### Names follow a rule
+
+`<author-or-organisation>-<year or nd>-<title words>`, lowercase, at most 50 characters (`saez-2001-optimal-income-tax`, `chandrasekhar-nd-unit-5-public-finance`). `vault.py rename` refuses anything else and rewrites every link. Files inside a source carry its slug, and the name you gave the file is kept as `original_name:`.
 
 ## Token use
 
-Cognia borrows the ladder from the ponytail skill: before producing anything, stop at the first rung that works (nothing new, reuse, a small edit, a chat reply, a concept explainer, a full explainer). In practice:
-
-- Explainers are built on request, not on every ingest.
-- Lessons link the shared shell instead of carrying about 30k characters of CSS and JS each; Claude reads a short pattern sheet (`screens.md`) instead of a 72k sample.
-- `vault.py` answers questions that would otherwise mean opening pages: `find` (concept search for merging), `due` (items with their gist), `stats`.
-- `vault.py check` tests a lesson's layout in headless Edge or Chrome and prints only the failures, so only flagged screens need screenshots.
+- A skill loads only its own body, plus `core/rules.md` and the one or two guides it names.
+- Each skill opens with `vault.py context`, which prints the state it needs (the due items, a source's card, the topics) so Claude reads no files to learn it.
+- `vault.py about <name>` gives a page's status, gist and neighbours in a few lines, from `_meta/index.json`, which is built from the links cognia already writes and re-parses only changed pages. `where` and `changed` answer the rest.
+- Explainers are built on request. Lessons link shared assets in the site folder.
+- `vault.py check` tests a built page in headless Edge or Chrome and prints only the failures.
 - A source is read once; its worksheet is the cache afterwards.
+
+## Figures
+
+The look is graphite, cards and glyphs, with meaning carried by fill, hatch, outline and dash. For an academic reader each plot also has both axes with titled, unit-bearing labels, numeric ticks at round values, direct series labels, annotated key points and a caption with a Source line. In explainers `plot()` draws all of it; `check` fails a plot without axes, an axis title, ticks or a Source line. Essays use Mermaid `xychart-beta` with axis titles.
+
+Transitions connect concepts: a screen ends on the consequence that makes the next concept necessary and never points at the page ("the next screen"). `check` and `build` flag those phrases.
 
 ## Layout
 
-Each folder holds one concern, and Claude loads only the file the current step needs.
-
 ```
 cognia/
-├── SKILL.md          router: the reader, where things live, which mode, global rules
-├── modes/            one workflow per request: ingest, plan, learn, expand, review, explain-back, resume
-├── guides/           one craft each: writing, math, evidence, diagrams, learning
-├── domains/          field-specific hard spots and diagrams (_template, public-finance)
-├── vault/            schema.md, skeleton/ for new vaults, vault.py (init, find, due, record, stats, lesson, essay, check)
-├── explainer/        spec.md, screens.md, lesson.html, _shell/ (shared look), example/saez-2001.html
-└── essay/            spec.md, essay.html, example/saez-2001.md
+├── .claude-plugin/plugin.json
+├── hooks/hooks.json         SessionStart + UserPromptSubmit: tidy
+├── skills/                  ingest, explainer, essay, learn, plan, expand, review, explain-back, resume, tidy
+└── core/
+    ├── rules.md             read by every skill
+    ├── formats/             one file per page type: layout, naming, concept, source, reference, path, meta, topic
+    ├── guides/              writing, math, evidence, diagrams, learning
+    ├── domains/             field-specific hard spots (_template, public-finance)
+    ├── skeleton/            files a new vault starts with
+    ├── engine/              assets/ (shared look), lesson.html, fragment.html, essay.html, examples/
+    └── vault.py             init tidy rename index about where changed context lesson build essay check migrate find due record stats
 ```
 
-## Install
+## Install (this machine)
 
-Upload `cognia.zip` as a skill in Claude, or copy the folder to `~/.claude/skills/cognia/` for Claude Code. `vault/vault.py` needs Python 3.9+ and nothing else; `check` also needs Edge or Chrome (or set `COGNIA_BROWSER`). Explainers load fonts and KaTeX from CDNs, so they need a connection the first time they open.
+Copy this folder to `~/.claude/skills/cognia/`. Claude Code loads any folder there that has a `.claude-plugin/plugin.json` as a plugin, so the `/cognia:*` commands and the hooks work in every session. After editing, copy again and run `/reload-plugins`. Delete an older single-file copy of the skill first, or it will trigger twice.
+
+`vault.py` needs Python 3.9+ and nothing else; `check` also needs Edge or Chrome (or set `COGNIA_BROWSER`). Pages load fonts, KaTeX and Mermaid from CDNs, so they need a connection the first time they open.
+
+An older vault with `raw/` and `lessons/` moves over with `python core/vault.py migrate <vault>` (a dry run) and then `--apply`, which writes a zip backup beside the vault first.
