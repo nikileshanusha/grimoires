@@ -4,6 +4,8 @@ does not have to open pages to learn the same thing.
 
 Usage:
   vault.py init   <vault>
+  vault.py tidy   <vault> [--dry-run] [--undo] [--quiet] [--tag "file=topic"] [--min-age S]
+                                                            file the vault root into library/ and notes/ by topic
   vault.py find   <vault> <term>...                         concept pages matching names or aliases
   vault.py due    <vault> [--date YYYY-MM-DD] [--limit N]   due items with their gist
   vault.py record <vault> <concept-slug> <again|hard|good|easy> [--date YYYY-MM-DD]
@@ -16,6 +18,7 @@ Usage:
 """
 import argparse
 import datetime as dt
+import hashlib
 import html
 import json
 import os
@@ -25,6 +28,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from urllib.parse import quote, unquote
 
 CORE = Path(__file__).resolve().parent
 SKELETON = CORE / "skeleton"
@@ -373,6 +377,261 @@ def cmd_build(a):
     print(f"built {n} page(s) into {site}")
 
 
+# ---- tidy: file what lands in the vault root --------------------------------------------
+
+TEMP_EXT = {".crdownload", ".part", ".tmp", ".download", ".partial"}
+INBOX_SKIP = {"VAULT.md"}
+
+
+def find_vault(start=None):
+    d = Path(start or os.getcwd()).resolve()
+    return next((p for p in [d, *d.parents] if (p / "VAULT.md").exists()), None)
+
+
+def clean_topic(t):
+    return "/".join(x for x in (norm(seg) for seg in t.strip("/#").split("/")) if x)
+
+
+def fm_tags(text):
+    """Tags from frontmatter: `tags: [a, b]`, `tags: a`, a block list, or `topic: a`."""
+    m = FM_RE.match(text)
+    lines, tags = (m.group(1).splitlines() if m else []), []
+    for i, line in enumerate(lines):
+        km = re.match(r"^(tags|topic):\s*(.*)$", line)
+        if not km:
+            continue
+        val = km.group(2).strip()
+        if val:
+            tags += [x.strip().strip("\"'#") for x in val.strip("[]").split(",")]
+        else:
+            for nxt in lines[i + 1:]:
+                lm = re.match(r"^\s*-\s*(.+)$", nxt)
+                if not lm:
+                    break
+                tags.append(lm.group(1).strip().strip("\"'#"))
+    return [t for t in tags if t]
+
+
+def inline_tags(text):
+    """`#tag`s in the body, skipping code, URLs, headings and digit-only tags (Obsidian's rules)."""
+    body = FM_RE.sub("", text, count=1)
+    body = re.sub(r"```.*?```|~~~.*?~~~", "", body, flags=re.S)
+    body = re.sub(r"`[^`\n]*`", "", body)
+    body = re.sub(r"https?://\S+", "", body)
+    out = []
+    for line in body.splitlines():
+        if re.match(r"^\s{0,3}#{1,6}\s", line):
+            continue
+        out += [t for t in re.findall(r"(?<![\w#/&])#([\w][\w\-/]*)", line) if re.search(r"[^\W\d]", t)]
+    return out
+
+
+def name_tag(stem):
+    """(tag, name without the tag) from `#tag` or a leading `[tag]` in a file name; "." nests (econ.labor)."""
+    m = re.match(r"^\[([^\]]+)\]\s*(.*)$", stem)
+    if m:
+        return m.group(1), m.group(2) or stem
+    m = re.search(r"(?:^|\s)#([\w][\w\-./]*)", stem)
+    if m:
+        return m.group(1), (stem[:m.start()] + stem[m.end():]).strip() or stem
+    return None, stem
+
+
+def sha256(p):
+    h = hashlib.sha256()
+    with p.open("rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def library_sizes(vault):
+    sizes = {}
+    lib = vault / "library"
+    for p in lib.rglob("*") if lib.exists() else []:
+        if p.is_file():
+            sizes.setdefault(p.stat().st_size, []).append(p)
+    return sizes
+
+
+def is_duplicate(p, sizes):
+    cands = sizes.get(p.stat().st_size, [])
+    return bool(cands) and sha256(p) in {sha256(c) for c in cands}
+
+
+def unique(path):
+    n, cand = 2, path
+    while cand.exists():
+        cand = path.with_name(f"{path.stem}-{n}{path.suffix}")
+        n += 1
+    return cand
+
+
+def unique_dir(path, taken=()):
+    n, cand = 2, path
+    while cand.exists() or cand in taken:
+        cand = path.parent / f"{path.name}-{n}"
+        n += 1
+    return cand
+
+
+def rewrite_links(vault, moved):
+    """Fix relative `](path)` links in md files after files moved (moved: old path -> new path)."""
+    if not moved:
+        return 0
+    moved = {k.resolve(): v.resolve() for k, v in moved.items()}
+    old_of = {v: k for k, v in moved.items()}
+    changed = 0
+    for base in (vault, vault / "notes", vault / "wiki", vault / "writing"):
+        if not base.exists():
+            continue
+        for md in (base.glob("*.md") if base == vault else base.rglob("*.md")):
+            here = md.resolve()
+            was = old_of.get(here, here)  # where this file's links were written from
+            text = md.read_text(encoding="utf-8")
+
+            def fix(m):
+                url = m.group(2)
+                if re.match(r"^[a-z]+:|^#|^/", url):
+                    return m.group(0)
+                path = unquote(url.split("#")[0])
+                target = (was.parent / path).resolve()
+                dest = moved.get(target, target)
+                rel = os.path.relpath(dest, here.parent).replace(os.sep, "/")
+                if rel == path:
+                    return m.group(0)
+                frag = "#" + url.split("#", 1)[1] if "#" in url else ""
+                return f"{m.group(1)}({quote(rel, safe='/')}{frag})"
+
+            new_text = re.sub(r"(\]|!\[[^\]]*\])\(([^)\s]+)\)", fix, text)
+            if new_text != text:
+                md.write_text(new_text, encoding="utf-8")
+                changed += 1
+    return changed
+
+
+def plan_tidy(vault, min_age, chat_tags):
+    """Decide each root file's destination. Returns (moves, duplicates, needs_topic)."""
+    now = dt.datetime.now().timestamp()
+    files = [p for p in vault.iterdir() if p.is_file() and p.name not in INBOX_SKIP and not p.name.startswith(".")
+             and p.suffix.lower() not in TEMP_EXT and now - p.stat().st_mtime >= min_age]
+    topics, md_topic = {}, {}
+    for p in files:
+        tag = None
+        if p.suffix.lower() == ".md":
+            text = p.read_text(encoding="utf-8", errors="replace")
+            tag = next(iter(fm_tags(text)), None) or next(iter(inline_tags(text)), None)
+            if tag:
+                md_topic[p] = clean_topic(tag)
+        ntag = name_tag(p.stem)[0]
+        topics[p] = md_topic.get(p) or (clean_topic(ntag.replace(".", "/")) if ntag else None)  # file names can't hold "/", so "." nests
+    for p in files:  # a tagged note's links give its untagged companions the note's topic
+        if p in md_topic:
+            text = p.read_text(encoding="utf-8", errors="replace")
+            refs = {norm(unquote(x).rsplit("/", 1)[-1]) for x in re.findall(r"\]\(([^)\s]+)\)", text)}
+            refs |= {norm(x.split("|")[0].rsplit("/", 1)[-1]) for x in re.findall(r"\[\[([^\]]+)\]\]", text)}
+            for q in files:
+                if not topics[q] and (norm(q.name) in refs or norm(q.stem) in refs):
+                    topics[q] = md_topic[p]
+    for p in files:
+        for want, topic in chat_tags.items():
+            if not topics[p] and want in (p.name.lower(), p.stem.lower()):
+                topics[p] = clean_topic(topic)
+    sizes = library_sizes(vault)
+    moves, dups, needs, taken = {}, [], [], set()
+    for p in sorted(files):
+        if p.suffix.lower() != ".md" and is_duplicate(p, sizes):
+            dups.append(p)
+            continue
+        if not topics[p]:
+            needs.append(p)
+            continue
+        clean = name_tag(p.stem)[1]
+        if p.suffix.lower() == ".md":
+            moves[p] = unique(vault / "notes" / topics[p] / f"{clean}{p.suffix}")
+        else:
+            d = unique_dir(vault / "library" / topics[p] / (norm(clean) or "untitled"), taken)
+            taken.add(d)
+            moves[p] = d / f"{d.name}{p.suffix.lower()}"
+    return moves, dups, needs
+
+
+def cmd_tidy(a):
+    vault = find_vault() if a.auto else Path(a.vault).expanduser().resolve()
+    if vault is None or not (vault / "VAULT.md").exists():
+        if a.auto:
+            return 0
+        raise SystemExit(f"no vault at {vault} (no VAULT.md)")
+    if a.undo:
+        return undo_tidy(vault)
+    chat = {}
+    for item in a.tag or []:
+        k, _, v = item.partition("=")
+        chat[k.strip().lower()] = v.strip()
+    moves, dups, needs = plan_tidy(vault, a.min_age, chat)
+    rel = lambda p: p.relative_to(vault).as_posix()
+    lines = [f"{rel(s)} -> {rel(d)}" for s, d in moves.items()]
+    lines += [f"{rel(p)} -> _meta/duplicates/ (identical to a library file)" for p in dups]
+    lines += [f"needs a topic: {p.name}" for p in needs]
+    summary = f"tidy: moved {len(moves)}, duplicates {len(dups)}, needs a topic {len(needs)}"
+    if a.dry_run:
+        print("\n".join(lines + [summary]))
+        return 0
+    run, entries = dt.datetime.now().strftime("%Y%m%dT%H%M%S%f"), []
+    for s, d in moves.items():
+        d.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(s), str(d))
+        entries.append({"run": run, "from": rel(s), "to": rel(d)})
+    for p in dups:
+        dest = unique(vault / "_meta" / "duplicates" / p.name)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(p), str(dest))
+        entries.append({"run": run, "from": rel(p), "to": rel(dest)})
+    links = rewrite_links(vault, moves)
+    if entries:
+        logf = vault / "_meta" / "moves.log"
+        logf.parent.mkdir(parents=True, exist_ok=True)
+        with logf.open("a", encoding="utf-8") as f:
+            f.writelines(json.dumps(e) + "\n" for e in entries)
+        log(vault, f"{dt.date.today().isoformat()} · tidy · moved {len(moves)}, duplicates {len(dups)}")
+    if links:
+        summary += f", links fixed in {links} page(s)"
+    if a.auto:  # a hook: stay silent unless something happened or Claude must ask for a topic
+        if entries:
+            print(summary)
+        if needs:
+            print("cognia: " + ", ".join(p.name for p in needs) + " in the vault root need a topic. Ask the user which topic "
+                  "(one question, listing existing topics), then run vault.py tidy --tag \"name=topic\".")
+    elif entries or not a.quiet:
+        print("\n".join(lines + [summary]))
+    return 0
+
+
+def undo_tidy(vault):
+    logf = vault / "_meta" / "moves.log"
+    rows = [json.loads(x) for x in logf.read_text(encoding="utf-8").splitlines() if x.strip()] if logf.exists() else []
+    if not rows:
+        print("nothing to undo")
+        return 0
+    last = rows[-1]["run"]
+    back = {}
+    for r in reversed([r for r in rows if r["run"] == last]):
+        src, dst = vault / r["to"], vault / r["from"]
+        if not src.exists() or dst.exists():
+            print(f"skipped (changed since): {r['to']}")
+            continue
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(src), str(dst))
+        back[src] = dst
+        for d in (src.parent, src.parent.parent):  # drop folders the move left empty
+            if d != vault and d.exists() and not any(d.iterdir()):
+                d.rmdir()
+    rewrite_links(vault, back)
+    logf.write_text("".join(json.dumps(r) + "\n" for r in rows if r["run"] != last), encoding="utf-8")
+    print(f"undone: {len(back)} move(s)")
+    return 0
+
+
 def find_browser():
     if os.environ.get("COGNIA_BROWSER"):
         return os.environ["COGNIA_BROWSER"]
@@ -428,6 +687,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("init"); s.add_argument("vault"); s.set_defaults(fn=cmd_init)
+    s = sub.add_parser("tidy"); s.add_argument("vault", nargs="?"); s.add_argument("--auto", action="store_true"); s.add_argument("--quiet", action="store_true"); s.add_argument("--dry-run", action="store_true"); s.add_argument("--undo", action="store_true"); s.add_argument("--tag", action="append"); s.add_argument("--min-age", type=float, default=3.0); s.set_defaults(fn=cmd_tidy)
     s = sub.add_parser("find"); s.add_argument("vault"); s.add_argument("terms", nargs="+"); s.set_defaults(fn=cmd_find)
     s = sub.add_parser("due"); s.add_argument("vault"); s.add_argument("--date"); s.add_argument("--limit", type=int, default=6); s.set_defaults(fn=cmd_due)
     s = sub.add_parser("record"); s.add_argument("vault"); s.add_argument("slug"); s.add_argument("grade", choices=GRADE_STEP); s.add_argument("--date"); s.set_defaults(fn=cmd_record)
