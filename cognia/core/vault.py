@@ -1732,7 +1732,7 @@ def cmd_check(a):
     res = run(W, H)
     if (res["vw"], res["vh"]) != (W, H):  # headless windows lose some size to browser chrome
         res = run(2 * W - res["vw"], 2 * H - res["vh"])
-    problems = static + res["problems"]
+    problems = static + lint_failures(res["problems"])
     for p in res["problems"]:
         print(p)
     print("OK" if not problems else f"{len(problems)} problem(s)")
