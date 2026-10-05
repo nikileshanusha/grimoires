@@ -64,7 +64,12 @@ If the reader does not care, use standard.
 2. **Extraction worksheet.** Before writing anything the reader sees, write terse notes to
    `library/<topic>/<slug>/<slug>-worksheet.md`:
    - the core claim in one sentence;
-   - the **dependency chain**: which idea must come before which. This sets the order of
+   - **every slide item tagged with one kind**: `concept` (an idea to understand), `finding`
+     (a claim about the world), `evidence` (the test, design and result behind a finding) or
+     `example` (an illustration). See `core/guides/learning.md`;
+   - the source's **3 to 6 findings**, each with the concepts it needs and its evidence. A number
+     is evidence for a finding, never a topic of its own;
+   - the **dependency chain** over findings and concepts, not slides: which must come before which. This sets the order of
      the explainer's screens. If you cannot write it, reread the source;
    - every equation with its tier and role (load `core/guides/math.md`), and every symbol with
      where it first appears;

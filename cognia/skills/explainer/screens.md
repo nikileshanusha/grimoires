@@ -44,11 +44,16 @@ write it inline in a paragraph.
 ```html
 <section class="screen" data-title="The loss" data-min="4">
   <div class="text">
-    <div class="kicker"><b>3</b> / 8 · The loss</div>
-    <p class="sofar">So far: the gain is the slice above the line.</p>
+    <div class="kicker"><b>Finding 2 of 4</b> · evasion and the rate</div>
     <h2>The loss depends on how much reported income shrinks.</h2>
-    <div class="prose"><p>…</p><p>…</p></div>
-    <div class="note"><b>Same person as screen 2.</b> …</div>
+    <div class="prose"><p>(bridge sentence from the open question)</p><p>(puzzle, mechanism, the finding in plain words)</p></div>
+    <div class="evidence" data-src="Author Year, slide 20">
+      <p class="design">What was compared, in one sentence.</p>
+      <p class="result">What it showed, with the number as its meaning ("about 29% more missing").</p>
+      <p class="strength">How well it holds, and what else moves it.</p>
+    </div>
+    <div class="prose"><p>(implication, ending in the next question)</p></div>
+    <div class="note"><b>Illustration.</b> (a source or example note) …</div>
   </div>
   <div class="fig">
     <figure>
@@ -59,10 +64,18 @@ write it inline in a paragraph.
 </section>
 ```
 
-A reading screen has no `.fig` div: write only `.text` (kicker, `.sofar`, `h2`, `.prose`, and an
+**Budget** at 1366x768: about 250 words of prose per screen, with or without a figure. Count
+8 extra words per `.where` row, 15 per evidence block, 10 per table row and 8 per step. Over
+budget, split into a figure screen and a reading screen; never trim the "because" and "so" links.
+`vault.py lesson` writes this budget as a comment in the fragment, and the save-time lint
+reports overflow by screen. The `.evidence` block is for the test behind a finding (`data-src`,
+`p.design`, `p.result`, optional `p.strength`); an equation that is the concept stays in `.equation`.
+
+A reading screen has no `.fig` div: write only `.text` (kicker, `h2`, `.prose`, and an
 equation block, evidence table or steps if needed). The shell centres it in one column.
 
-Screen 0 uses `<div class="kicker"><b>Start</b></div>`, an `<h1>`, and no "So far" line.
+Screen 0 uses `<div class="kicker"><b>Start</b></div>` and an `<h1>`. Later screens open with a
+bridge sentence, not a recap line.
 Glossary terms: `<a class="gl" href="#g-slug">term</a>` (see Glossary). Emphasis that is not a
 glossary term: `<strong class="key">`. Math: `\( \)` inline for one symbol, the `.equation` block above for any equation.
 
@@ -89,7 +102,8 @@ fig("#figLoss", (svg, w, h) => {
 }, ["#e1"]);
 ```
 
-`fig` sizes the viewBox to the box and redraws on resize and on input. `curve(fn, x0, x1, n, X, Y)`
+Label size is fixed: the shell renders every SVG label at about 12.5px, so do not set `font-size`
+(the lint rejects values above 14). `fig` sizes the viewBox to the box and redraws on resize and on input. `curve(fn, x0, x1, n, X, Y)`
 returns a path. Draw at the box size; never stretch a fixed viewBox.
 
 **Plots always use `plot(w, h, {x, y, xTitle, yTitle})`.** It draws both axes, titles, 3 to 6

@@ -19,6 +19,21 @@ These cut the cost of starting and of coming back, which is where an ADHD learne
 - **Legible type**: explainers use legibility-first faces (Lexend, Atkinson Hyperlegible),
   generous line spacing, left alignment and no long italic passages.
 
+## Findings, concepts, evidence, examples
+
+Every worksheet item has one kind. Teach findings; use the rest in their support.
+
+| Kind | What it is | Example |
+|---|---|---|
+| **concept** | an idea to understand | the trade gap as a stand-in for evasion |
+| **finding** | a claim about the world | evasion rises with the tax rate |
+| **evidence** | the test, design and result behind a finding | a regression, its estimate and its robustness |
+| **example** | an illustration that makes something concrete | the 100 / 140 firm |
+
+The worksheet lists the source's 3 to 6 findings. Each names the concepts it needs and its
+evidence. The dependency chain runs over findings and concepts, not slides. A number is evidence
+for a finding; it is never the topic of a screen.
+
 ## Diagnostic (Ingest step 7)
 
 Send every diagnostic question in one message, 2 at Skim and up to 6 otherwise, numbered and

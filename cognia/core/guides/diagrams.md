@@ -31,6 +31,13 @@ before drawing SVG.
 
 A graph-shaped subject does not make a structural diagram the default.
 
+## Label size and what a figure shows
+
+Label size is fixed: the shell sets every SVG label to about 12.5px on screen, whatever the plate
+size, so the drawing scales and the text does not. Never set `font-size` above 14 in figure code.
+A figure shows the finding (the direction and shape of the relationship, or the mechanism), not an
+estimate: a slider over a coefficient value teaches nothing.
+
 ## Figure patterns
 
 | Idea shape | HTML figure | Markdown |
