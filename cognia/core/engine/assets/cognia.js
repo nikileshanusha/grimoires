@@ -195,6 +195,35 @@
     return d;
   };
 
+  // A plot with both axes drawn: titles, numeric ticks at round values, a light grid, zero marked.
+  //   const p = plot(w, h, { x: [0, 1], y: [0, 100], xTitle: "Tax rate τ (%)", yTitle: "Revenue (US$ bn)" });
+  //   svg.innerHTML = p.axes + `<path class="acc-line" d="${curve(f, 0, 1, 100, p.X, p.Y)}"/>`;
+  // Use p.X and p.Y for every mark so ticks and data share one scale. Options: nx, ny (about how many
+  // ticks), xFmt, yFmt (value -> label), margin {l, r, t, b}.
+  const niceStep = (span, n) => {
+    const raw = span / Math.max(1, n), mag = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / mag;
+    return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * mag;
+  };
+  const ticksOf = (lo, hi, n) => {
+    const st = niceStep(hi - lo, n), out = [];
+    for (let v = Math.ceil(lo / st - 1e-9) * st; v <= hi + st * 1e-9; v += st) out.push(+v.toPrecision(12));
+    return out;
+  };
+  const fmt = v => String(+v.toPrecision(6)).replace("-", "−");
+  const plot = (w, h, o) => {
+    const m = Object.assign({ l: 62, r: 22, t: 20, b: 52 }, o.margin), [x0, x1] = o.x, [y0, y1] = o.y;
+    const X = v => m.l + (v - x0) / (x1 - x0) * (w - m.l - m.r), Y = v => h - m.b - (v - y0) / (y1 - y0) * (h - m.t - m.b);
+    const xf = o.xFmt || fmt, yf = o.yFmt || fmt, esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    const xt = ticksOf(x0, x1, o.nx || 5), yt = ticksOf(y0, y1, o.ny || 5);
+    let g = `<g class="axes" data-xtitle="${esc(o.xTitle || "")}" data-ytitle="${esc(o.yTitle || "")}">`;
+    xt.forEach(v => { g += `<line class="grid" x1="${X(v)}" x2="${X(v)}" y1="${Y(y0)}" y2="${Y(y1)}"/><line class="axis" x1="${X(v)}" x2="${X(v)}" y1="${Y(y0)}" y2="${Y(y0) + 5}"/><text class="tm tick-x" x="${X(v)}" y="${Y(y0) + 19}" text-anchor="middle">${xf(v)}</text>`; });
+    yt.forEach(v => { g += `<line class="grid" x1="${X(x0)}" x2="${X(x1)}" y1="${Y(v)}" y2="${Y(v)}"/><line class="axis" x1="${X(x0) - 5}" x2="${X(x0)}" y1="${Y(v)}" y2="${Y(v)}"/><text class="tm tick-y" x="${X(x0) - 9}" y="${Y(v) + 4}" text-anchor="end">${yf(v)}</text>`; });
+    g += `<line class="axis" x1="${X(x0)}" x2="${X(x1)}" y1="${Y(y0)}" y2="${Y(y0)}"/><line class="axis" x1="${X(x0)}" x2="${X(x0)}" y1="${Y(y0)}" y2="${Y(y1)}"/>`;
+    g += `<text class="ts" x="${(X(x0) + X(x1)) / 2}" y="${h - 8}" text-anchor="middle">${esc(o.xTitle || "")}</text>`;
+    g += `<text class="ts" transform="translate(14 ${(Y(y0) + Y(y1)) / 2}) rotate(-90)" text-anchor="middle">${esc(o.yTitle || "")}</text></g>`;
+    return { X, Y, axes: g, box: { l: X(x0), r: X(x1), t: Y(y1), b: Y(y0) } };
+  };
+
   /* ---------- C: side panels (help or glossary, one at a time) ---------- */
   const openPanel = () => !help.hidden ? "help" : !gloss.hidden ? "gloss" : null;
   function setPanel(name) {
@@ -362,6 +391,17 @@
       if (i > 0 && !$(".sofar", s)) out.push(`${where}: no "So far" line`);
       $$("figure > svg", s).forEach(svg => {
         if (!svg.getAttribute("aria-label")) out.push(`${where}: figure svg has no aria-label`);
+        if ((figs.some(f => f.svg === svg) || svg.hasAttribute("data-plot")) && !svg.hasAttribute("data-schematic")) {
+          const ax = $(".axes", svg), tx = $$(".tick-x", svg).length, ty = $$(".tick-y", svg).length;
+          if (!ax) out.push(`${where}: plot has no axes (build it with plot(), or mark a schematic data-schematic)`);
+          else {
+            if (!ax.dataset.xtitle) out.push(`${where}: plot has no x-axis title`);
+            if (!ax.dataset.ytitle) out.push(`${where}: plot has no y-axis title`);
+            if (tx < 2 || ty < 2) out.push(`${where}: plot needs at least 2 numeric ticks on each axis (has ${tx} and ${ty})`);
+          }
+          const cap = svg.parentElement.querySelector("figcaption");
+          if (cap && !/source:/i.test(cap.textContent)) out.push(`${where}: plot caption has no "Source:" line`);
+        }
         const box = svg.getBoundingClientRect();
         const ts = $$("text", svg).map(t => ({ t, r: t.getBoundingClientRect() })).filter(o => o.r.width > 0 && o.r.height > 0);
         ts.forEach((a, j) => {
@@ -389,6 +429,8 @@
     for (let n; (n = walk.nextNode());) {
       if (n.parentElement.closest("script, style, textarea, .katex")) continue;
       if (n.nodeValue.includes("\u2014")) out.push(`em dash in: "${n.nodeValue.trim().slice(0, 60)}"`);
+      const tz = /\b(next (?:\w+ )?(?:screens?|sections?|slides?)|coming up|we['\u2019]ll see|let['\u2019]s|in this section|stay tuned)\b/i.exec(n.nodeValue);
+      if (tz && !n.parentElement.closest("#help, .nav, button")) out.push(`transition points at the page ("${tz[0]}"), so name the concept that comes next instead: "${n.nodeValue.trim().slice(0, 60)}"`);
       if (/[A-Za-z0-9\u0370-\u03FF][_^]/.test(n.nodeValue)) out.push(`unrendered sub/superscript in: "${n.nodeValue.trim().slice(0, 60)}"`);
     }
     if (document.fonts && !document.fonts.check('16px "Atkinson Hyperlegible Next"')) out.push("fonts did not load (offline?), so sizes are measured with fallback fonts");
@@ -423,5 +465,5 @@
     } else requestAnimationFrame(() => requestAnimationFrame(() => { rail.style.transition = ""; }));
   });
 
-  window.cognia = { $, $$, fig, curve, redraw, state, showEntry };
+  window.cognia = { $, $$, fig, curve, plot, redraw, state, showEntry };
 })();

@@ -19,7 +19,7 @@ them in use; open it only to see how a finished screen looks.
   <div class="fig">
     <figure>
       <svg viewBox="0 0 800 500" role="img" aria-label="(the figure's one claim)">…</svg>
-      <figcaption><b>What to notice:</b> …</figcaption>
+      <figcaption><b>Figure 1.</b> (the claim). <b>What to notice:</b> … <small>Source: Table 2 of the paper.</small></figcaption>
     </figure>
   </div>
 </section>
@@ -33,12 +33,12 @@ glossary term: `<strong class="key">`. Math: `\( \)` inline, `<p class="eq">\[ \
 
 ```html
 <figure>
-  <svg id="figLoss" role="img" aria-label="…"></svg>
+  <svg id="figLoss" role="img" aria-label="Tax lost per top earner rises with elasticity e"></svg>
   <div class="controls">
     <div class="readout"><small>tax lost per top earner</small><span id="lostOut"></span></div>
     <label for="e1"><span>elasticity <span class="sym">e</span></span><b id="e1Val"></b><input type="range" id="e1" min="0" max="1.5" step="0.05" value="0.25"></label>
   </div>
-  <figcaption><b>What to notice:</b> …</figcaption>
+  <figcaption><b>Figure 2.</b> Revenue lost grows linearly in e. <b>What to notice:</b> … <small>Source: illustration with chosen values, not from the paper.</small></figcaption>
 </figure>
 ```
 
@@ -46,13 +46,24 @@ glossary term: `<strong class="key">`. Math: `\( \)` inline, `<p class="eq">\[ \
 fig("#figLoss", (svg, w, h) => {
   const e = +$("#e1").value;
   $("#e1Val").textContent = e.toFixed(2);
-  const X = x => 40 + x * (w - 60), Y = y => h - 40 - y * (h - 80);
-  svg.innerHTML = `<path class="acc-line" d="${curve(x => x * e, 0, 1, 100, X, Y)}"/>`;
+  const p = plot(w, h, { x: [0, 1], y: [0, 1.5], xTitle: "Tax rate τ", yTitle: "Revenue lost (share of base)" });
+  svg.innerHTML = p.axes + `<path class="acc-line" d="${curve(x => x * e, 0, 1, 100, p.X, p.Y)}"/>` +
+    `<text class="ts" x="${p.X(1) - 6}" y="${p.Y(e) - 8}" text-anchor="end">e = ${e.toFixed(2)}</text>`;
 }, ["#e1"]);
 ```
 
 `fig` sizes the viewBox to the box and redraws on resize and on input. `curve(fn, x0, x1, n, X, Y)`
 returns a path. Draw at the box size; never stretch a fixed viewBox.
+
+**Plots always use `plot(w, h, {x, y, xTitle, yTitle})`.** It draws both axes, titles, 3 to 6
+numeric ticks at round values, a light grid and zero, and returns `p.X`, `p.Y` (use them for every
+mark so ticks and data share one scale) and `p.axes` (the SVG to put first). Name the unit in the
+title ("Reported income z (US$ thousands)"). Label each series directly and annotate the one or
+two points that matter with their exact values. Options: `nx`, `ny` (about how many ticks),
+`xFmt`, `yFmt` (value to label), `margin`. A static plot adds `data-plot` to its `<svg>` and uses
+the same `.axes` group classes. A live figure that is a schematic (cards, bars drawn to scale)
+rather than a plot adds `data-schematic`. `check` fails a plot with no axes, a missing axis
+title, fewer than 2 numeric ticks per axis, or a caption with no "Source:" line.
 
 ## Prediction gate
 

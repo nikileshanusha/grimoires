@@ -317,8 +317,25 @@ def essay_glossary(vault, md):
     return data, missing
 
 
+TEASER_RE = re.compile(r"\b(next (?:\w+ )?(?:screens?|sections?|slides?)|coming up|we['\u2019]ll see|let['\u2019]s|in this section|stay tuned)\b", re.I)
+
+
+def essay_warnings(md):
+    """Problems a script can see in an essay: page-pointing transitions, em dashes, xycharts without axis titles."""
+    out, prose = [], re.sub(r"```.*?```", "", md, flags=re.S)
+    for m in TEASER_RE.finditer(prose):
+        out.append(f'transition points at the page ("{m.group(0)}"); name the concept that comes next instead')
+    if "\u2014" in prose:
+        out.append("em dash in the prose")
+    for block in re.findall(r"```mermaid\s+(xychart-beta.*?)```", md, flags=re.S):
+        for axis in ("x-axis", "y-axis"):
+            if not re.search(rf'^\s*{axis}\s+"[^"]+"', block, re.M):
+                out.append(f"xychart has no {axis} title")
+    return out
+
+
 def build_essay(vault, src, site):
-    """Render writing/<topic>/<slug>/<slug>-essay.md to the site; returns (path, glossary size, missing)."""
+    """Render writing/<topic>/<slug>/<slug>-essay.md to the site; returns (path, glossary size, missing, warnings)."""
     md = src.read_text(encoding="utf-8")
     data, missing = essay_glossary(vault, md)
     title = re.search(r"^#\s+(.+)$", md, re.M)
@@ -331,7 +348,7 @@ def build_essay(vault, src, site):
     page = page.replace("{{GLOSSARY}}", json.dumps(data, ensure_ascii=False).replace("</", "<\\/"))
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(page, encoding="utf-8")
-    return out, len(data) - 1, missing
+    return out, len(data) - 1, missing, essay_warnings(md)
 
 
 def cmd_essay(a):
@@ -341,9 +358,11 @@ def cmd_essay(a):
         raise SystemExit(f"no essay yet: {src}")
     site = site_dir(vault, getattr(a, "site", None))
     refresh_assets(site)
-    out, n, missing = build_essay(vault, src, site)
+    out, n, missing, warn = build_essay(vault, src, site)
     write_hub(vault, site)
     print(out)
+    for w in warn:
+        print(f"warning: {w}")
     print(f"glossary: {n} terms from the vault" + (f"; no concept page for: {', '.join(missing)}" if missing else ""))
 
 
@@ -378,7 +397,11 @@ def cmd_build(a):
         if d.name.endswith("-explainer.html"):
             print(build_explainer(vault, d, site)); n += 1
         elif d.name.endswith("-essay.md"):
-            print(build_essay(vault, d, site)[0]); n += 1
+            out, _, _, warn = build_essay(vault, d, site)
+            print(out)
+            for w in warn:
+                print(f"warning: {w}")
+            n += 1
     write_hub(vault, site)
     print(f"built {n} page(s) into {site}")
 
