@@ -7,6 +7,15 @@ argument-hint: "[source-slug]"
 
 # Essay spec
 
+## Hard rules
+
+`vault.py check <essay.md> --static` tests each rule below, and a hook runs it after every save.
+
+1. Every equation is `$$ ... $$` on its own lines, then `Where:` with a bullet per symbol, then `(Source: slide 9)` (`lint: equation`).
+2. Inline `$ $` holds one symbol or a short expression with no `=` (`lint: inline equation`).
+3. No em dashes and no teasers such as "next section" (`lint: prose`).
+4. Every `xychart-beta` has `x-axis` and `y-axis` titles (`lint: xychart`).
+
 Read `${CLAUDE_PLUGIN_ROOT}/core/rules.md` first. Paths starting `core/` are under `${CLAUDE_PLUGIN_ROOT}/core/`.
 
 State at start (already run for you; do not repeat it):

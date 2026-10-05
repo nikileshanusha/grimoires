@@ -7,6 +7,19 @@ argument-hint: "[source-slug]"
 
 # Explainer spec
 
+## Hard rules
+
+`vault.py check <page> --static` tests each rule below, and a hook runs it after every save.
+
+1. Every equation is one `.equation` block with `data-src` and a `.where` list (`lint: equation`).
+2. Inline `\( \)` holds one symbol or a short expression with no `=` (`lint: inline equation`).
+3. Every symbol in a displayed equation is in its `.where` list or a glossary `data-sym` (`lint: symbols`).
+4. Every screen has a `.kicker`, an `h2` (`h1` on screen 0), a `.sofar` after screen 0, and `.prose` (`lint: screen`).
+5. Every figure caption has `<b>Figure n.</b>`, `What to notice:` and `Source:`, numbered 1, 2, 3 in page order (`lint: figure`).
+6. Every glossary link has an entry, every entry is linked, and each `.short` is 20 words or fewer (`lint: glossary`).
+7. No em dashes and no teasers such as "next screen" (`lint: prose`).
+8. Then run `check <page>` without `--static` until it prints `OK`.
+
 Read `${CLAUDE_PLUGIN_ROOT}/core/rules.md` first. Paths starting `core/` are under `${CLAUDE_PLUGIN_ROOT}/core/`.
 
 State at start (already run for you; do not repeat it):
