@@ -1,5 +1,5 @@
 /* cognia explainer shell: shared by every lesson. Pages never copy this; vault.py refreshes it. */
-/* Layout: one argument told in full-bleed screens (prose | figure plate), moved by buttons only.
+/* Layout: one argument told in full-bleed screens (prose | figure plate), moved by buttons only; the bar between the columns resizes them.
    Palette: neutral graphite on paper, no hue. Meaning lives in fill, hatch, outline and dash.
    Type: Lexend headings, Atkinson Hyperlegible body, Atkinson Hyperlegible Mono numbers (legibility-first faces). */
 :root {
@@ -52,7 +52,12 @@ kbd { font: 500 .78rem var(--f-mono); border: 1px solid var(--rule); border-bott
 /* C: stage — screens side by side, moved only by transform */
 .stage { grid-column: 1; overflow: clip; min-height: 0; min-width: 0; }
 .rail { display: flex; height: 100%; transition: transform .45s cubic-bezier(.3, .7, .2, 1); }
-.screen { flex: 0 0 100%; height: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1.6fr); }
+/* text | handle | figure. --split is set on body by the drag handle (cognia.js), 37% by default. */
+.screen { flex: 0 0 100%; height: 100%; min-width: 0; display: grid; grid-template-columns: var(--split, 37%) 6px minmax(0, 1fr); }
+.split { cursor: col-resize; touch-action: none; background: transparent; position: relative; z-index: 1; }
+.split::after { content: ""; position: absolute; inset: 50% 1px auto 1px; height: 44px; margin-top: -22px; border-radius: 3px; background: var(--accent-mid); opacity: .55; }
+.split:hover, .split:focus-visible, .split.drag { background: var(--accent-soft); }
+.split:hover::after, .split:focus-visible::after, .split.drag::after { opacity: 1; }
 .text { min-width: 0; min-height: 0; overflow-y: auto; padding: var(--pad); display: flex; flex-direction: column; gap: 16px; scrollbar-width: thin; }
 .fig { min-width: 0; min-height: 0; overflow-y: auto; padding: var(--pad); background: var(--plate); border-left: 1px solid var(--rule);
   display: flex; flex-direction: column; gap: 14px; scrollbar-width: thin; }
@@ -191,6 +196,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, .node:focus-v
 @media (max-width: 860px) {
   body { grid-template-columns: minmax(0, 1fr); }
   .screen { display: block; overflow-y: auto; }
+  .split { display: none; }
   .text, .fig { overflow: visible; }
   .fig { border-left: 0; border-top: 1px solid var(--rule); }
   figure > svg { height: 320px; flex: none; }

@@ -44,6 +44,7 @@
   <dt><kbd>→</kbd></dt><dd>Next screen, or the dark <b>Next</b> button</dd>
   <dt><kbd>←</kbd></dt><dd>Previous screen</dd>
   <dt>${sw(34, 8, '<rect width="34" height="7" rx="3.5" style="fill:var(--accent)"/>')}</dt><dd>The bar at the bottom: one segment per screen. Click a segment to jump.</dd>
+  <dt>${sw(10, 26, '<rect x="3" width="4" height="26" rx="2" style="fill:var(--accent-mid)"/>')}</dt><dd>Drag the bar between text and figure to resize. Double-click it to reset.</dd>
   <dt><kbd>?</kbd></dt><dd>Open or close this panel</dd>
   <dt><kbd>g</kbd></dt><dd>Open or close the glossary</dd>
   <dt><kbd>Esc</kbd></dt><dd>Close this panel</dd>
@@ -255,6 +256,41 @@
     segs.appendChild(b);
   });
   const segBtns = [...segs.children];
+
+  /* ---------- C: movable split between text and figure (a viewer convenience, never vault state) ---------- */
+  const SPLIT = { min: 25, max: 65, def: 37 }, stage = $(".stage");
+  let split = SPLIT.def, frame = 0;
+  const handles = [];
+  const setSplit = (v, keep = true) => {
+    split = Math.max(SPLIT.min, Math.min(SPLIT.max, Math.round(v * 10) / 10));
+    body.style.setProperty("--split", split + "%");
+    handles.forEach(h => h.setAttribute("aria-valuenow", String(Math.round(split))));
+    if (keep) try { localStorage.setItem("cognia:split", String(split)); } catch {}
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(redraw);
+  };
+  screens.forEach(s => {
+    if (!$(".text", s) || !$(".fig", s)) return;
+    const h = Object.assign(document.createElement("div"), { className: "split", tabIndex: 0 });
+    h.setAttribute("role", "separator"); h.setAttribute("aria-orientation", "vertical");
+    h.setAttribute("aria-label", "Resize text and figure (arrow keys, Home resets)");
+    h.setAttribute("aria-valuemin", SPLIT.min); h.setAttribute("aria-valuemax", SPLIT.max); h.setAttribute("aria-valuenow", SPLIT.def);
+    h.addEventListener("pointerdown", e => {
+      h.setPointerCapture(e.pointerId); h.classList.add("drag");
+      const move = ev => { const r = stage.getBoundingClientRect(); setSplit((ev.clientX - r.left) / r.width * 100); };
+      const up = () => { h.classList.remove("drag"); h.removeEventListener("pointermove", move); h.removeEventListener("pointerup", up); h.removeEventListener("pointercancel", up); };
+      h.addEventListener("pointermove", move); h.addEventListener("pointerup", up); h.addEventListener("pointercancel", up);
+      e.preventDefault();
+    });
+    h.addEventListener("dblclick", () => setSplit(SPLIT.def));
+    h.addEventListener("keydown", e => {
+      const step = { ArrowLeft: -2, ArrowRight: 2 }[e.key];
+      if (step) setSplit(split + step); else if (e.key === "Home") setSplit(SPLIT.def); else return;
+      e.preventDefault(); e.stopPropagation();
+    });
+    $(".text", s).after(h); handles.push(h);
+  });
+  if (!CHECK) try { const v = parseFloat(localStorage.getItem("cognia:split")); if (v >= SPLIT.min && v <= SPLIT.max) setSplit(v, false); } catch {}
   let cur = -1;
   function go(i, force = false) {
     i = Math.max(0, Math.min(screens.length - 1, i));
@@ -278,7 +314,7 @@
   $("#next").onclick = () => go(cur + 1);
   addEventListener("keydown", e => {
     if (e.key === "Escape" && openPanel()) { setPanel(null); return; }
-    if (e.target.closest("textarea, input")) return;
+    if (e.target.closest("textarea, input, [role=separator]")) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === "?" || e.key === "h" || e.key === "H") { e.preventDefault(); toggle("help"); return; }
     if ((e.key === "g" || e.key === "G") && entries.length) { e.preventDefault(); toggle("gloss"); return; }
