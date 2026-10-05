@@ -199,7 +199,8 @@
   //   const p = plot(w, h, { x: [0, 1], y: [0, 100], xTitle: "Tax rate τ (%)", yTitle: "Revenue (US$ bn)" });
   //   svg.innerHTML = p.axes + `<path class="acc-line" d="${curve(f, 0, 1, 100, p.X, p.Y)}"/>`;
   // Use p.X and p.Y for every mark so ticks and data share one scale. Options: nx, ny (about how many
-  // ticks), xFmt, yFmt (value -> label), margin {l, r, t, b}.
+  // ticks), xFmt, yFmt (value -> label), margin {l, r, t, b} (use it to place several plots in one svg),
+  // xCats [labels] for bars (x then runs 0..n; put bar k at X(k + 0.5)).
   const niceStep = (span, n) => {
     const raw = span / Math.max(1, n), mag = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / mag;
     return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * mag;
@@ -211,16 +212,19 @@
   };
   const fmt = v => String(+v.toPrecision(6)).replace("-", "−");
   const plot = (w, h, o) => {
-    const m = Object.assign({ l: 62, r: 22, t: 20, b: 52 }, o.margin), [x0, x1] = o.x, [y0, y1] = o.y;
+    const cats = o.xCats, [x0, x1] = cats ? [0, cats.length] : o.x, [y0, y1] = o.y;
+    const m = Object.assign({ l: 62, r: 30, t: 20, b: 54 }, o.margin);
     const X = v => m.l + (v - x0) / (x1 - x0) * (w - m.l - m.r), Y = v => h - m.b - (v - y0) / (y1 - y0) * (h - m.t - m.b);
     const xf = o.xFmt || fmt, yf = o.yFmt || fmt, esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
-    const xt = ticksOf(x0, x1, o.nx || 5), yt = ticksOf(y0, y1, o.ny || 5);
+    const xt = cats ? cats.map((_, k) => k + 0.5) : ticksOf(x0, x1, o.nx || 5), yt = ticksOf(y0, y1, o.ny || 5);
+    const cut = cats ? Array.from({ length: cats.length + 1 }, (_, k) => k) : xt;  // tick marks: category edges, or the ticks themselves
     let g = `<g class="axes" data-xtitle="${esc(o.xTitle || "")}" data-ytitle="${esc(o.yTitle || "")}">`;
-    xt.forEach(v => { g += `<line class="grid" x1="${X(v)}" x2="${X(v)}" y1="${Y(y0)}" y2="${Y(y1)}"/><line class="axis" x1="${X(v)}" x2="${X(v)}" y1="${Y(y0)}" y2="${Y(y0) + 5}"/><text class="tm tick-x" x="${X(v)}" y="${Y(y0) + 19}" text-anchor="middle">${xf(v)}</text>`; });
+    cut.forEach(v => { g += `<line class="grid" x1="${X(v)}" x2="${X(v)}" y1="${Y(y0)}" y2="${Y(y1)}"/><line class="axis" x1="${X(v)}" x2="${X(v)}" y1="${Y(y0)}" y2="${Y(y0) + 5}"/>`; });
+    xt.forEach((v, k) => { g += `<text class="tm tick-x" x="${X(v)}" y="${Y(y0) + 22}" text-anchor="middle">${cats ? esc(cats[k]) : xf(v)}</text>`; });
     yt.forEach(v => { g += `<line class="grid" x1="${X(x0)}" x2="${X(x1)}" y1="${Y(v)}" y2="${Y(v)}"/><line class="axis" x1="${X(x0) - 5}" x2="${X(x0)}" y1="${Y(v)}" y2="${Y(v)}"/><text class="tm tick-y" x="${X(x0) - 9}" y="${Y(v) + 4}" text-anchor="end">${yf(v)}</text>`; });
     g += `<line class="axis" x1="${X(x0)}" x2="${X(x1)}" y1="${Y(y0)}" y2="${Y(y0)}"/><line class="axis" x1="${X(x0)}" x2="${X(x0)}" y1="${Y(y0)}" y2="${Y(y1)}"/>`;
-    g += `<text class="ts" x="${(X(x0) + X(x1)) / 2}" y="${h - 8}" text-anchor="middle">${esc(o.xTitle || "")}</text>`;
-    g += `<text class="ts" transform="translate(14 ${(Y(y0) + Y(y1)) / 2}) rotate(-90)" text-anchor="middle">${esc(o.yTitle || "")}</text></g>`;
+    g += `<text class="ts" x="${(X(x0) + X(x1)) / 2}" y="${Y(y0) + 44}" text-anchor="middle">${esc(o.xTitle || "")}</text>`;
+    g += `<text class="ts" transform="translate(${X(x0) - 44} ${(Y(y0) + Y(y1)) / 2}) rotate(-90)" text-anchor="middle">${esc(o.yTitle || "")}</text></g>`;
     return { X, Y, axes: g, box: { l: X(x0), r: X(x1), t: Y(y1), b: Y(y0) } };
   };
 
