@@ -81,8 +81,8 @@ kbd { font: 500 .78rem var(--f-mono); border: 1px solid var(--rule); border-bott
 .kicker b { color: var(--ink); font-weight: 500; }
 .thread { color: var(--ink-2); font: 500 .8rem var(--f-mono); }
 .prose { }
-.evidence { display: grid; gap: 4px; padding: 8px 12px; border: 1px solid var(--rule); border-left: 3px solid var(--accent-mid); border-radius: 6px; background: var(--plate); font-size: .93em; max-width: 62ch; }
-.evidence p b, .evidence .design::before, .evidence .result::before, .evidence .strength::before { font: 600 .7rem var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); margin-right: 6px; }
+div.evidence { display: grid; gap: 4px; padding: 8px 12px; border: 1px solid var(--rule); border-left: 3px solid var(--accent-mid); border-radius: 6px; background: var(--plate); font-size: .93em; max-width: 62ch; }
+div.evidence p b, div.evidence .design::before, .evidence .result::before, .evidence .strength::before { font: 600 .7rem var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); margin-right: 6px; }
 .evidence .design::before { content: "Design"; } .evidence .result::before { content: "Result"; } .evidence .strength::before { content: "Strength"; }
 figure svg text { font-size: var(--fz, 12.5px); }
 .prose { display: grid; gap: .85em; max-width: 62ch; }

@@ -310,6 +310,11 @@ def cmd_stats(a):
         print(f"path {p.stem}: {done}/{done + todo} units")
 
 
+LESSON_BUDGET = """<!-- Budget at 1366x768: a screen holds about 250 words of prose, with or without a figure (evals/calibrate.py).
+     A .where row counts 8 words, an evidence block 15, a table row 10, a step 8. Over budget: split into a figure screen and a reading screen. -->
+"""
+
+
 def cmd_lesson(a):
     """Start an explainer fragment in writing/<topic>/<slug>/. The look lives in the site assets."""
     vault = Path(a.vault).expanduser().resolve()
@@ -321,6 +326,7 @@ def cmd_lesson(a):
     out.parent.mkdir(parents=True, exist_ok=True)
     page = FRAGMENT.read_text(encoding="utf-8")
     page = page.replace("{{TITLE}}", (a.title or a.concept or a.slug).replace("-->", "")).replace("{{SOURCE}}", (a.source or "").replace("-->", ""))
+    page = page.replace("<!--@rail-->" + chr(10), "<!--@rail-->" + chr(10) + LESSON_BUDGET, 1)
     out.write_text(page, encoding="utf-8")
     print(out)
 
@@ -347,12 +353,10 @@ TEASER_RE = re.compile(r"\b(next (?:\w+ )?(?:screens?|sections?|slides?)|coming 
 
 
 def essay_warnings(md):
-    """Problems a script can see in an essay: page-pointing transitions, em dashes, xycharts without axis titles."""
+    """Problems a script can see in an essay: page-pointing transitions, xycharts without axis titles."""
     out, prose = [], re.sub(r"```.*?```", "", md, flags=re.S)
     for m in TEASER_RE.finditer(prose):
         out.append(f'transition points at the page ("{m.group(0)}"); name the concept that comes next instead')
-    if "\u2014" in prose:
-        out.append("em dash in the prose")
     for block in re.findall(r"```mermaid\s+(xychart-beta.*?)```", md, flags=re.S):
         for axis in ("x-axis", "y-axis"):
             if not re.search(rf'^\s*{axis}\s+"[^"]+"', block, re.M):
@@ -406,11 +410,16 @@ def tex_symbols(tex):
     return out
 
 
+BUDGET_FIG, BUDGET_SOLO = 250, 250  # words of prose that fit one screen at 1366x768 (evals/calibrate.py)
+WEIGHT = {"evidence": 15, "dd": 8, "tr": 10, "step": 8}  # extra words an evidence block, .where row, table row or step costs
+
+
 class _Page(HTMLParser):
     """Collects what the lint needs from a fragment's rail: screens, equation blocks, display math."""
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
+        self.evidence = []
         self.stack, self.screens, self.equations, self.stray, self.inline, self.all_tex = [], [], [], [], [], []
 
     def handle_starttag(self, tag, attrs):
@@ -418,10 +427,22 @@ class _Page(HTMLParser):
         cls = (a.get("class") or "").split()
         node = {"tag": tag, "cls": cls, "attrs": a}
         if tag == "section" and "screen" in cls:
-            self.screens.append({"tags": set(), "cls": set(), "h2": "", "h1": "", "title": a.get("data-title", "")})
+            self.screens.append({"tags": set(), "cls": set(), "h2": "", "h1": "", "title": a.get("data-title", ""), "words": 0, "extra": 0, "fig": False})
         if self.screens:
-            self.screens[-1]["tags"].add(tag)
-            self.screens[-1]["cls"].update(cls)
+            sc = self.screens[-1]
+            sc["tags"].add(tag)
+            sc["cls"].update(cls)
+            if "fig" in cls:
+                sc["fig"] = True
+            if tag == "div" and "evidence" in cls:
+                sc["extra"] += WEIGHT["evidence"]
+                self.evidence.append({"src": a.get("data-src", ""), "cls": set()})
+            elif tag == "p" and self.evidence and any(n["tag"] == "div" and "evidence" in n["cls"] for n in self.stack):
+                self.evidence[-1]["cls"].update(cls)
+            elif tag in ("dd", "tr"):
+                sc["extra"] += WEIGHT[tag]
+            elif tag == "li" and any(n["tag"] == "ol" and "steps" in n["cls"] for n in self.stack):
+                sc["extra"] += WEIGHT["step"]
         if tag == "div" and "equation" in cls:
             node["eq"] = {"src": a.get("data-src", "").strip(), "where": "", "tex": "", "has_where": False}
             self.equations.append(node["eq"])
@@ -442,6 +463,8 @@ class _Page(HTMLParser):
             return
         eq = next((n["eq"] for n in reversed(self.stack) if "eq" in n), None)
         in_steps = any(n["tag"] == "ol" and "steps" in n["cls"] for n in self.stack)
+        if self.screens and any("text" in n["cls"] for n in self.stack) and not any(n["tag"] in ("h1", "h2") or "kicker" in n["cls"] for n in self.stack):
+            self.screens[-1]["words"] += len(data.split())
         if self.screens:
             for tag in ("h1", "h2"):
                 if any(n["tag"] == tag for n in self.stack):
@@ -497,6 +520,15 @@ def lint_fragment(text):
             found = re.search(rf"(?<![A-Za-z\]){plain}(?![A-Za-z])", have) if len(plain) == 1 else re.sub(r"[\s{}]", "", sym) in have
             if not found:
                 out.append(f"equation {k}: symbol {sym.rstrip('_')} is in neither its .where list nor a glossary data-sym")
+    for k, ev in enumerate(page.evidence, 1):
+        if not ev["src"].strip():
+            out.append(f'evidence block {k} has no data-src (e.g. "Fisman & Wei 2004, slide 20")')
+        for need in ("design", "result"):
+            if need not in ev["cls"]:
+                out.append(f"evidence block {k} has no p.{need} (a block holds p.design, p.result and optionally p.strength)")
+    for m in re.finditer(r"font-size\s*[=:]\s*[\"']?(\d+(?:\.\d+)?)(?![\d.%])", rail + parts.get("script", "")):
+        if float(m.group(1)) > 14:
+            out.append(f"figure code sets font-size {m.group(1)}; the shell fixes label size (about 12.5px), so drop font-size and let the drawing scale")
     # screen skeleton
     for i, s in enumerate(page.screens):
         where = f"screen {i} ({s['title']})"
@@ -506,8 +538,14 @@ def lint_fragment(text):
             out.append(f"{where}: screen 0 needs an h1")
         if i > 0 and "h2" not in s["tags"]:
             out.append(f"{where}: no h2 headline")
-        if i > 0 and "sofar" not in s["cls"]:
-            out.append(f"{where}: no .sofar line")
+        if "sofar" in s["cls"]:
+            out.append(f"warning: {where}: .sofar is retired; open with a bridge sentence from the open question, and put the reader's place in the .kicker thread label")
+        budget = BUDGET_FIG if s["fig"] else BUDGET_SOLO
+        used = s["words"] + s["extra"]
+        if used > budget * 1.15:
+            out.append(f"{where}: about {used} words against a budget of {budget} ({used - budget} over); split it into a figure screen and a reading screen")
+        elif used > budget:
+            out.append(f"warning: {where}: about {used} words against a budget of {budget}; it may scroll")
         if "prose" not in s["cls"] and not ({"check", "evidence"} & s["cls"] or "textarea" in s["tags"]):
             out.append(f"{where}: no .prose block")
     # figures
@@ -550,8 +588,6 @@ def lint_fragment(text):
     # prose
     flat = re.sub(r"<script\b.*?</script>|<style\b.*?</style>", "", rail + "\n" + gloss, flags=re.S)
     plain = re.sub(r"<[^>]+>", " ", flat)
-    if "\u2014" in plain:
-        out.append("em dash in the page text")
     for m in TEASER_RE.finditer(plain):
         out.append(f'transition points at the page ("{m.group(0)}"); name the concept that comes next instead')
     # glossary
