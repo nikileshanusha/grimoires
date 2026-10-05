@@ -26,8 +26,18 @@ Five moves in this order, linked by sentences so the reader knows why the next o
    arithmetic, introduced with why and closed with what it showed.
 3. **Show the equation** exactly as in the source (or accurately reformatted), with its
    location, and a lead-in tying it to the example.
-4. **Give a symbol table**: symbol, plain meaning, type (number, set, function), and where the
+4. **Give a symbol list**: symbol, plain meaning, type (number, set, function), and where the
    reader met it.
+
+A regression that serves only as evidence for a finding is not a Tier 1 equation. Fold it into an
+`.evidence` block (design, result as its meaning, strength), with the raw estimate in the
+margin note, and keep the `.equation` block for equations that are the concept.
+
+Moves 3 and 4 are one fixed component, never free markup. In an explainer it is the
+`.equation` block (`data-src` for the location, a `.where` list for the symbols; pattern at
+the top of `skills/explainer/screens.md`). In an essay it is `$$ ... $$` on its own lines,
+then `Where:` with a bullet per symbol, then `(Source: slide 9)`. An equation is never written
+inline in a paragraph.
 5. **Restate the idea in new words**, only at a genuine bottleneck you can name. Otherwise it
    turns into "in other words… put differently…" on a loop.
 
@@ -61,3 +71,6 @@ An equation matching one of these is Tier 1. Check the domain file first.
 - Check limits: plug in 0, 1, or infinity and say what should happen.
 - If the extraction garbled an equation, reconstruct it from context, mark it
   "reconstructed, check against p. N", and never present the guess as the original.
+
+- Name a variable with `\mathrm{gap}_i`, never `\text{gap}_i`. KaTeX breaks a subscripted `\text` into
+  pieces in a narrow column, which scrambles the equation (`lint: mathrm`).

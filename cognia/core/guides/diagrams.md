@@ -8,6 +8,18 @@ faster, write the sentence. Draw the mechanism, not its name.
 hand-built inline SVG, never default Mermaid boxes. Load the `artifact-diagramming` skill
 before drawing SVG.
 
+## Contents
+
+- Route by intent, not by subject
+- Figure patterns
+- Precision
+- Complexity budget
+- Encoding (one mapping per explainer)
+- Colour: eight muted hues for marks
+- Craft
+- Interactivity
+- Maps
+
 ## Route by intent, not by subject
 
 - **Illustrative**: a mechanism that is hard to feel from equations (a shock spreading, a
@@ -18,6 +30,13 @@ before drawing SVG.
   kept separate from any picture of the subject.
 
 A graph-shaped subject does not make a structural diagram the default.
+
+## Label size and what a figure shows
+
+Label size is fixed: the shell sets every SVG label to about 12.5px on screen, whatever the plate
+size, so the drawing scales and the text does not. Never set `font-size` above 14 in figure code.
+A figure shows the finding (the direction and shape of the relationship, or the mechanism), not an
+estimate: a slider over a coefficient value teaches nothing.
 
 ## Figure patterns
 
@@ -33,7 +52,7 @@ A graph-shaped subject does not make a structural diagram the default.
 
 ## Precision
 
-The look stays: graphite palette, cards and glyphs, fill, hatch, outline and dash. An academic
+The look stays: graphite for text and structure, muted hues for marks, cards and glyphs, fill, hatch, outline and dash. An academic
 reader needs the figure to carry its numbers, so the aim is every label the reader needs and
 no more.
 
@@ -64,7 +83,8 @@ not from the source."
 
 ## Encoding (one mapping per explainer)
 
-Meaning lives in fill, hatch, outline and dash, never in hue.
+Meaning lives in fill, hatch, outline and dash. Hue only groups things, so a grayscale print
+still reads and colour-blind readers lose nothing.
 
 - solid = a gain, or the thing being explained
 - hatched = a loss, or what goes away
@@ -73,6 +93,28 @@ Meaning lives in fill, hatch, outline and dash, never in hue.
 - evidence tags use their own shapes (`guides/evidence.md`)
 
 Every colour is a CSS token so it flips with the theme. Never hard-code a hex value.
+
+## Colour: eight muted hues for marks
+
+Text, axes, grid, cards and the UI stay graphite. Figure marks may take a hue from this table.
+The roles are defaults. A page may give its own groups a hue, but the same thing keeps the same
+hue on every screen. At most 3 hues per figure, plus graphite. Each hue also has a `-soft` tint
+(`--c-slate-soft`, and so on) for fills and areas.
+
+| Token | Class (line / fill / soft fill) | Default role |
+|---|---|---|
+| `--c-slate` | `s-1` / `f-1` / `fs-1` | the thing explained (`acc-line`, `acc-fill`, result box) |
+| `--c-clay` | `s-2` / `f-2` / `fs-2` | loss, cost (keep the hatch) |
+| `--c-sage` | `s-3` / `f-3` / `fs-3` | gain, benefit |
+| `--c-ochre` | `s-4` / `f-4` / `fs-4` | reference lines, benchmarks (keep the dash) |
+| `--c-plum` | `s-5` / `f-5` / `fs-5` | a second group or agent |
+| `--c-teal` | `s-6` / `f-6` / `fs-6` | a third series, flows of money or goods |
+| `--c-rose` | `s-7` / `f-7` / `fs-7` | a policy or intervention |
+| `--c-stone` | `s-8` / `f-8` / `fs-8` | context, the counterfactual, "before" |
+
+Colour a plot series with its class (`<path class="s-2" d="...">`). Hue never replaces a shape:
+loss stays hatched, references stay dashed, every series is labelled directly. Every hue is at
+least 3:1 against the plate in both themes. For text in a hue use `tc-N`.
 
 ## Craft
 

@@ -1,0 +1,145 @@
+{
+  "skill_name": "cognia",
+  "evals": [
+    {
+      "id": "explainer-concept",
+      "skill": "explainer",
+      "setup": "A vault with one ingested source (a Fisman and Wei style trade-gap paper) and the concept page regression-coefficient.",
+      "prompt": "/cognia:explainer fisman-wei-2004-tax-evasion-china regression-coefficient. Build the concept explainer for regression-coefficient.",
+      "expectations": [
+        {
+          "id": "lint",
+          "text": "The explainer passes the static lint with zero failures",
+          "check": "lint_clean"
+        },
+        {
+          "id": "name",
+          "text": "The file is named <slug>-regression-coefficient-explainer.html under writing/",
+          "check": "file:writing/**/*-regression-coefficient-explainer.html"
+        },
+        {
+          "id": "no-decoration",
+          "text": "No figure only restates its screen heading",
+          "check": "no_decorative_figure"
+        },
+        {
+          "id": "names",
+          "text": "Every file name follows the naming rules",
+          "check": "controlled_names"
+        }
+      ]
+    },
+    {
+      "id": "explainer-skim",
+      "skill": "explainer",
+      "setup": "A vault with one source ingested at Skim depth and its worksheet.",
+      "prompt": "/cognia:explainer fisman-wei-2004-tax-evasion-china. Build the explainer for this Skim-depth source.",
+      "expectations": [
+        {
+          "id": "lint",
+          "text": "The explainer passes the static lint with zero failures",
+          "check": "lint_clean"
+        },
+        {
+          "id": "file",
+          "text": "writing/**/<slug>-explainer.html exists",
+          "check": "file:writing/**/*-explainer.html"
+        },
+        {
+          "id": "short",
+          "text": "Skim depth gives at most 8 screens",
+          "check": "max_screens:8"
+        },
+        {
+          "id": "no-decoration",
+          "text": "No figure only restates its screen heading",
+          "check": "no_decorative_figure"
+        }
+      ]
+    },
+    {
+      "id": "explainer-equation",
+      "skill": "explainer",
+      "setup": "A vault with a source whose worksheet holds a regression equation (gap_i = alpha + beta_1 tax_i + u_i, slide 20).",
+      "prompt": "/cognia:explainer fisman-wei-2004-tax-evasion-china semi-elasticity. Build the concept explainer; the regression on slide 20 must be on it.",
+      "expectations": [
+        {
+          "id": "lint",
+          "text": "The explainer passes the static lint with zero failures",
+          "check": "lint_clean"
+        },
+        {
+          "id": "equation",
+          "text": "The regression is a .equation block with data-src and a .where list",
+          "check": "equation_block"
+        },
+        {
+          "id": "inline",
+          "text": "No equation is written inline in a paragraph",
+          "check": "no_inline_equation"
+        },
+        {
+          "id": "source",
+          "text": "The equation's data-src names slide 20",
+          "check": "equation_src:20"
+        }
+      ]
+    },
+    {
+      "id": "essay-equation-plot",
+      "skill": "essay",
+      "setup": "A vault with one ingested source and its worksheet.",
+      "prompt": "/cognia:essay fisman-wei-2004-tax-evasion-china. Write the essay with one equation and one plot.",
+      "expectations": [
+        {
+          "id": "lint",
+          "text": "The essay passes the static lint with zero failures",
+          "check": "lint_clean"
+        },
+        {
+          "id": "equation",
+          "text": "The equation is $$ ... $$ followed by Where: and a (Source: ...) line",
+          "check": "equation_block"
+        },
+        {
+          "id": "plot",
+          "text": "The essay has one xychart-beta with both axis titles",
+          "check": "xychart_titled"
+        },
+        {
+          "id": "name",
+          "text": "The file is <slug>-essay.md",
+          "check": "file:writing/**/*-essay.md"
+        }
+      ]
+    },
+    {
+      "id": "ingest-missing-year",
+      "skill": "ingest",
+      "setup": "A small PDF in the vault root whose first page shows an author and title but no year.",
+      "prompt": "/cognia:ingest the PDF in the vault root.",
+      "expectations": [
+        {
+          "id": "nd",
+          "text": "The source slug uses nd for the unknown year, not a guess",
+          "check": "nd_slug"
+        },
+        {
+          "id": "names",
+          "text": "Every file name follows the naming rules",
+          "check": "controlled_names"
+        },
+        {
+          "id": "worksheet",
+          "text": "A <slug>-worksheet.md exists under library/",
+          "check": "file:library/**/*-worksheet.md"
+        },
+        {
+          "id": "concepts",
+          "text": "At least one concept page exists under wiki/concepts/",
+          "check": "file:wiki/concepts/*.md"
+        }
+      ]
+    }
+  ]
+}

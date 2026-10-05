@@ -1,8 +1,10 @@
 ---
 name: learn
-description: >
-  Teach one concept from the vault on demand: lesson, diagram, recall questions. Use for "next", "continue", "teach me X" when X is in the vault.
+description: "Teaches one concept from the vault on demand: lesson, diagram, recall questions."
+when_to_use: "Use for \"next\", \"continue\", \"teach me X\" when X is in the vault."
 argument-hint: "[concept]"
+effort: low
+allowed-tools: Bash(python *) PowerShell(python *)
 ---
 
 # Learn one concept on demand
@@ -22,7 +24,7 @@ State at start (already run for you; do not repeat it):
 4. If the concept has a parameter worth moving or a process worth stepping through, offer a
    concept explainer in one line and build it on yes (`/cognia:explainer`, concept variant).
    If one already exists, link it instead. Teach at the source's recorded `depth:`.
-5. Close with 2 or 3 recall questions in chat, one at a time, then offer an explain-back
+5. Close with 2 or 3 recall questions in one message, numbered, graded per question in one reply, then offer an explain-back
    (`/cognia:explain-back`).
 6. Set the status to `learning`, schedule the first review with
    `python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" record <vault> <concept> <grade>`, tick the unit in its

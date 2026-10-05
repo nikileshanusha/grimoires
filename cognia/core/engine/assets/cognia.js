@@ -15,14 +15,15 @@
   body.insertAdjacentHTML("afterbegin", `
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
   <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-    <rect width="6" height="6" style="fill:var(--plate)"/><line x1="0" y1="0" x2="0" y2="6" style="stroke:var(--ink-2)" stroke-width="1.6"/></pattern>
+    <rect width="6" height="6" style="fill:var(--plate)"/><line x1="0" y1="0" x2="0" y2="6" style="stroke:var(--c-clay)" stroke-width="1.6"/></pattern>
   <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--ink-2)"/></marker>
-  <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--accent)"/></marker>
+  <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--c-slate)"/></marker>
 </defs></svg>
 <header class="head">
   <span class="wordmark">cognia</span>
   <span class="src"></span>
   <span id="timeLeft" class="num"></span>
+  <button class="tool" id="fsDown" type="button" aria-label="Smaller text">A−</button><button class="tool" id="fsUp" type="button" aria-label="Larger text">A+</button>
   <button class="tool" id="themeBtn" type="button" aria-label="Switch theme">Dark</button>
   <button class="tool" id="glossBtn" type="button" aria-pressed="false" aria-controls="gloss">Glossary <kbd>g</kbd></button>
   <button class="tool" id="helpBtn" type="button" aria-pressed="false" aria-controls="help">Help <kbd>?</kbd></button>
@@ -44,6 +45,7 @@
   <dt><kbd>→</kbd></dt><dd>Next screen, or the dark <b>Next</b> button</dd>
   <dt><kbd>←</kbd></dt><dd>Previous screen</dd>
   <dt>${sw(34, 8, '<rect width="34" height="7" rx="3.5" style="fill:var(--accent)"/>')}</dt><dd>The bar at the bottom: one segment per screen. Click a segment to jump.</dd>
+  <dt>${sw(10, 26, '<rect x="3" width="4" height="26" rx="2" style="fill:var(--accent-mid)"/>')}</dt><dd>Drag the bar between text and figure to resize. Double-click it to reset.</dd>
   <dt><kbd>?</kbd></dt><dd>Open or close this panel</dd>
   <dt><kbd>g</kbd></dt><dd>Open or close the glossary</dd>
   <dt><kbd>Esc</kbd></dt><dd>Close this panel</dd>
@@ -64,7 +66,7 @@
   <dt>${sw(22, 10, '<line x1="0" y1="5" x2="22" y2="5" class="dash"/>')}</dt><dd><b>Dashed line</b>: a reference level or a what-if</dd>
   <dt>${sw(26, 10, '<line x1="0" y1="5" x2="22" y2="5" class="ink2" marker-end="url(#arr)"/>')}</dt><dd><b>Arrow</b>: one idea feeds the next; the word on it says how</dd>
   <dt>${sw(16, 16, '<circle cx="8" cy="8" r="6" class="acc-fill"/>')}</dt><dd><b>Dot</b>: where two curves cross, the answer</dd>
-</dl></section>
+</dl><p class="hint">Colour only groups things. Shape and labels say what each one is, so the page reads in black and white too.</p></section>
 <section><h3>Evidence tags</h3><dl>
   <dt><span class="tag established"><i></i></span></dt><dd><b>Established</b>: shown directly in the source</dd>
   <dt><span class="tag derived"><i></i></span></dt><dd><b>Derived</b>: follows from the source by arithmetic</dd>
@@ -177,11 +179,45 @@
   };
   themeLabel();
 
+  /* ---------- C: text density (A- / A+), kept per viewer ---------- */
+  const FS = { min: 13, max: 18 };
+  let fs = 15;
+  try { const v = parseFloat(localStorage.getItem("cognia:fs")); if (v >= FS.min && v <= FS.max) fs = v; } catch {}
+  const setFs = v => {
+    fs = Math.max(FS.min, Math.min(FS.max, v)); root.style.setProperty("--fs", fs + "px");
+    try { localStorage.setItem("cognia:fs", String(fs)); } catch {}
+    if (typeof redraw === "function") requestAnimationFrame(redraw);
+  };
+  root.style.setProperty("--fs", fs + "px");
+  const fsBtn = $("#fsDown"); if (fsBtn) { fsBtn.onclick = () => setFs(fs - 1); $("#fsUp").onclick = () => setFs(fs + 1); }
+
   /* ---------- C: live figures ---------- */
   const figs = [];
   const size = svg => { const r = svg.getBoundingClientRect(); return { w: Math.max(340, Math.round(r.width)), h: Math.max(240, Math.round(r.height)) }; };
-  const run = f => { const { w, h } = size(f.svg); f.svg.setAttribute("viewBox", `0 0 ${w} ${h}`); f.draw(f.svg, w, h); mathify(f.svg); };
-  const redraw = () => figs.forEach(run);
+  // A plot (a figure that drew an .axes group) is at most PLOT_ASPECT x its width tall, so a tall plate
+  // does not stretch it. The leftover height falls below the caption and controls. data-fill opts out.
+  const PLOT_ASPECT = 0.68;
+  const run = f => {
+    f.svg.style.flex = f.svg.style.height = "";
+    let { w, h } = size(f.svg);
+    const paint = () => { f.svg.setAttribute("viewBox", `0 0 ${w} ${h}`); f.draw(f.svg, w, h); mathify(f.svg); };
+    paint();
+    const cap = Math.round(w * PLOT_ASPECT);
+    if (!f.svg.hasAttribute("data-fill") && f.svg.querySelector(".axes") && h > cap && !matchMedia("(max-width: 860px)").matches) {
+      h = Math.max(240, cap);
+      f.svg.style.flex = "0 0 auto"; f.svg.style.height = h + "px";
+      paint();
+    }
+  };
+  // Fixed label size: a drawing scaled by its viewBox keeps its labels at LABEL px on screen.
+  const LABEL = 12.5;
+  const fixText = svg => {
+    const vb = (svg.getAttribute("viewBox") || "").split(/[ ,]+/).map(Number), r = svg.getBoundingClientRect();
+    if (vb.length !== 4 || !vb[2] || !r.width) return;
+    const sc = Math.min(r.width / vb[2], r.height / vb[3] || Infinity);
+    svg.style.setProperty("--fz", (LABEL / sc).toFixed(2) + "px");
+  };
+  const redraw = () => { figs.forEach(run); $$("figure > svg").forEach(fixText); };
   // cognia.fig("#figId", (svg, w, h) => { svg.innerHTML = ... }, ["#slider1", "#slider2"])
   function fig(sel, draw, inputs = []) {
     const f = { svg: $(sel), draw };
@@ -213,18 +249,20 @@
   const fmt = v => String(+v.toPrecision(6)).replace("-", "−");
   const plot = (w, h, o) => {
     const cats = o.xCats, [x0, x1] = cats ? [0, cats.length] : o.x, [y0, y1] = o.y;
-    const m = Object.assign({ l: 62, r: 30, t: 20, b: 54 }, o.margin);
-    const X = v => m.l + (v - x0) / (x1 - x0) * (w - m.l - m.r), Y = v => h - m.b - (v - y0) / (y1 - y0) * (h - m.t - m.b);
     const xf = o.xFmt || fmt, yf = o.yFmt || fmt, esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
-    const xt = cats ? cats.map((_, k) => k + 0.5) : ticksOf(x0, x1, o.nx || 5), yt = ticksOf(y0, y1, o.ny || 5);
+    const yt = ticksOf(o.y[0], o.y[1], o.ny || 5);
+    const yw = Math.max(...yt.map(v => yf(v).length)) * 7.9;  // width of the widest y tick label (13px mono)
+    const m = Object.assign({ l: Math.max(56, Math.ceil(yw + 9 + 8 + 16)), r: 28, t: 18, b: 48 }, o.margin);
+    const X = v => m.l + (v - x0) / (x1 - x0) * (w - m.l - m.r), Y = v => h - m.b - (v - y0) / (y1 - y0) * (h - m.t - m.b);
+    const xt = cats ? cats.map((_, k) => k + 0.5) : ticksOf(x0, x1, o.nx || 5);
     const cut = cats ? Array.from({ length: cats.length + 1 }, (_, k) => k) : xt;  // tick marks: category edges, or the ticks themselves
     let g = `<g class="axes" data-xtitle="${esc(o.xTitle || "")}" data-ytitle="${esc(o.yTitle || "")}">`;
     cut.forEach(v => { g += `<line class="grid" x1="${X(v)}" x2="${X(v)}" y1="${Y(y0)}" y2="${Y(y1)}"/><line class="axis" x1="${X(v)}" x2="${X(v)}" y1="${Y(y0)}" y2="${Y(y0) + 5}"/>`; });
-    xt.forEach((v, k) => { g += `<text class="tm tick-x" x="${X(v)}" y="${Y(y0) + 22}" text-anchor="middle">${cats ? esc(cats[k]) : xf(v)}</text>`; });
+    xt.forEach((v, k) => { g += `<text class="tm tick-x" x="${X(v)}" y="${Y(y0) + 21}" text-anchor="middle">${cats ? esc(cats[k]) : xf(v)}</text>`; });
     yt.forEach(v => { g += `<line class="grid" x1="${X(x0)}" x2="${X(x1)}" y1="${Y(v)}" y2="${Y(v)}"/><line class="axis" x1="${X(x0) - 5}" x2="${X(x0)}" y1="${Y(v)}" y2="${Y(v)}"/><text class="tm tick-y" x="${X(x0) - 9}" y="${Y(v) + 4}" text-anchor="end">${yf(v)}</text>`; });
     g += `<line class="axis" x1="${X(x0)}" x2="${X(x1)}" y1="${Y(y0)}" y2="${Y(y0)}"/><line class="axis" x1="${X(x0)}" x2="${X(x0)}" y1="${Y(y0)}" y2="${Y(y1)}"/>`;
-    g += `<text class="ts" x="${(X(x0) + X(x1)) / 2}" y="${Y(y0) + 44}" text-anchor="middle">${esc(o.xTitle || "")}</text>`;
-    g += `<text class="ts" transform="translate(${X(x0) - 44} ${(Y(y0) + Y(y1)) / 2}) rotate(-90)" text-anchor="middle">${esc(o.yTitle || "")}</text></g>`;
+    g += `<text class="ts" x="${(X(x0) + X(x1)) / 2}" y="${Y(y0) + 40}" text-anchor="middle">${esc(o.xTitle || "")}</text>`;
+    g += `<text class="ts" transform="translate(${X(x0) - Math.ceil(yw) - 18} ${(Y(y0) + Y(y1)) / 2}) rotate(-90)" text-anchor="middle">${esc(o.yTitle || "")}</text></g>`;
     return { X, Y, axes: g, box: { l: X(x0), r: X(x1), t: Y(y1), b: Y(y0) } };
   };
 
@@ -255,6 +293,42 @@
     segs.appendChild(b);
   });
   const segBtns = [...segs.children];
+  screens.forEach(s => s.classList.toggle("solo", !$(".fig", s)));  // no figure: a centred reading column
+
+  /* ---------- C: movable split between text and figure (a viewer convenience, never vault state) ---------- */
+  const SPLIT = { min: 25, max: 65, def: 42 }, stage = $(".stage");
+  let split = SPLIT.def, frame = 0;
+  const handles = [];
+  const setSplit = (v, keep = true) => {
+    split = Math.max(SPLIT.min, Math.min(SPLIT.max, Math.round(v * 10) / 10));
+    body.style.setProperty("--split", split + "%");
+    handles.forEach(h => h.setAttribute("aria-valuenow", String(Math.round(split))));
+    if (keep) try { localStorage.setItem("cognia:split", String(split)); } catch {}
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(redraw);
+  };
+  screens.forEach(s => {
+    if (!$(".text", s) || !$(".fig", s)) return;
+    const h = Object.assign(document.createElement("div"), { className: "split", tabIndex: 0 });
+    h.setAttribute("role", "separator"); h.setAttribute("aria-orientation", "vertical");
+    h.setAttribute("aria-label", "Resize text and figure (arrow keys, Home resets)");
+    h.setAttribute("aria-valuemin", SPLIT.min); h.setAttribute("aria-valuemax", SPLIT.max); h.setAttribute("aria-valuenow", SPLIT.def);
+    h.addEventListener("pointerdown", e => {
+      h.setPointerCapture(e.pointerId); h.classList.add("drag");
+      const move = ev => { const r = stage.getBoundingClientRect(); setSplit((ev.clientX - r.left) / r.width * 100); };
+      const up = () => { h.classList.remove("drag"); h.removeEventListener("pointermove", move); h.removeEventListener("pointerup", up); h.removeEventListener("pointercancel", up); };
+      h.addEventListener("pointermove", move); h.addEventListener("pointerup", up); h.addEventListener("pointercancel", up);
+      e.preventDefault();
+    });
+    h.addEventListener("dblclick", () => setSplit(SPLIT.def));
+    h.addEventListener("keydown", e => {
+      const step = { ArrowLeft: -2, ArrowRight: 2 }[e.key];
+      if (step) setSplit(split + step); else if (e.key === "Home") setSplit(SPLIT.def); else return;
+      e.preventDefault(); e.stopPropagation();
+    });
+    $(".text", s).after(h); handles.push(h);
+  });
+  if (!CHECK) try { const v = parseFloat(localStorage.getItem("cognia:split")); if (v >= SPLIT.min && v <= SPLIT.max) setSplit(v, false); } catch {}
   let cur = -1;
   function go(i, force = false) {
     i = Math.max(0, Math.min(screens.length - 1, i));
@@ -278,7 +352,7 @@
   $("#next").onclick = () => go(cur + 1);
   addEventListener("keydown", e => {
     if (e.key === "Escape" && openPanel()) { setPanel(null); return; }
-    if (e.target.closest("textarea, input")) return;
+    if (e.target.closest("textarea, input, [role=separator]")) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === "?" || e.key === "h" || e.key === "H") { e.preventDefault(); toggle("help"); return; }
     if ((e.key === "g" || e.key === "G") && entries.length) { e.preventDefault(); toggle("gloss"); return; }
@@ -390,9 +464,9 @@
       go(i, true);
       const where = `screen ${i} (${s.dataset.title})`;
       $$(".text, .fig", s).forEach(col => {
-        if (col.scrollHeight > col.clientHeight + 2) out.push(`${where}: ${col.className} column overflows by ${col.scrollHeight - col.clientHeight}px`);
+        const over = col.scrollHeight - col.clientHeight;
+        if (over > 2) out.push(`${over > col.clientHeight * 0.15 ? "" : "warning: "}${where}: ${col.className} column overflows by ${over}px (${Math.round(over / col.clientHeight * 100)}%); split it into a figure screen and a reading screen`);
       });
-      if (i > 0 && !$(".sofar", s)) out.push(`${where}: no "So far" line`);
       $$("figure > svg", s).forEach(svg => {
         if (!svg.getAttribute("aria-label")) out.push(`${where}: figure svg has no aria-label`);
         if ((figs.some(f => f.svg === svg) || svg.hasAttribute("data-plot")) && !svg.hasAttribute("data-schematic")) {
@@ -429,10 +503,14 @@
       if (!$(".short", e) || !$(".more", e)) out.push(`glossary entry "${ename(e)}" needs a .short line and a .more block`);
       if (!$(`a.gl[href="#${e.id}"]`)) out.push(`glossary entry "${ename(e)}" is never linked from a screen`);
     });
+    $$(".katex-error").forEach(e => out.push(`equation does not parse (KaTeX error): "${e.textContent.trim().slice(0, 60)}"`));
+    screens.forEach((s, i) => {
+      go(i, true);
+      $$(".eq", s).forEach(e => { if (e.scrollWidth > e.clientWidth + 2) out.push(`screen ${i} (${s.dataset.title}): an equation is wider than its column by ${e.scrollWidth - e.clientWidth}px`); });
+    });
     const walk = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
     for (let n; (n = walk.nextNode());) {
       if (n.parentElement.closest("script, style, textarea, .katex")) continue;
-      if (n.nodeValue.includes("\u2014")) out.push(`em dash in: "${n.nodeValue.trim().slice(0, 60)}"`);
       const tz = /\b(next (?:\w+ )?(?:screens?|sections?|slides?)|coming up|we['\u2019]ll see|let['\u2019]s|in this section|stay tuned)\b/i.exec(n.nodeValue);
       if (tz && !n.parentElement.closest("#help, .nav, button")) out.push(`transition points at the page ("${tz[0]}"), so name the concept that comes next instead: "${n.nodeValue.trim().slice(0, 60)}"`);
       if (/[A-Za-z0-9\u0370-\u03FF][_^]/.test(n.nodeValue)) out.push(`unrendered sub/superscript in: "${n.nodeValue.trim().slice(0, 60)}"`);
@@ -448,6 +526,12 @@
   /* ---------- start (page scripts have registered their figures by now) ---------- */
   addEventListener("DOMContentLoaded", () => {
     rail.style.transition = "none";
+    // Equation blocks: number them "(1)", "(2)" per page and print the source location from data-src.
+    $$(".equation").forEach((q, k) => {
+      const eq = $(".eq", q);
+      if (!eq) return;
+      eq.insertAdjacentHTML("afterend", `<span class="eq-n" aria-label="equation ${k + 1}">(${k + 1})</span>` + (q.dataset.src ? `<span class="eq-src">(${q.dataset.src.replace(/&/g, "&amp;").replace(/</g, "&lt;")})</span>` : ""));
+    });
     const fromHash = /^#(\d+)$/.exec(location.hash);
     const saved = state.panel || (state.help ? "help" : null);
     help.hidden = gloss.hidden = true;

@@ -1,10 +1,24 @@
 /* cognia explainer shell: shared by every lesson. Pages never copy this; vault.py refreshes it. */
-/* Layout: one argument told in full-bleed screens (prose | figure plate), moved by buttons only.
-   Palette: neutral graphite on paper, no hue. Meaning lives in fill, hatch, outline and dash.
+/* Layout: one argument told in full-bleed screens (prose | figure plate), moved by buttons only; the bar between the columns resizes them.
+   Palette: graphite for text, axes, grid, cards and UI, plus eight muted hues for figure marks only
+   (--c-slate ... --c-stone, each with a -soft tint). Hue never carries meaning alone: loss stays hatched,
+   references stay dashed, series are labelled directly. At most 3 hues per figure. Roles are defaults:
+   slate the thing explained, clay loss or cost, sage gain, ochre reference, plum a second group, teal flows,
+   rose a policy, stone context or "before". Series classes s-1..s-8 (line), f-N (fill), fs-N (soft fill), tc-N (text)
+   follow that order. Every hue is at least 3:1 against --plate in both themes.
    Type: Lexend headings, Atkinson Hyperlegible body, Atkinson Hyperlegible Mono numbers (legibility-first faces). */
 :root {
   --paper: #f5f5f3; --plate: #fcfcfb; --ink: #1c1c1c; --ink-2: #555553; --ink-3: #94948f; --rule: #dbdbd8;
   --accent: #2a2a29; --accent-mid: #a3a29e; --accent-soft: #e7e7e3;
+  --c-slate: #4f6d8a; --c-clay: #a0634f; --c-sage: #6f8a5e; --c-ochre: #a88a45; --c-plum: #7d6189; --c-teal: #4f8580; --c-rose: #a5677a; --c-stone: #7a746a;
+  --c-slate-soft: color-mix(in srgb, var(--c-slate) 18%, var(--plate));
+  --c-clay-soft: color-mix(in srgb, var(--c-clay) 18%, var(--plate));
+  --c-sage-soft: color-mix(in srgb, var(--c-sage) 18%, var(--plate));
+  --c-ochre-soft: color-mix(in srgb, var(--c-ochre) 18%, var(--plate));
+  --c-plum-soft: color-mix(in srgb, var(--c-plum) 18%, var(--plate));
+  --c-teal-soft: color-mix(in srgb, var(--c-teal) 18%, var(--plate));
+  --c-rose-soft: color-mix(in srgb, var(--c-rose) 18%, var(--plate));
+  --c-stone-soft: color-mix(in srgb, var(--c-stone) 18%, var(--plate));
   --f-head: "Lexend", "Atkinson Hyperlegible Next", Verdana, sans-serif;
   --f-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", Verdana, Tahoma, sans-serif;
   --f-mono: "Atkinson Hyperlegible Mono", ui-monospace, Consolas, monospace;
@@ -15,23 +29,25 @@
   :root:not([data-theme="light"]) {
     --paper: #161616; --plate: #1e1e1e; --ink: #e9e7e2; --ink-2: #a9a7a2; --ink-3: #6e6d69; --rule: #2f2f2e;
     --accent: #dddbd5; --accent-mid: #6c6b67; --accent-soft: #2b2b2a; color-scheme: dark;
+    --c-slate: #8fa9c4; --c-clay: #c99484; --c-sage: #a3b994; --c-ochre: #cdb27a; --c-plum: #b49cc0; --c-teal: #8fbcb6; --c-rose: #cc9aa9; --c-stone: #aca69b;
   }
 }
 :root[data-theme="dark"] {
   --paper: #161616; --plate: #1e1e1e; --ink: #e9e7e2; --ink-2: #a9a7a2; --ink-3: #6e6d69; --rule: #2f2f2e;
   --accent: #dddbd5; --accent-mid: #6c6b67; --accent-soft: #2b2b2a; color-scheme: dark;
+    --c-slate: #8fa9c4; --c-clay: #c99484; --c-sage: #a3b994; --c-ochre: #cdb27a; --c-plum: #b49cc0; --c-teal: #8fbcb6; --c-rose: #cc9aa9; --c-stone: #aca69b;
 }
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { height: 100%; }
 body { margin: 0; background: var(--paper); color: var(--ink); overflow: hidden;
-  font: 400 1.06rem/1.7 var(--f-body); letter-spacing: .005em;
+  font: 400 var(--fs, 15px)/1.5 var(--f-body); letter-spacing: .005em;
   display: grid; grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr) auto; }
 a { color: var(--ink); text-underline-offset: 3px; }
 h1, h2, h3 { font-family: var(--f-head); font-weight: 500; text-wrap: balance; margin: 0; letter-spacing: -.01em; }
-h1 { font-size: clamp(2.1rem, 3.4vw, 3.6rem); line-height: 1.08; }
-h2 { font-size: clamp(1.45rem, 2.05vw, 2.2rem); line-height: 1.18; }
+h1 { font-size: clamp(1.9rem, 3vw, 3rem); line-height: 1.08; }
+h2 { font-size: clamp(1.2rem, 1.6vw, 1.7rem); line-height: 1.2; }
 h3 { font-size: 1rem; font-weight: 600; }
 p { margin: 0; }
 strong.key { font-weight: 700; border-bottom: 2px solid var(--accent-mid); }
@@ -52,26 +68,42 @@ kbd { font: 500 .78rem var(--f-mono); border: 1px solid var(--rule); border-bott
 /* C: stage — screens side by side, moved only by transform */
 .stage { grid-column: 1; overflow: clip; min-height: 0; min-width: 0; }
 .rail { display: flex; height: 100%; transition: transform .45s cubic-bezier(.3, .7, .2, 1); }
-.screen { flex: 0 0 100%; height: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1.6fr); }
-.text { min-width: 0; min-height: 0; overflow-y: auto; padding: var(--pad); display: flex; flex-direction: column; gap: 16px; scrollbar-width: thin; }
-.fig { min-width: 0; min-height: 0; overflow-y: auto; padding: var(--pad); background: var(--plate); border-left: 1px solid var(--rule);
+/* text | handle | figure. --split is set on body by the drag handle (cognia.js), 37% by default. */
+.screen { flex: 0 0 100%; height: 100%; min-width: 0; display: grid; grid-template-columns: var(--split, 42%) 6px minmax(0, 1fr); }
+.split { cursor: col-resize; touch-action: none; background: transparent; position: relative; z-index: 1; }
+.split::after { content: ""; position: absolute; inset: 50% 1px auto 1px; height: 44px; margin-top: -22px; border-radius: 3px; background: var(--accent-mid); opacity: .55; }
+.split:hover, .split:focus-visible, .split.drag { background: var(--accent-soft); }
+.split:hover::after, .split:focus-visible::after, .split.drag::after { opacity: 1; }
+.text { min-width: 0; min-height: 0; overflow-y: auto; padding: clamp(14px, 1.6vw, 28px); display: flex; flex-direction: column; gap: 12px; scrollbar-width: thin; }
+.fig { min-width: 0; min-height: 0; overflow-y: auto; padding: clamp(12px, 1.4vw, 24px); background: var(--plate); border-left: 1px solid var(--rule);
   display: flex; flex-direction: column; gap: 14px; scrollbar-width: thin; }
 .kicker { display: flex; gap: 10px; align-items: baseline; font: 500 .82rem var(--f-mono); color: var(--ink-2); }
 .kicker b { color: var(--ink); font-weight: 500; }
-.sofar { color: var(--ink-2); padding-left: 12px; border-left: 3px solid var(--accent-mid); font-size: .96rem; }
+.thread { color: var(--ink-2); font: 500 .8rem var(--f-mono); }
+.prose { }
+div.evidence { display: grid; gap: 4px; padding: 8px 12px; border: 1px solid var(--rule); border-left: 3px solid var(--accent-mid); border-radius: 6px; background: var(--plate); font-size: .93em; max-width: 62ch; }
+div.evidence p b, div.evidence .design::before, .evidence .result::before, .evidence .strength::before { font: 600 .7rem var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); margin-right: 6px; }
+.evidence .design::before { content: "Design"; } .evidence .result::before { content: "Result"; } .evidence .strength::before { content: "Strength"; }
+figure svg text { font-size: var(--fz, 12.5px); }
 .prose { display: grid; gap: .85em; max-width: 62ch; }
 .note { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--rule); font: 400 .9rem/1.55 var(--f-body); color: var(--ink-2); max-width: 62ch; }
 .note b { color: var(--ink); font-weight: 700; }
+
+/* C: reading screen: a screen with no .fig (cognia.js adds .solo) is one centred column, no split handle */
+.screen.solo { grid-template-columns: minmax(0, 1fr); }
+.screen.solo .split { display: none; }
+.screen.solo .text { width: min(68ch, 100%); justify-self: center; }
+.screen.solo .prose, .screen.solo .note, .screen.solo .equation { max-width: none; }
 
 /* C: figures */
 figure { margin: 0; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
 figure > svg { flex: 1 1 auto; width: 100%; height: 0; min-height: 240px; display: block; color: var(--ink); }
 figcaption { font: 400 .92rem/1.5 var(--f-body); color: var(--ink-2); max-width: 82ch; }
 figcaption b { color: var(--ink); font-weight: 700; }
-svg .t    { font: 400 13px var(--f-body); fill: var(--ink); }
-svg .tb   { font: 700 13.5px var(--f-body); fill: var(--ink); }
-svg .ts   { font: 400 12px var(--f-body); fill: var(--ink-2); }
-svg .tm   { font: 400 12px var(--f-mono); fill: var(--ink-2); }
+svg .t    { font: 400 14px var(--f-body); fill: var(--ink); }
+svg .tb   { font: 700 14.5px var(--f-body); fill: var(--ink); }
+svg .ts   { font: 400 13px var(--f-body); fill: var(--ink-2); }
+svg .tm   { font: 400 13px var(--f-mono); fill: var(--ink-2); }
 svg .tcap { font: 700 10.5px var(--f-body); letter-spacing: .1em; fill: var(--ink-3); }
 svg .tbig { font: 500 25px var(--f-head); fill: var(--ink); }
 svg .ta   { fill: var(--accent); }
@@ -79,15 +111,23 @@ svg .axis { stroke: var(--ink-2); stroke-width: 1; fill: none; }
 svg .grid { stroke: var(--rule); stroke-width: 1; fill: none; }
 svg .ink  { stroke: var(--ink); stroke-width: 1.4; fill: none; }
 svg .ink2 { stroke: var(--ink-2); stroke-width: 1.2; fill: none; }
-svg .dash { stroke: var(--ink-2); stroke-width: 1.2; stroke-dasharray: 4 4; fill: none; }
-svg .acc-line { stroke: var(--accent); stroke-width: 2.6; fill: none; }
-svg .acc-fill { fill: var(--accent); }
+svg .dash { stroke: var(--c-ochre); stroke-width: 1.2; stroke-dasharray: 4 4; fill: none; }
+svg .acc-line { stroke: var(--c-slate); stroke-width: 2.6; fill: none; }
+svg .acc-fill { fill: var(--c-slate); }
 svg .mid-fill { fill: var(--accent-mid); }
 svg .soft-fill { fill: var(--accent-soft); }
 svg .card { fill: var(--plate); stroke: var(--rule); stroke-width: 1.3; }
-svg .card-acc { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
-svg .hatch { fill: url(#hatch); stroke: var(--ink-2); stroke-width: 1; }
+svg .card-acc { fill: var(--c-slate-soft); stroke: var(--c-slate); stroke-width: 1.5; }
+svg .hatch { fill: url(#hatch); stroke: var(--c-clay); stroke-width: 1; }
 svg .bg { fill: var(--plate); }
+svg .s-1 { stroke: var(--c-slate); stroke-width: 2.6; fill: none; }  svg .f-1 { fill: var(--c-slate); }  svg .fs-1 { fill: var(--c-slate-soft); }  svg .tc-1 { fill: var(--c-slate); }
+svg .s-2 { stroke: var(--c-clay); stroke-width: 2.6; fill: none; }  svg .f-2 { fill: var(--c-clay); }  svg .fs-2 { fill: var(--c-clay-soft); }  svg .tc-2 { fill: var(--c-clay); }
+svg .s-3 { stroke: var(--c-sage); stroke-width: 2.6; fill: none; }  svg .f-3 { fill: var(--c-sage); }  svg .fs-3 { fill: var(--c-sage-soft); }  svg .tc-3 { fill: var(--c-sage); }
+svg .s-4 { stroke: var(--c-ochre); stroke-width: 2.6; fill: none; }  svg .f-4 { fill: var(--c-ochre); }  svg .fs-4 { fill: var(--c-ochre-soft); }  svg .tc-4 { fill: var(--c-ochre); }
+svg .s-5 { stroke: var(--c-plum); stroke-width: 2.6; fill: none; }  svg .f-5 { fill: var(--c-plum); }  svg .fs-5 { fill: var(--c-plum-soft); }  svg .tc-5 { fill: var(--c-plum); }
+svg .s-6 { stroke: var(--c-teal); stroke-width: 2.6; fill: none; }  svg .f-6 { fill: var(--c-teal); }  svg .fs-6 { fill: var(--c-teal-soft); }  svg .tc-6 { fill: var(--c-teal); }
+svg .s-7 { stroke: var(--c-rose); stroke-width: 2.6; fill: none; }  svg .f-7 { fill: var(--c-rose); }  svg .fs-7 { fill: var(--c-rose-soft); }  svg .tc-7 { fill: var(--c-rose); }
+svg .s-8 { stroke: var(--c-stone); stroke-width: 2.6; fill: none; }  svg .f-8 { fill: var(--c-stone); }  svg .fs-8 { fill: var(--c-stone-soft); }  svg .tc-8 { fill: var(--c-stone); }
 
 /* C: controls + prediction gate */
 .controls { display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: flex-end; }
@@ -98,13 +138,24 @@ svg .bg { fill: var(--plate); }
 .controls input:disabled { opacity: .35; }
 .readout { font: 500 clamp(2.1rem, 3.4vw, 3.2rem)/1 var(--f-mono); letter-spacing: -.02em; font-variant-numeric: tabular-nums; min-width: 5.5ch; }
 .readout small { display: block; font: 700 .7rem var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 6px; }
-.gate { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent-soft); }
+.gate { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--c-slate); border-radius: 8px; background: var(--c-slate-soft); }
 .gate p { font-weight: 600; }
 .gate .opts { display: flex; flex-wrap: wrap; gap: 8px; }
 .gate .verdict { font: 400 .92rem/1.5 var(--f-body); }
 
 /* C: math */
 .eq { font-size: clamp(1.25rem, 1.8vw, 1.9rem); overflow-x: auto; overflow-y: hidden; }
+/* An equation is always one .equation block: display math, a source tag, a where-list.
+   The shell (cognia.js) adds the "(1)" number and the "(slide 9)" tag from data-src. */
+.equation { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; align-items: center; padding: 8px 14px; max-width: 62ch;
+  background: var(--plate); border: 1px solid var(--rule); border-radius: 8px; }
+.equation > .eq { grid-column: 1; text-align: center; font-size: clamp(1.05rem, 1.45vw, 1.45rem); }
+.equation > .eq-n { grid-column: 2; font: 500 .9rem var(--f-mono); color: var(--ink-2); }
+.equation > .eq-src { grid-column: 1 / -1; justify-self: end; font: 500 .78rem var(--f-mono); color: var(--ink-2); }
+.equation > .where { grid-column: 1 / -1; margin: 2px 0 0; padding-top: 6px; border-top: 1px solid var(--rule);
+  display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 14px; align-items: baseline; font: 400 .88rem/1.4 var(--f-body); color: var(--ink-2); }
+.equation > .where dt { text-align: right; color: var(--ink); }
+.equation > .where dd { margin: 0; }
 table { border-collapse: collapse; width: 100%; font: 400 .93rem/1.45 var(--f-body); }
 th { text-align: left; font: 700 .72rem var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); padding: 6px 10px 6px 0; border-bottom: 1px solid var(--ink-2); }
 td { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
@@ -128,7 +179,7 @@ ol.steps li.locked > span { filter: blur(5px); opacity: .45; user-select: none; 
 table.evidence td:first-child { width: 9.5rem; }
 
 .btn { font: 600 .9rem var(--f-body); padding: 8px 14px; border-radius: 7px; border: 1px solid var(--rule); background: var(--plate); color: var(--ink); cursor: pointer; }
-.btn.solid { background: var(--accent); border-color: var(--accent); color: var(--plate); }
+.btn.solid { background: var(--c-slate); border-color: var(--c-slate); color: var(--plate); }
 .btn.right { border-color: var(--ink); border-width: 2px; }
 .btn.wrong { text-decoration: line-through; color: var(--ink-3); }
 .btn:disabled { cursor: default; }
@@ -180,6 +231,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, .node:focus-v
 @media (max-width: 860px) {
   body { grid-template-columns: minmax(0, 1fr); }
   .screen { display: block; overflow-y: auto; }
+  .split { display: none; }
   .text, .fig { overflow: visible; }
   .fig { border-left: 0; border-top: 1px solid var(--rule); }
   figure > svg { height: 320px; flex: none; }

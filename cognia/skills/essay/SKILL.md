@@ -1,11 +1,23 @@
 ---
 name: essay
-description: >
-  Write the on-the-go essay (Markdown for Obsidian) or the one-page essay web page for a source. Use for "write it as an essay", "something to read on my phone".
+description: "Writes the on-the-go essay (Markdown for Obsidian) or the one-page essay web page for a source."
+when_to_use: "Use for \"write it as an essay\", \"something to read on my phone\"."
 argument-hint: "[source-slug]"
+effort: medium
+allowed-tools: Bash(python *) PowerShell(python *)
 ---
 
 # Essay spec
+
+## Hard rules
+
+`vault.py check <essay.md> --static` tests each rule below, and a hook runs it after every save.
+
+1. Every equation is `$$ ... $$` on its own lines, then `Where:` with a bullet per symbol, then `(Source: slide 9)` (`lint: equation`).
+2. Inline `$ $` holds one symbol or a short expression with no `=` (`lint: inline equation`).
+3. No em dashes and no teasers such as "next section" (`lint: prose`).
+4. Every `xychart-beta` has `x-axis` and `y-axis` titles (`lint: xychart`).
+5. No diagram without a claim it shows better than a sentence; most sections need none.
 
 Read `${CLAUDE_PLUGIN_ROOT}/core/rules.md` first. Paths starting `core/` are under `${CLAUDE_PLUGIN_ROOT}/core/`.
 
@@ -13,9 +25,7 @@ State at start (already run for you; do not repeat it):
 
 !`python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" context essay $ARGUMENTS`
 
-The essay is the on-the-go reading: one argument told as a Substack post or a chapter of
-Scott Cunningham's *Mixtape*, in Markdown that reads in Obsidian on a phone. It teaches the
-same thing as the explainer, at the same depth, without needing a desk.
+The essay is the on-the-go reading, in Markdown that reads in Obsidian on a phone, at the same depth as the explainer.
 
 Two modes, both from one file:
 
@@ -68,8 +78,10 @@ $$ \tau^* = \frac{1-\bar g}{1-\bar g + a e} $$
   starting *What to notice:*. Keep diagrams to the moving parts (`core/guides/diagrams.md`) and
   draw them top-down (`flowchart TD`): it reads on a phone, where left-to-right shrinks to
   unreadable. The page shows reading time itself, so the essay does not state it.
-- **Math**: `$…$` inline, `$$…$$` on its own line, then numbered decoding steps. Copy the
-  source's equation exactly and say where it is.
+- **Math**: `$…$` inline for one symbol or a short expression with no `=`. Every equation is
+  `$$…$$` on its own lines, then a line `Where:` with a bullet per symbol, then
+  `(Source: slide 9)`; then the numbered decoding steps. Copy the source's equation exactly.
+  The page numbers it and sets it in a box.
 - **Pull quote**: one `>` blockquote for the single sentence the reader should keep.
 - **Asides**: footnotes `[^1]`, never long parentheses.
 - **What to doubt**: assumptions, scope, the three limitation buckets, each claim tagged in

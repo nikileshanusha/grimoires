@@ -22,7 +22,7 @@ Each job is its own skill, so a request loads only the instructions it needs. Cl
 | `/cognia:learn <concept>` | Teaches one concept, then checks you |
 | `/cognia:plan <goal>` | Plans units for a goal in chat, then builds one unit at a time |
 | `/cognia:expand <reference>` | Fetches an open-access copy of a cited work and ingests it |
-| `/cognia:review` | Spaced recall in chat, at most 6 items, one at a time |
+| `/cognia:review` | Spaced recall in chat, at most 6 items, asked in one message and graded in one reply |
 | `/cognia:explain-back <concept>` | A Feynman session: one probing question at a time, your best version saved |
 | `/cognia:resume` | Last step, next step, what is due |
 | `/cognia:tidy` | Files the drop folder by topic, renames a source, finds something, undoes a move |

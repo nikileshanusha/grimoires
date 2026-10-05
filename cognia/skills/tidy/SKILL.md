@@ -1,9 +1,10 @@
 ---
 name: tidy
-description: >
-  File the vault's drop folder by topic, rename a source by the naming rules, find where something
-  is, or undo a move. Use for "tidy my vault", "file this under X", "where's my X", "undo that move".
+description: "Files the vault's drop folder by topic, renames a source by the naming rules, finds where something is, or undoes a move."
+when_to_use: "Use for \"tidy my vault\", \"file this under X\", \"where's my X\", \"undo that move\"."
 argument-hint: "[file=topic | where <term> | rename <old> <new> | undo]"
+effort: low
+allowed-tools: Bash(python *) PowerShell(python *)
 ---
 
 # Tidy

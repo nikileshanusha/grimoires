@@ -44,6 +44,21 @@
     .replace(/<p>\s*MATH(\d+)X\s*<\/p>/g, (_, i) => `<div class="math-block">\\[${esc(math[i].tex)}\\]</div>`)
     .replace(/MATH(\d+)X/g, (_, i) => math[i].display ? `<div class="math-block">\\[${esc(math[i].tex)}\\]</div>` : `\\(${esc(math[i].tex)}\\)`);
 
+  /* 5b. a display equation, its "Where:" list and "(Source: ...)" line become one numbered block */
+  $$(".math-block", art).forEach((m, k) => {
+    const box = document.createElement("div");
+    box.className = "equation";
+    m.before(box);
+    box.appendChild(m);
+    const n = document.createElement("span");
+    n.className = "eq-n"; n.textContent = `(${k + 1})`;
+    m.after(n);
+    let el = box.nextElementSibling;
+    if (el && el.tagName === "P" && /^Where:?$/i.test(el.textContent.trim())) { el.className = "where-h"; box.appendChild(el); el = box.nextElementSibling; }
+    if (el && (el.tagName === "UL" || el.tagName === "OL") && box.querySelector(".where-h")) { el.className = "where"; box.appendChild(el); el = box.nextElementSibling; }
+    if (el && el.tagName === "P" && /^\(Source:/i.test(el.textContent.trim())) { el.className = "eq-src"; box.appendChild(el); }
+  });
+
   /* 6. structure: dek, callouts, mermaid, tables */
   const h1 = $("h1", art), next = h1 && h1.nextElementSibling;
   if (h1) document.title = h1.textContent + " · Cognia";
@@ -107,12 +122,17 @@
   /* 9. theme, math, diagrams, progress */
   const isDark = () => root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
   const css = v => getComputedStyle(root).getPropertyValue(v).trim();
+  const HUES = ["slate", "clay", "sage", "ochre", "plum", "teal", "rose", "stone"];  // same order as s-1..s-8 in the explainer
   async function drawMermaid() {
     if (!window.mermaid || !mermaids.length) return;
     mermaid.initialize({ startOnLoad: false, theme: "base", securityLevel: "strict", fontFamily: css("--f-body"),
       themeVariables: { primaryColor: css("--plate"), primaryTextColor: css("--ink"), primaryBorderColor: css("--ink-2"),
         lineColor: css("--ink-2"), secondaryColor: css("--accent-soft"), tertiaryColor: css("--paper"), background: css("--plate"),
-        textColor: css("--ink"), fontSize: "15px" } });
+        textColor: css("--ink"), fontSize: "15px",
+        ...Object.fromEntries(HUES.map((h, i) => [`pie${i + 1}`, css("--c-" + h)])),
+        xyChart: { plotColorPalette: HUES.map(h => css("--c-" + h)).join(","), backgroundColor: css("--plate"), titleColor: css("--ink"),
+          xAxisLabelColor: css("--ink-2"), yAxisLabelColor: css("--ink-2"), xAxisTitleColor: css("--ink-2"), yAxisTitleColor: css("--ink-2"),
+          xAxisLineColor: css("--ink-2"), yAxisLineColor: css("--ink-2") } } });
     for (const [k, fig] of mermaids.entries()) {
       try { const { svg } = await mermaid.render(`mmd${k}-${Date.now()}`, fig.dataset.src); fig.innerHTML = svg; }
       catch { fig.innerHTML = `<pre>${esc(fig.dataset.src)}</pre>`; }

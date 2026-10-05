@@ -1,8 +1,10 @@
 ---
 name: ingest
-description: >
-  Map a new paper, slide deck or notes into the vault: concepts, references, prerequisites, diagnostic and path. Use when the user drops in or names material to learn ("learn this", "add this paper").
+description: "Maps a new paper, slide deck or notes into the vault: concepts, references, prerequisites, diagnostic and path."
+when_to_use: "Use when the user drops in or names material to learn (\"learn this\", \"add this paper\")."
 argument-hint: "[file or topic]"
+effort: medium
+allowed-tools: Bash(python *) PowerShell(python *)
 ---
 
 # Ingest a new source
@@ -62,7 +64,12 @@ If the reader does not care, use standard.
 2. **Extraction worksheet.** Before writing anything the reader sees, write terse notes to
    `library/<topic>/<slug>/<slug>-worksheet.md`:
    - the core claim in one sentence;
-   - the **dependency chain**: which idea must come before which. This sets the order of
+   - **every slide item tagged with one kind**: `concept` (an idea to understand), `finding`
+     (a claim about the world), `evidence` (the test, design and result behind a finding) or
+     `example` (an illustration). See `core/guides/learning.md`;
+   - the source's **3 to 6 findings**, each with the concepts it needs and its evidence. A number
+     is evidence for a finding, never a topic of its own;
+   - the **dependency chain** over findings and concepts, not slides: which must come before which. This sets the order of
      the explainer's screens. If you cannot write it, reread the source;
    - every equation with its tier and role (load `core/guides/math.md`), and every symbol with
      where it first appears;
@@ -87,8 +94,9 @@ If the reader does not care, use standard.
    rates `known` or plainly foundational. Create stub pages (`status: new`) for the rest.
 
 7. **Diagnose.** Load `core/guides/learning.md` (Diagnostic). Ask 2 (skim) to 6 rapid questions on the
-   prerequisites that matter most and are not yet rated, one per message. Record each as
-   `known`, `shaky` or `new`.
+   questions on the prerequisites that matter most and are not yet rated, all in one message.
+   Grade the one reply per question and record every rating in one `vault.py record` call
+   (`slug=grade` pairs); the format is in the guide.
 
 8. **Path.** Write `wiki/paths/path-<slug>.md`: units in dependency order, at most 10 minutes
    each, skipping `known` ones.

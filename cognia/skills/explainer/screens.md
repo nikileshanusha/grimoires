@@ -5,16 +5,55 @@ every control from these attributes, so a page needs no JS beyond `fig(...)` cal
 for SVG text and shapes are listed at the end. `core/engine/examples/saez-2001-explainer.html` shows all of
 them in use; open it only to see how a finished screen looks.
 
+## Contents
+
+- Equation (the first component to copy)
+- Claim screen (every screen starts from this)
+- Live figure with controls
+- Prediction gate
+- Step-reveal math (the "In symbols" screen)
+- Evidence table (the "What to doubt" screen)
+- Concept map with recall
+- Check yourself and explain-back
+- Glossary
+- Math in figures
+- SVG classes (shared legend already explains these)
+
+## Equation (the first component to copy)
+
+Every equation with `=`, `<`, `>` or more than a few symbols is one `.equation` block. Never
+write it inline in a paragraph.
+
+```html
+<div class="equation" data-src="slide 9">
+  <p class="eq">\[ \mathrm{gap}_i = \alpha + \beta_1\,\mathrm{tax}_i + u_i \]</p>
+  <dl class="where">
+    <dt>\(\mathrm{gap}_i\)</dt><dd>log export value minus log import value for good \(i\)</dd>
+    <dt>\(\beta_1\)</dt><dd>extra gap per unit of tax rate; estimate 2.93 (s.e. 0.74)</dd>
+  </dl>
+</div>
+```
+
+- `data-src` is where the equation sits in the source ("slide 9", "eq. 4, p. 12"). The shell
+  prints it as a tag and numbers the equation "(1)", "(2)", so prose can say "equation (1)".
+- `.where` lists every symbol in the equation, one `dt`/`dd` each, in plain words with units.
+- Inline `\( \)` is for one symbol or a short expression with no `=`.
+
 ## Claim screen (every screen starts from this)
 
 ```html
 <section class="screen" data-title="The loss" data-min="4">
   <div class="text">
-    <div class="kicker"><b>3</b> / 8 · The loss</div>
-    <p class="sofar">So far: the gain is the slice above the line.</p>
+    <div class="kicker"><b>Finding 2 of 4</b> · evasion and the rate</div>
     <h2>The loss depends on how much reported income shrinks.</h2>
-    <div class="prose"><p>…</p><p>…</p></div>
-    <div class="note"><b>Same person as screen 2.</b> …</div>
+    <div class="prose"><p>(bridge sentence from the open question)</p><p>(puzzle, mechanism, the finding in plain words)</p></div>
+    <div class="evidence" data-src="Author Year, slide 20">
+      <p class="design">What was compared, in one sentence.</p>
+      <p class="result">What it showed, with the number as its meaning ("about 29% more missing").</p>
+      <p class="strength">How well it holds, and what else moves it.</p>
+    </div>
+    <div class="prose"><p>(implication, ending in the next question)</p></div>
+    <div class="note"><b>Illustration.</b> (a source or example note) …</div>
   </div>
   <div class="fig">
     <figure>
@@ -25,9 +64,20 @@ them in use; open it only to see how a finished screen looks.
 </section>
 ```
 
-Screen 0 uses `<div class="kicker"><b>Start</b></div>`, an `<h1>`, and no "So far" line.
+**Budget** at 1366x768: about 250 words of prose per screen, with or without a figure. Count
+8 extra words per `.where` row, 15 per evidence block, 10 per table row and 8 per step. Over
+budget, split into a figure screen and a reading screen; never trim the "because" and "so" links.
+`vault.py lesson` writes this budget as a comment in the fragment, and the save-time lint
+reports overflow by screen. The `.evidence` block is for the test behind a finding (`data-src`,
+`p.design`, `p.result`, optional `p.strength`); an equation that is the concept stays in `.equation`.
+
+A reading screen has no `.fig` div: write only `.text` (kicker, `h2`, `.prose`, and an
+equation block, evidence table or steps if needed). The shell centres it in one column.
+
+Screen 0 uses `<div class="kicker"><b>Start</b></div>` and an `<h1>`. Later screens open with a
+bridge sentence, not a recap line.
 Glossary terms: `<a class="gl" href="#g-slug">term</a>` (see Glossary). Emphasis that is not a
-glossary term: `<strong class="key">`. Math: `\( \)` inline, `<p class="eq">\[ \]</p>` display.
+glossary term: `<strong class="key">`. Math: `\( \)` inline for one symbol, the `.equation` block above for any equation.
 
 ## Live figure with controls
 
@@ -52,7 +102,8 @@ fig("#figLoss", (svg, w, h) => {
 }, ["#e1"]);
 ```
 
-`fig` sizes the viewBox to the box and redraws on resize and on input. `curve(fn, x0, x1, n, X, Y)`
+Label size is fixed: the shell renders every SVG label at about 12.5px, so do not set `font-size`
+(the lint rejects values above 14). `fig` sizes the viewBox to the box and redraws on resize and on input. `curve(fn, x0, x1, n, X, Y)`
 returns a path. Draw at the box size; never stretch a fixed viewBox.
 
 **Plots always use `plot(w, h, {x, y, xTitle, yTitle})`.** It draws both axes, titles, 3 to 6
@@ -175,7 +226,9 @@ flags any `_` or `^` left showing as text.
 ## SVG classes (shared legend already explains these)
 
 Text: `t` body, `tb` bold, `ts` small, `tm` mono numbers, `tcap` caps label, `tbig` large.
-Lines: `axis`, `grid`, `ink`, `ink2`, `dash` (reference), `acc-line` (the thing explained).
-Fills: `acc-fill` solid = gain or result, `hatch` = loss, `card` outlined = context,
+Lines: `axis`, `grid`, `ink`, `ink2`, `dash` (reference, ochre), `acc-line` (the thing explained, slate).
+Fills: `acc-fill` solid = the thing explained, `hatch` = loss (clay), `card` outlined = context,
 `card-acc` shaded = the result box, `soft-fill`, `mid-fill`, `bg` (label backing).
+Hues for marks: `s-1`..`s-8` (line), `f-N` (fill), `fs-N` (soft fill), `tc-N` (text), in the order of the
+table in `core/guides/diagrams.md`. At most 3 hues per figure; shape still carries the meaning.
 Arrowheads: `marker-end="url(#arr)"`, accent `url(#arrA)`.

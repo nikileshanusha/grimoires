@@ -14,9 +14,23 @@ written down. Short text with the links removed is harder to read, not easier.
 - One word for one thing. Once it is "the tax base", it stays "the tax base".
 - Define a term inside the sentence that first uses it, not in a fragment afterwards.
 - Give an important parenthetical its own sentence.
-- No em dashes, and no spaced en dash or double hyphen standing in for one. Use a comma, a
-  colon or a new sentence.
+- Each mark does its own job. An em dash sets off an aside or a turn. A colon delivers what it
+  promises. A semicolon joins two closely linked clauses. Parentheses hold what can be skipped.
+  No mark is banned, but none stands in for another, and none is used to dodge a better sentence.
+- At most two numbers in a sentence, each with its meaning ("about 29% more missing"). The raw
+  estimate goes in a margin note or an evidence block.
+- Sources stay out of the argument. Write the idea ("evasion rises with the tax rate"), and put the
+  author, slide or "my illustration" in a `data-src` margin note.
 - No hedging filler ("arguably", "in some sense"). State real uncertainty once, specifically.
+
+## Level and intuition
+
+- Pitch the level at the source's own and at the diagnostic ratings, not at a fixed audience.
+  A concept rated `known` gets a one-line reminder. One rated `shaky` or `new` is built up from
+  what the reader already has. Basic material stays basic; advanced material is not simplified.
+- Intuition comes from the mechanism: the incentive, the trade-off, the sign argument or the
+  limiting case. Use an analogy only when a `new` concept has no mechanism the reader can already
+  reason with, and say where it stops fitting.
 
 ## Paragraphs and screens
 
@@ -28,16 +42,22 @@ written down. Short text with the links removed is harder to read, not easier.
    "Intuition:". Labels belong to the interface only: headings, table headers, notes, figure
    boxes.
 4. **A screen is one line of reasoning**: X, because Y, so Z. "And also" twice means two
-   screens. No "because" means a list of facts, not an explanation. Aim for 120 to 220 words
-   of prose beside a figure.
-5. **Screens connect through the idea, never through the page.** A screen or section ends with
+   screens. No "because" means a list of facts, not an explanation. A screen holds about 250
+   words of prose with or without a figure (equation `.where` rows, evidence blocks, table rows
+   and steps count as extra words; `vault.py` budgets them). Over that, split the screen into a
+   figure screen and a reading screen; never delete the "because" and "so" links.
+5. **A screen opens with a bridge sentence**, not a recap line: it picks up the question the last
+   screen left open. Then the order is the puzzle, why it should be true (the mechanism), the
+   finding in plain words, the evidence, and the implication that raises the next question.
+   The question comes before the answer.
+6. **Screens connect through the idea, never through the page.** A screen or section ends with
    the consequence that makes the next concept necessary, and the next one opens from that
    consequence, as the next sentence in a paragraph would. Never point at the page itself:
    no "the next screen", "below", "coming up", "we'll see", "let's" or "in this section". Refer
    back the way a paper does, by concept or figure ("the loss in Figure 2"), not by screen number.
-6. **Say why before showing what.** Before an equation, table, figure or simulation, one
+7. **Say why before showing what.** Before an equation, table, figure or simulation, one
    sentence on what to look for; after it, one sentence on what it showed.
-7. **Concrete before abstract**: the example first, then the general rule.
+8. **Concrete before abstract**: the example first, then the general rule.
 
 ## Transitions
 

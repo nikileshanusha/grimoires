@@ -16,12 +16,15 @@ Usage:
   vault.py find   <vault> <term>...                         concept pages matching names or aliases
   vault.py due    <vault> [--date YYYY-MM-DD] [--limit N]   due items with their gist
   vault.py record <vault> <concept-slug> <again|hard|good|easy> [--date YYYY-MM-DD]
+  vault.py record <vault> slug=grade [slug=grade ...] [--date ...]   several concepts in one call
   vault.py stats  <vault> [--date YYYY-MM-DD]
   vault.py lesson <vault> <source-slug> [--concept SLUG] [--title T] [--source CITATION] [--topic T]
                                                             new explainer fragment in writing/
   vault.py build  <vault> [source-slug] [--site DIR]        fragments + essays -> site folder pages and hub
   vault.py essay  <vault> <source-slug>                     build just the essay page
-  vault.py check  <fragment-or-page.html>                   build, then layout self-check: failures or OK
+  vault.py eval   <vault> [--id ID]                         lint a vault after an eval run (evals/evals.json): pass/fail per expectation
+  vault.py hook-lint [--stop]                               hook entry: lint the file just written (stdin JSON), or this session's files
+  vault.py check  <fragment-or-page> [--static]             static lint, then (unless --static) build and layout self-check: failures or OK
 """
 import argparse
 import datetime as dt
@@ -34,6 +37,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
+from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import quote, unquote
 
@@ -222,13 +227,33 @@ def cmd_due(a):
 
 
 def cmd_record(a):
+    """record <vault> <slug> <grade>, or several at once: record <vault> slug=grade slug=grade ..."""
     vault, today = Path(a.vault), parse_date(a.date)
-    p = vault / "wiki" / "concepts" / f"{a.slug}.md"
+    items = a.items
+    if len(items) == 2 and items[1] in GRADE_STEP:
+        pairs = [(items[0], items[1])]
+    else:
+        pairs = [tuple(x.rsplit("=", 1)) if "=" in x else (x, "") for x in items]
+    bad = [f"{s}={g}" for s, g in pairs if g not in GRADE_STEP]
+    if bad:
+        raise SystemExit(f"each item is slug=grade with grade one of {', '.join(GRADE_STEP)}; got: {', '.join(bad)}")
+    failed = 0
+    for slug, grade in pairs:
+        try:
+            record_one(vault, today, slug, grade)
+        except SystemExit as e:
+            failed += 1
+            print(e)
+    return 1 if failed else 0
+
+
+def record_one(vault, today, slug, grade):
+    p = vault / "wiki" / "concepts" / f"{slug}.md"
     if not p.exists():
         raise SystemExit(f"no concept page: {p}")
     fm, text = read_fm(p)
     box = int(fm.get("box") or 0)
-    step = GRADE_STEP[a.grade]
+    step = GRADE_STEP[grade]
     box = 0 if step is None else min(5, box + step)
     status = fm.get("status", "new")
     if status in ("new", "shaky"):
@@ -245,8 +270,8 @@ def cmd_record(a):
         "next_review": nxt.isoformat(),
         "reviews": int(fm.get("reviews") or 0) + 1,
     })
-    log(vault, f"{today.isoformat()} · review · {a.slug} · {a.grade}")
-    print(f"{a.slug}: box {box}, status {status}, next {nxt.isoformat()}")
+    log(vault, f"{today.isoformat()} · review · {slug} · {grade}")
+    print(f"{slug}: box {box}, status {status}, next {nxt.isoformat()}")
 
 
 def streak(vault, today):
@@ -285,6 +310,11 @@ def cmd_stats(a):
         print(f"path {p.stem}: {done}/{done + todo} units")
 
 
+LESSON_BUDGET = """<!-- Budget at 1366x768: a screen holds about 250 words of prose, with or without a figure (evals/calibrate.py).
+     A .where row counts 8 words, an evidence block 15, a table row 10, a step 8. Over budget: split into a figure screen and a reading screen. -->
+"""
+
+
 def cmd_lesson(a):
     """Start an explainer fragment in writing/<topic>/<slug>/. The look lives in the site assets."""
     vault = Path(a.vault).expanduser().resolve()
@@ -296,6 +326,7 @@ def cmd_lesson(a):
     out.parent.mkdir(parents=True, exist_ok=True)
     page = FRAGMENT.read_text(encoding="utf-8")
     page = page.replace("{{TITLE}}", (a.title or a.concept or a.slug).replace("-->", "")).replace("{{SOURCE}}", (a.source or "").replace("-->", ""))
+    page = page.replace("<!--@rail-->" + chr(10), "<!--@rail-->" + chr(10) + LESSON_BUDGET, 1)
     out.write_text(page, encoding="utf-8")
     print(out)
 
@@ -322,17 +353,331 @@ TEASER_RE = re.compile(r"\b(next (?:\w+ )?(?:screens?|sections?|slides?)|coming 
 
 
 def essay_warnings(md):
-    """Problems a script can see in an essay: page-pointing transitions, em dashes, xycharts without axis titles."""
+    """Problems a script can see in an essay: page-pointing transitions, xycharts without axis titles."""
     out, prose = [], re.sub(r"```.*?```", "", md, flags=re.S)
     for m in TEASER_RE.finditer(prose):
         out.append(f'transition points at the page ("{m.group(0)}"); name the concept that comes next instead')
-    if "\u2014" in prose:
-        out.append("em dash in the prose")
     for block in re.findall(r"```mermaid\s+(xychart-beta.*?)```", md, flags=re.S):
         for axis in ("x-axis", "y-axis"):
             if not re.search(rf'^\s*{axis}\s+"[^"]+"', block, re.M):
                 out.append(f"xychart has no {axis} title")
     return out
+
+
+# ---- static lint: structural rules a script can test without a browser -------------------------
+# Rules live here because prose rules get dropped by a model working fast; a hook runs this on
+# every save (hook-lint). The browser `check` still covers what only rendering shows.
+
+# Why these numbers: an inline equation that runs past 25 TeX characters is already a display
+# equation in disguise (the study bug was 49); a glossary short line is read in one glance, and
+# 20 words is about two lines in the panel; three hues per figure is the most a reader can track
+# without a legend lookup.
+INLINE_TEX_MAX = 25
+SHORT_WORDS_MAX = 20
+GREEK = ("alpha beta gamma delta epsilon varepsilon zeta eta theta vartheta iota kappa lambda mu nu xi pi rho sigma tau "
+         "upsilon phi varphi chi psi omega Gamma Delta Theta Lambda Xi Pi Sigma Phi Psi Omega").split()
+VOID = {"br", "hr", "img", "input", "meta", "link", "line", "path", "circle", "rect", "stop", "use", "polygon", "polyline", "ellipse"}
+INLINE_RE = re.compile(r"\\\((.+?)\\\)", re.S)
+DISPLAY_RE = re.compile(r"\\\[(.+?)\\\]", re.S)
+ASSIGN_RE = re.compile(r"^[^=<>]{1,14}=\s*[-\u2212]?[\d.,]+\s*(\\%|%)?$")  # "a = 1.5": a value, not a floating equation
+ATTR_RE = re.compile(r'([\w-]+)\s*=\s*"([^"]*)"')
+
+
+def inline_tex_problem(tex):
+    """Why one inline \\( \\) span should be an equation block instead, or None."""
+    t = tex.strip()
+    if ASSIGN_RE.match(t) or not re.search(r"[A-Za-z]", re.sub(r"\\(?:times|cdot|div|ln|log|approx|%)", "", t)):
+        return None  # a value, or worked arithmetic with no symbols
+    if re.search(r"=|<|>|\\le(?![a-z])|\\ge(?![a-z])|\\leq|\\geq", t):
+        return "has a relation sign"
+    if len(t) > INLINE_TEX_MAX:
+        return f"is {len(t)} TeX characters (limit {INLINE_TEX_MAX})"
+    return None
+
+
+def tex_symbols(tex):
+    """Symbols a reader must be told about: Greek letters, accented letters, letters with sub/superscripts, \\text names."""
+    out = set()
+    for m in re.finditer(r"\\([A-Za-z]+)", tex):
+        if m.group(1) in GREEK:
+            out.add("\\" + m.group(1))
+    for m in re.finditer(r"\\(?:bar|hat|tilde|dot)\s*\{?\s*([A-Za-z])", tex):
+        out.add(m.group(0).replace("{", "").replace(" ", ""))
+    for m in re.finditer(r"(?<![\\A-Za-z])([A-Za-z])(?=\s*[_^])", tex):
+        out.add(m.group(1) + "_")
+    for m in re.finditer(r"\\(text|mathrm)\{([^}]*)\}", tex):
+        out.add("\\" + m.group(1) + "{" + m.group(2) + "}")
+    return out
+
+
+BUDGET_FIG, BUDGET_SOLO = 250, 250  # words of prose that fit one screen at 1366x768 (evals/calibrate.py)
+WEIGHT = {"evidence": 15, "dd": 8, "tr": 10, "step": 8}  # extra words an evidence block, .where row, table row or step costs
+
+
+class _Page(HTMLParser):
+    """Collects what the lint needs from a fragment's rail: screens, equation blocks, display math."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.evidence = []
+        self.stack, self.screens, self.equations, self.stray, self.inline, self.all_tex = [], [], [], [], [], []
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        cls = (a.get("class") or "").split()
+        node = {"tag": tag, "cls": cls, "attrs": a}
+        if tag == "section" and "screen" in cls:
+            self.screens.append({"tags": set(), "cls": set(), "h2": "", "h1": "", "title": a.get("data-title", ""), "words": 0, "extra": 0, "fig": False})
+        if self.screens:
+            sc = self.screens[-1]
+            sc["tags"].add(tag)
+            sc["cls"].update(cls)
+            if "fig" in cls:
+                sc["fig"] = True
+            if tag == "div" and "evidence" in cls:
+                sc["extra"] += WEIGHT["evidence"]
+                self.evidence.append({"src": a.get("data-src", ""), "cls": set()})
+            elif tag == "p" and self.evidence and any(n["tag"] == "div" and "evidence" in n["cls"] for n in self.stack):
+                self.evidence[-1]["cls"].update(cls)
+            elif tag in ("dd", "tr"):
+                sc["extra"] += WEIGHT[tag]
+            elif tag == "li" and any(n["tag"] == "ol" and "steps" in n["cls"] for n in self.stack):
+                sc["extra"] += WEIGHT["step"]
+        if tag == "div" and "equation" in cls:
+            node["eq"] = {"src": a.get("data-src", "").strip(), "where": "", "tex": "", "has_where": False}
+            self.equations.append(node["eq"])
+        if tag not in VOID:
+            self.stack.append(node)
+
+    def handle_startendtag(self, tag, attrs):
+        pass
+
+    def handle_endtag(self, tag):
+        for i in range(len(self.stack) - 1, -1, -1):
+            if self.stack[i]["tag"] == tag:
+                del self.stack[i:]
+                return
+
+    def handle_data(self, data):
+        if not self.stack:
+            return
+        eq = next((n["eq"] for n in reversed(self.stack) if "eq" in n), None)
+        in_steps = any(n["tag"] == "ol" and "steps" in n["cls"] for n in self.stack)
+        if self.screens and any("text" in n["cls"] for n in self.stack) and not any(n["tag"] in ("h1", "h2") or "kicker" in n["cls"] for n in self.stack):
+            self.screens[-1]["words"] += len(data.split())
+        if self.screens:
+            for tag in ("h1", "h2"):
+                if any(n["tag"] == tag for n in self.stack):
+                    self.screens[-1][tag] += data
+        self.all_tex += [m.group(1) for m in INLINE_RE.finditer(data)] + [m.group(1) for m in DISPLAY_RE.finditer(data)]
+        for m in DISPLAY_RE.finditer(data):
+            if eq is None:
+                self.stray.append(m.group(1).strip())
+            elif any("eq" in n["cls"] for n in self.stack):
+                eq["tex"] += " " + m.group(1)
+        if eq is not None and any(n["tag"] == "dl" and "where" in n["cls"] for n in self.stack):
+            eq["where"] += " " + data
+            eq["has_where"] = True
+        if not in_steps:
+            for m in INLINE_RE.finditer(data):
+                why = inline_tex_problem(m.group(1))
+                if why:
+                    self.inline.append((m.group(1).strip(), why))
+
+    def handle_comment(self, data):
+        pass
+
+
+def _words(s):
+    return re.findall(r"[a-z0-9]+", s.lower())
+
+
+def lint_fragment(text):
+    """Failures in an explainer fragment, as strings. Lines starting "warning:" do not block."""
+    parts = parse_fragment(text)
+    rail, gloss = parts.get("rail", ""), parts.get("glossary", "")
+    out = []
+    page = _Page()
+    page.feed(re.sub(r"<script\b.*?</script>", "", rail, flags=re.S))
+    # equations: inline, display shape, symbols explained
+    for tex, why in page.inline:
+        out.append(f"inline equation \\({tex[:40]}\\) {why}; make it an .equation block (display, data-src, .where list) or reword it")
+    for tex in page.all_tex:
+        if re.search(r"\\text\{[^}]*\}\s*[_^]", tex):
+            out.append(f"\\({tex[:30]}\\): a named variable with a subscript must use \\mathrm{{...}}, not \\text{{...}} (KaTeX breaks it into pieces)")
+    for tex in page.stray:
+        out.append(f"display equation \\[{tex[:40]}\\] sits outside a .equation block (needs data-src and a .where list)")
+    gsyms = " ".join(re.findall(r'data-sym="([^"]*)"', gloss))
+    for k, eq in enumerate(page.equations, 1):
+        if not eq["src"]:
+            out.append(f"equation block {k} has no data-src (where the equation sits in the source, e.g. \"slide 9\")")
+        if not eq["has_where"]:
+            out.append(f"equation block {k} has no .where list of its symbols")
+            continue
+        have = re.sub(r"[\s{}]", "", eq["where"] + " " + gsyms)
+        for sym in sorted(tex_symbols(eq["tex"])):
+            plain = sym.rstrip("_")
+            found = re.search(rf"(?<![A-Za-z\]){plain}(?![A-Za-z])", have) if len(plain) == 1 else re.sub(r"[\s{}]", "", sym) in have
+            if not found:
+                out.append(f"equation {k}: symbol {sym.rstrip('_')} is in neither its .where list nor a glossary data-sym")
+    for k, ev in enumerate(page.evidence, 1):
+        if not ev["src"].strip():
+            out.append(f'evidence block {k} has no data-src (e.g. "Fisman & Wei 2004, slide 20")')
+        for need in ("design", "result"):
+            if need not in ev["cls"]:
+                out.append(f"evidence block {k} has no p.{need} (a block holds p.design, p.result and optionally p.strength)")
+    for m in re.finditer(r"font-size\s*[=:]\s*[\"']?(\d+(?:\.\d+)?)(?![\d.%])", rail + parts.get("script", "")):
+        if float(m.group(1)) > 14:
+            out.append(f"figure code sets font-size {m.group(1)}; the shell fixes label size (about 12.5px), so drop font-size and let the drawing scale")
+    # screen skeleton
+    for i, s in enumerate(page.screens):
+        where = f"screen {i} ({s['title']})"
+        if "kicker" not in s["cls"]:
+            out.append(f"{where}: no .kicker")
+        if i == 0 and "h1" not in s["tags"]:
+            out.append(f"{where}: screen 0 needs an h1")
+        if i > 0 and "h2" not in s["tags"]:
+            out.append(f"{where}: no h2 headline")
+        if "sofar" in s["cls"]:
+            out.append(f"warning: {where}: .sofar is retired; open with a bridge sentence from the open question, and put the reader's place in the .kicker thread label")
+        budget = BUDGET_FIG if s["fig"] else BUDGET_SOLO
+        used = s["words"] + s["extra"]
+        if used > budget * 1.15:
+            out.append(f"{where}: about {used} words against a budget of {budget} ({used - budget} over); split it into a figure screen and a reading screen")
+        elif used > budget:
+            out.append(f"warning: {where}: about {used} words against a budget of {budget}; it may scroll")
+        if "prose" not in s["cls"] and not ({"check", "evidence"} & s["cls"] or "textarea" in s["tags"]):
+            out.append(f"{where}: no .prose block")
+    # figures
+    figs = re.findall(r"<figure\b.*?</figure>", rail, flags=re.S)
+    nums, last = [], 0
+    for f in figs:
+        cap = re.search(r"<figcaption\b[^>]*>(.*?)</figcaption>", f, flags=re.S)
+        capt = cap.group(1) if cap else ""
+        label = re.search(r'aria-label="([^"]*)"', f)
+        if "<textarea" in f:
+            continue  # the explain-back box is not a figure
+        if re.search(r"<b>\s*Table\s+\d+\.?\s*</b>", capt):  # a table in a figure: needs a source, not a "What to notice"
+            if "Source:" not in capt:
+                out.append("a table caption lacks \"Source:\"")
+            continue
+        fn = re.search(r"<b>\s*Figure\s+(\d+)\.?\s*</b>", capt)
+        name = f"figure {fn.group(1)}" if fn else "a figure"
+        if not cap:
+            out.append(f"{name} has no figcaption")
+            continue
+        if not fn:
+            out.append(f"{name}: caption lacks <b>Figure n.</b>")
+        else:
+            nums.append(int(fn.group(1)))
+        hues = set(re.findall(r"(?:s|f|fs|tc)-([1-8])", re.sub(r"<figcaption.*", "", f, flags=re.S)))
+        if len(hues) > 3:
+            out.append(f"warning: {name} uses {len(hues)} hues (limit 3 per figure)")
+        if "What to notice:" not in capt:
+            out.append(f"{name}: caption lacks \"What to notice:\"")
+        if "Source:" not in capt:
+            out.append(f"{name}: caption lacks \"Source:\"")
+        if label and fn:
+            lw = set(_words(label.group(1)))
+            for s in page.screens:
+                hw = set(_words(s["h2"]))
+                if hw and lw and len(lw & hw) / max(1, len(lw | hw)) > 0.8:
+                    out.append(f"warning: {name} aria-label just restates its screen heading; a figure should show something the prose cannot")
+    if nums and nums != list(range(1, len(nums) + 1)):
+        out.append(f"figure numbers run {', '.join(map(str, nums))}; they must be 1, 2, 3 in page order")
+    # prose
+    flat = re.sub(r"<script\b.*?</script>|<style\b.*?</style>", "", rail + "\n" + gloss, flags=re.S)
+    plain = re.sub(r"<[^>]+>", " ", flat)
+    for m in TEASER_RE.finditer(plain):
+        out.append(f'transition points at the page ("{m.group(0)}"); name the concept that comes next instead')
+    # glossary
+    ids = re.findall(r'<article\b[^>]*\bid="([^"]+)"', gloss)
+    links = {m for m in re.findall(r'<a\b[^>]*class="[^"]*\bgl\b[^"]*"[^>]*href="#([^"]+)"', rail)}
+    for l in sorted(links - set(ids)):
+        out.append(f"glossary link #{l} points to no entry")
+    for e in ids:
+        if e not in links:
+            out.append(f"glossary entry #{e} is never linked from a screen")
+    for m in re.finditer(r'<article\b[^>]*\bid="([^"]+)".*?</article>', gloss, flags=re.S):
+        sh = re.search(r'<p class="short">(.*?)</p>', m.group(0), flags=re.S)
+        if sh and len(re.sub(r"<[^>]+>", "", sh.group(1)).split()) > SHORT_WORDS_MAX:
+            out.append(f"glossary entry #{m.group(1)}: .short is over {SHORT_WORDS_MAX} words")
+    return out
+
+
+def lint_essay(md):
+    """Failures in an essay: the existing prose rules plus the equation pattern."""
+    out = list(essay_warnings(md))
+    prose = re.sub(r"```.*?```", "", md, flags=re.S)
+    prose = re.sub(r"\A---\r?\n.*?\r?\n---\r?\n", "", prose, flags=re.S)
+    for m in re.finditer(r"\$\$(.+?)\$\$", prose, flags=re.S):
+        after = prose[m.end():].lstrip("\n").splitlines()
+        rest = "\n".join(after)
+        tex = m.group(1).strip()
+        if not re.match(r"\s*Where:\s*\n\s*\n?(?:\s*[-*\d][^\n]*\n?)+\s*\n?\s*\(Source:", rest + "\n"):
+            out.append(f"display equation $${tex[:30]}$$ needs a line \"Where:\", a bullet per symbol, then \"(Source: ...)\"")
+    for m in re.finditer(r"(?<![\\$])\$([^\s$](?:[^$\n]*?[^\s$])?)\$(?!\d)", re.sub(r"\$\$.+?\$\$", "", prose, flags=re.S)):
+        why = inline_tex_problem(m.group(1))
+        if why:
+            out.append(f"inline equation ${m.group(1)[:40]}$ {why}; make it a $$ block with Where: and a source")
+    return out
+
+
+def lint_failures(items):
+    return [x for x in items if not x.startswith("warning:")]
+
+
+def lint_file(path):
+    """Lint one explainer fragment or essay by file name; None for any other file."""
+    p = Path(path)
+    if p.name.endswith("-explainer.html"):
+        text = p.read_text(encoding="utf-8")
+        return lint_fragment(text) if "<!--@rail-->" in text else []
+    if p.name.endswith("-essay.md"):
+        return lint_essay(p.read_text(encoding="utf-8"))
+    return None
+
+
+def in_writing(path):
+    """A vault writing/**/*-explainer.html or *-essay.md file, or None."""
+    p = Path(path)
+    if not (p.name.endswith("-explainer.html") or p.name.endswith("-essay.md")):
+        return None
+    if not p.parent.exists():
+        return None
+    vault = find_vault(p.parent)
+    if vault is None or "writing" not in p.resolve().relative_to(vault).parts[:1]:
+        return None
+    return vault
+
+
+def cmd_hook_lint(a):
+    """PostToolUse (stdin JSON) and Stop (--stop) hook. Exit 2 with failures on stderr blocks; anything odd exits 0."""
+    try:
+        data = json.loads(sys.stdin.read() or "{}")
+        fails = []
+        if a.stop:
+            if data.get("stop_hook_active"):
+                return 0
+            vault = find_vault(data.get("cwd") or None)
+            stamp = vault / "_meta" / ".session" if vault else None
+            if not stamp or not stamp.exists():
+                return 0
+            since = float(stamp.read_text().strip())
+            for f in sorted((vault / "writing").rglob("*")) if (vault / "writing").exists() else []:
+                if f.is_file() and f.stat().st_mtime > since and lint_file(f) is not None:
+                    fails += [f"{f.name}: {x}" for x in lint_failures(lint_file(f))]
+        else:
+            path = (data.get("tool_input") or {}).get("file_path")
+            if not path or not in_writing(path):
+                return 0
+            fails = [f"{Path(path).name}: {x}" for x in lint_failures(lint_file(path) or [])]
+        if fails:
+            print("cognia lint failed. Fix these, then save again:\n- " + "\n- ".join(fails), file=sys.stderr)
+            return 2
+    except Exception:
+        return 0
+    return 0
 
 
 def build_essay(vault, src, site):
@@ -592,6 +937,12 @@ def cmd_tidy(a):
         if a.auto:
             return 0
         raise SystemExit(f"no vault at {vault} (no VAULT.md)")
+    if getattr(a, "session_start", False):  # the Stop hook lints only files changed after this moment
+        try:
+            (vault / "_meta").mkdir(exist_ok=True)
+            (vault / "_meta" / ".session").write_text(str(time.time()), encoding="utf-8")
+        except OSError:
+            pass
     if a.undo:
         return undo_tidy(vault)
     chat = {}
@@ -1043,6 +1394,15 @@ def topics_line(vault):
 
 
 def cmd_context(a):
+    """Never fails: a non-zero exit from the inline command would abort the skill that runs it."""
+    try:
+        return _context(a)
+    except BaseException as e:  # SystemExit from helpers included
+        print(f"(cognia context unavailable: {e}. Carry on without it; run vault.py about/due/stats by hand if needed.)")
+        return 0
+
+
+def _context(a):
     """What a skill needs to start, printed by an inline command so Claude does not read files for it."""
     vault = find_vault()
     if vault is None:
@@ -1239,6 +1599,87 @@ def cmd_migrate(a):
     return 0
 
 
+# ---- eval: lint the outputs of an eval run and print pass/fail per expectation ----------------
+
+NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+
+
+def eval_check(vault, check, skill=None):
+    """(passed, detail) for one expectation token from evals/evals.json."""
+    w = vault / "writing"
+    pages = []
+    if w.exists():
+        pages = (sorted(w.rglob("*-explainer.html")) if skill != "essay" else []) + (sorted(w.rglob("*-essay.md")) if skill != "explainer" else [])
+    kind, _, arg = check.partition(":")
+    if kind == "file":
+        hits = sorted(vault.glob(arg))
+        return bool(hits), (hits[0].relative_to(vault).as_posix() if hits else f"no file matches {arg}")
+    if not pages:
+        return False, "no explainer or essay was written under writing/"
+    if kind == "lint_clean":
+        bad = [f"{p.name}: {x}" for p in pages for x in lint_failures(lint_file(p) or [])]
+        return not bad, "; ".join(bad[:3]) + (f" (+{len(bad) - 3} more)" if len(bad) > 3 else "")
+    if kind == "no_decorative_figure":
+        bad = [p.name for p in pages if any("restates its screen heading" in x for x in (lint_file(p) or []))]
+        return not bad, ", ".join(bad)
+    if kind == "no_inline_equation":
+        bad = [p.name for p in pages if any(x.startswith("inline equation") for x in (lint_file(p) or []))]
+        return not bad, ", ".join(bad)
+    if kind == "equation_block":
+        for p in pages:
+            t = p.read_text(encoding="utf-8")
+            if p.suffix == ".md" and re.search(r"\$\$.+?\$\$\s*\n\s*Where:", t, re.S) and "(Source:" in t:
+                return True, p.name
+            if p.suffix == ".html" and re.search(r'class="equation"[^>]*data-src="[^"]+"', t) and 'class="where"' in t:
+                return True, p.name
+        return False, "no equation with source and where-list"
+    if kind == "equation_src":
+        for p in pages:
+            if re.search(rf'class="equation"[^>]*data-src="[^"]*\b{re.escape(arg)}\b', p.read_text(encoding="utf-8")):
+                return True, p.name
+        return False, f"no equation block with data-src naming {arg}"
+    if kind == "xychart_titled":
+        for p in pages:
+            blocks = re.findall(r"```mermaid\s+(xychart-beta.*?)```", p.read_text(encoding="utf-8"), flags=re.S)
+            if blocks and not essay_warnings("```mermaid\n" + blocks[0] + "```"):
+                return True, p.name
+        return False, "no xychart-beta with x-axis and y-axis titles"
+    if kind == "max_screens":
+        n = max((len(re.findall(r'<section class="screen"', p.read_text(encoding="utf-8"))) for p in pages if p.suffix == ".html"), default=0)
+        return 0 < n <= int(arg), f"{n} screens"
+    if kind == "controlled_names":
+        bad = []
+        for base in ("library", "writing"):
+            for f in sorted((vault / base).rglob("*")) if (vault / base).exists() else []:
+                stem = re.sub(r"-(explainer|essay|worksheet|text)$", "", f.stem) if f.is_file() else f.name
+                if not NAME_RE.match(stem) or len(stem) > 80:
+                    bad.append(f.name)
+        return not bad, ", ".join(bad[:4])
+    if kind == "nd_slug":
+        names = [p.name for p in (vault / "library").rglob("*")] if (vault / "library").exists() else []
+        ok = any("-nd-" in n for n in names)
+        return ok, ("" if ok else "no library name has -nd-")
+    return False, f"unknown check {check}"
+
+
+def cmd_eval(a):
+    """vault.py eval <vault-after-the-run> [--id ID]: run the lint-checkable expectations of evals/evals.json."""
+    vault = Path(a.vault).expanduser().resolve()
+    spec = json.loads((CORE.parent / "evals" / "evals.json").read_text(encoding="utf-8"))["evals"]
+    todo = [e for e in spec if not a.id or e["id"] == a.id]
+    if not todo:
+        raise SystemExit(f"no eval named {a.id}; ids: {', '.join(e['id'] for e in spec)}")
+    failed = 0
+    for e in todo:
+        print(f"{e['id']} ({e['skill']})")
+        for x in e["expectations"]:
+            ok, why = eval_check(vault, x["check"], e["skill"])
+            failed += not ok
+            print(f"  {'PASS' if ok else 'FAIL'}  {x['text']}" + (f"  [{why}]" if why else ""))
+    print(f"{failed} expectation(s) failed" if failed else "all expectations passed")
+    return 1 if failed else 0
+
+
 def find_browser():
     if os.environ.get("COGNIA_BROWSER"):
         return os.environ["COGNIA_BROWSER"]
@@ -1259,7 +1700,15 @@ def cmd_check(a):
     page = Path(a.page).resolve()
     if not page.exists():
         raise SystemExit(f"no such page: {page}")
-    if "<!--@rail-->" in page.read_text(encoding="utf-8"):  # a fragment: build it, then check the built page
+    text = page.read_text(encoding="utf-8")
+    items = lint_essay(text) if page.suffix == ".md" else lint_fragment(text) if "<!--@rail-->" in text else []
+    for w in items:
+        print(w)
+    static = lint_failures(items)
+    if a.static or page.suffix == ".md":
+        print("OK" if not static else f"{len(static)} problem(s)")
+        return 1 if static else 0
+    if "<!--@rail-->" in text:  # a fragment: build it, then check the built page
         vault = next((d for d in page.parents if (d / "VAULT.md").exists()), None)
         if not vault:
             raise SystemExit("fragment is not inside a vault (no VAULT.md above it)")
@@ -1283,8 +1732,8 @@ def cmd_check(a):
     res = run(W, H)
     if (res["vw"], res["vh"]) != (W, H):  # headless windows lose some size to browser chrome
         res = run(2 * W - res["vw"], 2 * H - res["vh"])
-    problems = res["problems"]
-    for p in problems:
+    problems = static + lint_failures(res["problems"])
+    for p in res["problems"]:
         print(p)
     print("OK" if not problems else f"{len(problems)} problem(s)")
     return 1 if problems else 0
@@ -1294,7 +1743,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("init"); s.add_argument("vault"); s.set_defaults(fn=cmd_init)
-    s = sub.add_parser("tidy"); s.add_argument("vault", nargs="?"); s.add_argument("--auto", action="store_true"); s.add_argument("--quiet", action="store_true"); s.add_argument("--dry-run", action="store_true"); s.add_argument("--undo", action="store_true"); s.add_argument("--tag", action="append"); s.add_argument("--min-age", type=float, default=3.0); s.set_defaults(fn=cmd_tidy)
+    s = sub.add_parser("tidy"); s.add_argument("vault", nargs="?"); s.add_argument("--auto", action="store_true"); s.add_argument("--quiet", action="store_true"); s.add_argument("--dry-run", action="store_true"); s.add_argument("--undo", action="store_true"); s.add_argument("--tag", action="append"); s.add_argument("--min-age", type=float, default=3.0); s.add_argument("--session-start", action="store_true"); s.set_defaults(fn=cmd_tidy)
     s = sub.add_parser("rename"); s.add_argument("vault"); s.add_argument("old"); s.add_argument("new"); s.set_defaults(fn=cmd_rename)
     s = sub.add_parser("index"); s.add_argument("vault"); s.add_argument("--quiet", action="store_true"); s.set_defaults(fn=cmd_index)
     s = sub.add_parser("about"); s.add_argument("vault"); s.add_argument("terms", nargs="+"); s.set_defaults(fn=cmd_about)
@@ -1304,12 +1753,14 @@ def main(argv=None):
     s = sub.add_parser("migrate"); s.add_argument("vault"); s.add_argument("--apply", action="store_true"); s.add_argument("--topic"); s.set_defaults(fn=cmd_migrate)
     s = sub.add_parser("find"); s.add_argument("vault"); s.add_argument("terms", nargs="+"); s.set_defaults(fn=cmd_find)
     s = sub.add_parser("due"); s.add_argument("vault"); s.add_argument("--date"); s.add_argument("--limit", type=int, default=6); s.set_defaults(fn=cmd_due)
-    s = sub.add_parser("record"); s.add_argument("vault"); s.add_argument("slug"); s.add_argument("grade", choices=GRADE_STEP); s.add_argument("--date"); s.set_defaults(fn=cmd_record)
+    s = sub.add_parser("record"); s.add_argument("vault"); s.add_argument("items", nargs="+"); s.add_argument("--date"); s.set_defaults(fn=cmd_record)
     s = sub.add_parser("stats"); s.add_argument("vault"); s.add_argument("--date"); s.set_defaults(fn=cmd_stats)
     s = sub.add_parser("lesson"); s.add_argument("vault"); s.add_argument("slug"); s.add_argument("--concept"); s.add_argument("--title"); s.add_argument("--source"); s.add_argument("--topic"); s.set_defaults(fn=cmd_lesson)
     s = sub.add_parser("build"); s.add_argument("vault"); s.add_argument("slug", nargs="?"); s.add_argument("--site"); s.set_defaults(fn=cmd_build)
     s = sub.add_parser("essay"); s.add_argument("vault"); s.add_argument("slug"); s.add_argument("--site"); s.set_defaults(fn=cmd_essay)
-    s = sub.add_parser("check"); s.add_argument("page"); s.set_defaults(fn=cmd_check)
+    s = sub.add_parser("hook-lint"); s.add_argument("--stop", action="store_true"); s.set_defaults(fn=cmd_hook_lint)
+    s = sub.add_parser("eval"); s.add_argument("vault"); s.add_argument("--id"); s.set_defaults(fn=cmd_eval)
+    s = sub.add_parser("check"); s.add_argument("page"); s.add_argument("--static", action="store_true"); s.set_defaults(fn=cmd_check)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     a = ap.parse_args(argv)
