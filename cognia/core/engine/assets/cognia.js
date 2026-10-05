@@ -15,9 +15,9 @@
   body.insertAdjacentHTML("afterbegin", `
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
   <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-    <rect width="6" height="6" style="fill:var(--plate)"/><line x1="0" y1="0" x2="0" y2="6" style="stroke:var(--ink-2)" stroke-width="1.6"/></pattern>
+    <rect width="6" height="6" style="fill:var(--plate)"/><line x1="0" y1="0" x2="0" y2="6" style="stroke:var(--c-clay)" stroke-width="1.6"/></pattern>
   <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--ink-2)"/></marker>
-  <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--accent)"/></marker>
+  <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--c-slate)"/></marker>
 </defs></svg>
 <header class="head">
   <span class="wordmark">cognia</span>
@@ -65,7 +65,7 @@
   <dt>${sw(22, 10, '<line x1="0" y1="5" x2="22" y2="5" class="dash"/>')}</dt><dd><b>Dashed line</b>: a reference level or a what-if</dd>
   <dt>${sw(26, 10, '<line x1="0" y1="5" x2="22" y2="5" class="ink2" marker-end="url(#arr)"/>')}</dt><dd><b>Arrow</b>: one idea feeds the next; the word on it says how</dd>
   <dt>${sw(16, 16, '<circle cx="8" cy="8" r="6" class="acc-fill"/>')}</dt><dd><b>Dot</b>: where two curves cross, the answer</dd>
-</dl></section>
+</dl><p class="hint">Colour only groups things. Shape and labels say what each one is, so the page reads in black and white too.</p></section>
 <section><h3>Evidence tags</h3><dl>
   <dt><span class="tag established"><i></i></span></dt><dd><b>Established</b>: shown directly in the source</dd>
   <dt><span class="tag derived"><i></i></span></dt><dd><b>Derived</b>: follows from the source by arithmetic</dd>

@@ -498,6 +498,9 @@ def lint_fragment(text):
             out.append(f"{name}: caption lacks <b>Figure n.</b>")
         else:
             nums.append(int(fn.group(1)))
+        hues = set(re.findall(r"(?:s|f|fs|tc)-([1-8])", re.sub(r"<figcaption.*", "", f, flags=re.S)))
+        if len(hues) > 3:
+            out.append(f"warning: {name} uses {len(hues)} hues (limit 3 per figure)")
         if "What to notice:" not in capt:
             out.append(f"{name}: caption lacks \"What to notice:\"")
         if "Source:" not in capt:

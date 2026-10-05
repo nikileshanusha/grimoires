@@ -2,6 +2,15 @@
 :root {
   --paper: #f5f5f3; --plate: #fcfcfb; --ink: #1c1c1c; --ink-2: #555553; --ink-3: #94948f; --rule: #dbdbd8;
   --accent: #2a2a29; --accent-mid: #a3a29e; --accent-soft: #e7e7e3;
+  --c-slate: #4f6d8a; --c-clay: #a0634f; --c-sage: #6f8a5e; --c-ochre: #a88a45; --c-plum: #7d6189; --c-teal: #4f8580; --c-rose: #a5677a; --c-stone: #7a746a;
+  --c-slate-soft: color-mix(in srgb, var(--c-slate) 18%, var(--plate));
+  --c-clay-soft: color-mix(in srgb, var(--c-clay) 18%, var(--plate));
+  --c-sage-soft: color-mix(in srgb, var(--c-sage) 18%, var(--plate));
+  --c-ochre-soft: color-mix(in srgb, var(--c-ochre) 18%, var(--plate));
+  --c-plum-soft: color-mix(in srgb, var(--c-plum) 18%, var(--plate));
+  --c-teal-soft: color-mix(in srgb, var(--c-teal) 18%, var(--plate));
+  --c-rose-soft: color-mix(in srgb, var(--c-rose) 18%, var(--plate));
+  --c-stone-soft: color-mix(in srgb, var(--c-stone) 18%, var(--plate));
   --f-head: "Lexend", "Atkinson Hyperlegible Next", Verdana, sans-serif;
   --f-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", Verdana, Tahoma, sans-serif;
   --f-mono: "Atkinson Hyperlegible Mono", ui-monospace, Consolas, monospace;
@@ -11,11 +20,13 @@
   :root:not([data-theme="light"]) {
     --paper: #161616; --plate: #1e1e1e; --ink: #e9e7e2; --ink-2: #a9a7a2; --ink-3: #6e6d69; --rule: #2f2f2e;
     --accent: #dddbd5; --accent-mid: #6c6b67; --accent-soft: #2b2b2a; color-scheme: dark;
+    --c-slate: #8fa9c4; --c-clay: #c99484; --c-sage: #a3b994; --c-ochre: #cdb27a; --c-plum: #b49cc0; --c-teal: #8fbcb6; --c-rose: #cc9aa9; --c-stone: #aca69b;
   }
 }
 :root[data-theme="dark"] {
   --paper: #161616; --plate: #1e1e1e; --ink: #e9e7e2; --ink-2: #a9a7a2; --ink-3: #6e6d69; --rule: #2f2f2e;
   --accent: #dddbd5; --accent-mid: #6c6b67; --accent-soft: #2b2b2a; color-scheme: dark;
+    --c-slate: #8fa9c4; --c-clay: #c99484; --c-sage: #a3b994; --c-ochre: #cdb27a; --c-plum: #b49cc0; --c-teal: #8fbcb6; --c-rose: #cc9aa9; --c-stone: #aca69b;
 }
 
 * { box-sizing: border-box; }

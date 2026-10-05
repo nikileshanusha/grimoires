@@ -112,9 +112,9 @@ explains, the page is not finished.
 
 ## Look
 
-Neutral graphite, light and dark themes, Lexend and Atkinson Hyperlegible: all in the shell.
-Meaning comes from fill, hatch, outline and dash, never hue. Illustrations with chosen numbers
-say so.
+Graphite with eight muted hues for figure marks (at most 3 per figure), light and dark themes,
+Lexend and Atkinson Hyperlegible: all in the shell. Meaning comes from fill, hatch, outline and
+dash; hue only groups. Illustrations with chosen numbers say so.
 
 ## Self-check before delivering
 

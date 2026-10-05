@@ -195,7 +195,9 @@ flags any `_` or `^` left showing as text.
 ## SVG classes (shared legend already explains these)
 
 Text: `t` body, `tb` bold, `ts` small, `tm` mono numbers, `tcap` caps label, `tbig` large.
-Lines: `axis`, `grid`, `ink`, `ink2`, `dash` (reference), `acc-line` (the thing explained).
-Fills: `acc-fill` solid = gain or result, `hatch` = loss, `card` outlined = context,
+Lines: `axis`, `grid`, `ink`, `ink2`, `dash` (reference, ochre), `acc-line` (the thing explained, slate).
+Fills: `acc-fill` solid = the thing explained, `hatch` = loss (clay), `card` outlined = context,
 `card-acc` shaded = the result box, `soft-fill`, `mid-fill`, `bg` (label backing).
+Hues for marks: `s-1`..`s-8` (line), `f-N` (fill), `fs-N` (soft fill), `tc-N` (text), in the order of the
+table in `core/guides/diagrams.md`. At most 3 hues per figure; shape still carries the meaning.
 Arrowheads: `marker-end="url(#arr)"`, accent `url(#arrA)`.

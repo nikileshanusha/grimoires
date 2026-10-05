@@ -122,12 +122,17 @@
   /* 9. theme, math, diagrams, progress */
   const isDark = () => root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
   const css = v => getComputedStyle(root).getPropertyValue(v).trim();
+  const HUES = ["slate", "clay", "sage", "ochre", "plum", "teal", "rose", "stone"];  // same order as s-1..s-8 in the explainer
   async function drawMermaid() {
     if (!window.mermaid || !mermaids.length) return;
     mermaid.initialize({ startOnLoad: false, theme: "base", securityLevel: "strict", fontFamily: css("--f-body"),
       themeVariables: { primaryColor: css("--plate"), primaryTextColor: css("--ink"), primaryBorderColor: css("--ink-2"),
         lineColor: css("--ink-2"), secondaryColor: css("--accent-soft"), tertiaryColor: css("--paper"), background: css("--plate"),
-        textColor: css("--ink"), fontSize: "15px" } });
+        textColor: css("--ink"), fontSize: "15px",
+        ...Object.fromEntries(HUES.map((h, i) => [`pie${i + 1}`, css("--c-" + h)])),
+        xyChart: { plotColorPalette: HUES.map(h => css("--c-" + h)).join(","), backgroundColor: css("--plate"), titleColor: css("--ink"),
+          xAxisLabelColor: css("--ink-2"), yAxisLabelColor: css("--ink-2"), xAxisTitleColor: css("--ink-2"), yAxisTitleColor: css("--ink-2"),
+          xAxisLineColor: css("--ink-2"), yAxisLineColor: css("--ink-2") } } });
     for (const [k, fig] of mermaids.entries()) {
       try { const { svg } = await mermaid.render(`mmd${k}-${Date.now()}`, fig.dataset.src); fig.innerHTML = svg; }
       catch { fig.innerHTML = `<pre>${esc(fig.dataset.src)}</pre>`; }
