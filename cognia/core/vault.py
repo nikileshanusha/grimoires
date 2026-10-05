@@ -21,6 +21,7 @@ Usage:
                                                             new explainer fragment in writing/
   vault.py build  <vault> [source-slug] [--site DIR]        fragments + essays -> site folder pages and hub
   vault.py essay  <vault> <source-slug>                     build just the essay page
+  vault.py eval   <vault> [--id ID]                         lint a vault after an eval run (evals/evals.json): pass/fail per expectation
   vault.py hook-lint [--stop]                               hook entry: lint the file just written (stdin JSON), or this session's files
   vault.py check  <fragment-or-page> [--static]             static lint, then (unless --static) build and layout self-check: failures or OK
 """
@@ -1529,6 +1530,87 @@ def cmd_migrate(a):
     return 0
 
 
+# ---- eval: lint the outputs of an eval run and print pass/fail per expectation ----------------
+
+NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+
+
+def eval_check(vault, check, skill=None):
+    """(passed, detail) for one expectation token from evals/evals.json."""
+    w = vault / "writing"
+    pages = []
+    if w.exists():
+        pages = (sorted(w.rglob("*-explainer.html")) if skill != "essay" else []) + (sorted(w.rglob("*-essay.md")) if skill != "explainer" else [])
+    kind, _, arg = check.partition(":")
+    if kind == "file":
+        hits = sorted(vault.glob(arg))
+        return bool(hits), (hits[0].relative_to(vault).as_posix() if hits else f"no file matches {arg}")
+    if not pages:
+        return False, "no explainer or essay was written under writing/"
+    if kind == "lint_clean":
+        bad = [f"{p.name}: {x}" for p in pages for x in lint_failures(lint_file(p) or [])]
+        return not bad, "; ".join(bad[:3]) + (f" (+{len(bad) - 3} more)" if len(bad) > 3 else "")
+    if kind == "no_decorative_figure":
+        bad = [p.name for p in pages if any("restates its screen heading" in x for x in (lint_file(p) or []))]
+        return not bad, ", ".join(bad)
+    if kind == "no_inline_equation":
+        bad = [p.name for p in pages if any(x.startswith("inline equation") for x in (lint_file(p) or []))]
+        return not bad, ", ".join(bad)
+    if kind == "equation_block":
+        for p in pages:
+            t = p.read_text(encoding="utf-8")
+            if p.suffix == ".md" and re.search(r"\$\$.+?\$\$\s*\n\s*Where:", t, re.S) and "(Source:" in t:
+                return True, p.name
+            if p.suffix == ".html" and re.search(r'class="equation"[^>]*data-src="[^"]+"', t) and 'class="where"' in t:
+                return True, p.name
+        return False, "no equation with source and where-list"
+    if kind == "equation_src":
+        for p in pages:
+            if re.search(rf'class="equation"[^>]*data-src="[^"]*\b{re.escape(arg)}\b', p.read_text(encoding="utf-8")):
+                return True, p.name
+        return False, f"no equation block with data-src naming {arg}"
+    if kind == "xychart_titled":
+        for p in pages:
+            blocks = re.findall(r"```mermaid\s+(xychart-beta.*?)```", p.read_text(encoding="utf-8"), flags=re.S)
+            if blocks and not essay_warnings("```mermaid\n" + blocks[0] + "```"):
+                return True, p.name
+        return False, "no xychart-beta with x-axis and y-axis titles"
+    if kind == "max_screens":
+        n = max((len(re.findall(r'<section class="screen"', p.read_text(encoding="utf-8"))) for p in pages if p.suffix == ".html"), default=0)
+        return 0 < n <= int(arg), f"{n} screens"
+    if kind == "controlled_names":
+        bad = []
+        for base in ("library", "writing"):
+            for f in sorted((vault / base).rglob("*")) if (vault / base).exists() else []:
+                stem = re.sub(r"-(explainer|essay|worksheet|text)$", "", f.stem) if f.is_file() else f.name
+                if not NAME_RE.match(stem) or len(stem) > 80:
+                    bad.append(f.name)
+        return not bad, ", ".join(bad[:4])
+    if kind == "nd_slug":
+        names = [p.name for p in (vault / "library").rglob("*")] if (vault / "library").exists() else []
+        ok = any("-nd-" in n for n in names)
+        return ok, ("" if ok else "no library name has -nd-")
+    return False, f"unknown check {check}"
+
+
+def cmd_eval(a):
+    """vault.py eval <vault-after-the-run> [--id ID]: run the lint-checkable expectations of evals/evals.json."""
+    vault = Path(a.vault).expanduser().resolve()
+    spec = json.loads((CORE.parent / "evals" / "evals.json").read_text(encoding="utf-8"))["evals"]
+    todo = [e for e in spec if not a.id or e["id"] == a.id]
+    if not todo:
+        raise SystemExit(f"no eval named {a.id}; ids: {', '.join(e['id'] for e in spec)}")
+    failed = 0
+    for e in todo:
+        print(f"{e['id']} ({e['skill']})")
+        for x in e["expectations"]:
+            ok, why = eval_check(vault, x["check"], e["skill"])
+            failed += not ok
+            print(f"  {'PASS' if ok else 'FAIL'}  {x['text']}" + (f"  [{why}]" if why else ""))
+    print(f"{failed} expectation(s) failed" if failed else "all expectations passed")
+    return 1 if failed else 0
+
+
 def find_browser():
     if os.environ.get("COGNIA_BROWSER"):
         return os.environ["COGNIA_BROWSER"]
@@ -1608,6 +1690,7 @@ def main(argv=None):
     s = sub.add_parser("build"); s.add_argument("vault"); s.add_argument("slug", nargs="?"); s.add_argument("--site"); s.set_defaults(fn=cmd_build)
     s = sub.add_parser("essay"); s.add_argument("vault"); s.add_argument("slug"); s.add_argument("--site"); s.set_defaults(fn=cmd_essay)
     s = sub.add_parser("hook-lint"); s.add_argument("--stop", action="store_true"); s.set_defaults(fn=cmd_hook_lint)
+    s = sub.add_parser("eval"); s.add_argument("vault"); s.add_argument("--id"); s.set_defaults(fn=cmd_eval)
     s = sub.add_parser("check"); s.add_argument("page"); s.add_argument("--static", action="store_true"); s.set_defaults(fn=cmd_check)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
