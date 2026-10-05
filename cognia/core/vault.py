@@ -12,6 +12,7 @@ Usage:
   vault.py where  <vault> <term>                            paths of anything matching, across the vault
   vault.py changed <vault>                                  pages edited since the last index
   vault.py context <skill> [args]                           what a skill needs to start (finds the vault itself)
+  vault.py migrate <vault> [--apply] [--topic T]            older raw/ + lessons/ vault to the new layout (dry run first)
   vault.py find   <vault> <term>...                         concept pages matching names or aliases
   vault.py due    <vault> [--date YYYY-MM-DD] [--limit N]   due items with their gist
   vault.py record <vault> <concept-slug> <again|hard|good|easy> [--date YYYY-MM-DD]
@@ -758,6 +759,12 @@ def cmd_rename(a):
     with (vault / "_meta" / "moves.log").open("a", encoding="utf-8") as f:
         f.write(json.dumps({"run": dt.datetime.now().strftime("%Y%m%dT%H%M%S%f"), "kind": "rename", "from": a.old, "to": a.new}) + "\n")
     log(vault, f"{dt.date.today().isoformat()} · rename · {a.old} -> {a.new}")
+    site = site_dir(vault)
+    if site.exists():  # built pages carry the old name: rebuild them under the new one
+        for d in [d for d in site.rglob(a.old) if d.is_dir()]:
+            shutil.rmtree(d)
+        cmd_build(argparse.Namespace(vault=str(vault), slug=a.new, site=None))
+    refresh_index(vault)
     print(f"renamed {a.old} -> {a.new} ({n} page(s) updated)")
 
 
@@ -1074,6 +1081,164 @@ def cmd_context(a):
     return 0
 
 
+# ---- migrate: older vaults (raw/, lessons/) to the library/writing/site layout -------------
+
+def page_to_fragment(page):
+    """Cut a built lesson page back into the regions of an explainer fragment."""
+    def grab(pat):
+        m = re.search(pat, page, re.S)
+        return m.group(1).strip("\n") if m else ""
+    title = grab(r"<title>(.*?)</title>")
+    title = re.sub(r"\s*·\s*Cognia\s*$", "", html.unescape(title))
+    source = html.unescape(grab(r'<body[^>]*data-source="([^"]*)"'))
+    script = ""
+    for m in re.finditer(r"<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>", page, re.S):
+        script = m.group(1)  # the last inline script holds the figure calls
+    script = re.sub(r"^[ \t]*const \{[^}]*\} = cognia;[ \t]*\n?", "", script, flags=re.M).strip("\n")
+    parts = [("title", title), ("source", source), ("rail", grab(r'<div class="rail" id="rail">(.*?)</div></main>')),
+             ("glossary", grab(r'<aside class="gloss"[^>]*>(.*?)</aside>')), ("help", grab(r'<aside class="help"[^>]*>(.*?)</aside>')),
+             ("script", script)]
+    return "".join(f"<!--@{k}{' ' + v.replace('-->', '') if k in ('title', 'source') else ''}-->\n" + ("" if k in ("title", "source") else v + "\n") for k, v in parts)
+
+
+def migrate_plan(vault, topic_arg):
+    """Everything migrate would do, as (kind, from, to) rows plus the text rewrites."""
+    rows, texts = [], []
+    sources = sorted(d.name for d in (vault / "raw").iterdir() if d.is_dir()) if (vault / "raw").exists() else []
+    sources += [p.stem for p in (vault / "wiki" / "sources").glob("*.md") if p.stem not in sources] if (vault / "wiki" / "sources").exists() else []
+
+    def topic_for(slug):
+        if topic_arg:
+            return clean_topic(topic_arg)
+        pg = vault / "wiki" / "sources" / f"{slug}.md"
+        if pg.exists() and read_fm(pg)[0].get("topic"):
+            return clean_topic(read_fm(pg)[0]["topic"])
+        votes = {}
+        for c in concepts(vault):
+            d = read_fm(c)[0].get("domain")
+            if d and slug in c.read_text(encoding="utf-8"):
+                votes[clean_topic(d)] = votes.get(clean_topic(d), 0) + 1
+        return max(votes, key=votes.get) if votes else "general"
+
+    topics = {s: topic_for(s) for s in sources}
+    for slug in sources:
+        raw = vault / "raw" / slug
+        if not raw.exists():
+            continue
+        t = topics[slug]
+        for f in sorted(raw.iterdir()):
+            if not f.is_file():
+                continue
+            new = f"{slug}{f.suffix}" if f.stem == "original" else f"{slug}-{f.name}" if f.name in ("text.md", "worksheet.md") else f.name
+            rows.append(("library", f.relative_to(vault).as_posix(), f"library/{t}/{slug}/{new}"))
+            texts.append((f"raw/{slug}/{f.name}", f"library/{t}/{slug}/{new}"))
+        texts.append((f"raw/{slug}/", f"library/{t}/{slug}/"))
+    lessons = vault / "lessons"
+    for d in sorted(lessons.iterdir()) if lessons.exists() else []:
+        if not d.is_dir():
+            continue
+        if d.name == "_shell":
+            rows.append(("discard", "lessons/_shell", "_meta/duplicates/migrated/_shell"))
+            continue
+        slug = max((s for s in sources if d.name == s or d.name.startswith(s + "-")), key=len, default=d.name)
+        t, name = topics.get(slug, topic_arg or "general"), d.name
+        for f in sorted(d.iterdir()):
+            if f.name == "index.html":
+                rows.append(("fragment", f"lessons/{name}/{f.name}", f"writing/{t}/{slug}/{name}-explainer.html"))
+                texts.append((f"lessons/{name}/index.html", f"writing/{t}/{slug}/{name}-explainer.html"))
+            elif f.name == "essay.md":
+                rows.append(("writing", f"lessons/{name}/{f.name}", f"writing/{t}/{slug}/{name}-essay.md"))
+                texts.append((f"lessons/{name}/essay.md", f"writing/{t}/{slug}/{name}-essay.md"))
+            elif f.name == "essay.html":
+                rows.append(("discard", f"lessons/{name}/{f.name}", f"_meta/duplicates/migrated/{name}/essay.html"))
+                texts.append((f"lessons/{name}/essay.html", f"{vault.name}-site/{t}/{slug}/{name}-essay.html"))
+            elif f.suffix == ".html":
+                rows.append(("fragment", f"lessons/{name}/{f.name}", f"writing/{t}/{slug}/{slug}-{f.stem}-explainer.html"))
+                texts.append((f"lessons/{name}/{f.name}", f"writing/{t}/{slug}/{slug}-{f.stem}-explainer.html"))
+    return rows, texts, topics
+
+
+def cmd_migrate(a):
+    vault = Path(a.vault).expanduser().resolve()
+    rows, texts, topics = migrate_plan(vault, a.topic)
+    for kind, src, dst in rows:
+        print(f"{kind:9} {src} -> {dst}")
+    if not rows:
+        print("nothing to migrate (no raw/ or lessons/ folders)")
+        return 0
+    print("topics: " + ", ".join(f"{s}={t}" for s, t in topics.items()))
+    if not a.apply:
+        print("dry run: nothing changed. Add --apply to migrate (a zip backup is made first).")
+        return 0
+    backup = vault.parent / f"{vault.name}-backup-{dt.datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    shutil.make_archive(str(backup), "zip", root_dir=vault.parent, base_dir=vault.name)
+    print(f"backup: {backup}.zip (to undo, delete the vault and unzip it)")
+    for kind, src, dst in rows:
+        s, d = vault / src, vault / dst
+        d.parent.mkdir(parents=True, exist_ok=True)
+        if kind == "fragment":
+            d.write_text(page_to_fragment(s.read_text(encoding="utf-8")), encoding="utf-8")
+            s.unlink()
+        else:
+            shutil.move(str(s), str(d))
+    for base in ("raw", "lessons"):  # drop the emptied folders
+        for d in sorted((vault / base).rglob("*"), reverse=True) if (vault / base).exists() else []:
+            if d.is_dir() and not any(d.iterdir()):
+                d.rmdir()
+        if (vault / base).exists() and not any((vault / base).iterdir()):
+            (vault / base).rmdir()
+    ordered = sorted(texts, key=lambda x: -len(x[0]))  # specific paths before their folder prefixes
+    for sub in ("wiki", "writing", "notes", "_meta"):
+        root = vault / sub
+        for md in root.rglob("*.md") if root.exists() else []:
+            if md.name == "log.md" or md.name == "moves.log":
+                continue
+            text = md.read_text(encoding="utf-8")
+            new = text
+            for old, to in ordered:
+                new = new.replace(old, to)
+            if new != text:
+                md.write_text(new, encoding="utf-8")
+    for slug, t in topics.items():  # source pages: library/writing/topic fields
+        pg = vault / "wiki" / "sources" / f"{slug}.md"
+        if not pg.exists():
+            continue
+        text = pg.read_text(encoding="utf-8")
+        m = FM_RE.match(text)
+        if not m:
+            continue
+        keep, writing = [], ""
+        for line in m.group(1).splitlines():
+            km = re.match(r"^(raw|lesson|essay|library|writing|topic|tags):", line)
+            if not km:
+                keep.append(line)
+            elif km.group(1) == "raw":
+                keep.append("library: " + line.split(":", 1)[1].strip())
+            elif km.group(1) in ("lesson", "essay") and not writing:
+                writing = f"writing/{t}/{slug}/"
+            elif km.group(1) in ("library", "topic", "tags"):
+                keep.append(line)
+        if not any(x.startswith("topic:") for x in keep):
+            keep.append(f"topic: {t}")
+        if not any(x.startswith("tags:") for x in keep):
+            keep.append("tags: []")
+        if writing:
+            keep.append(f"writing: {writing}")
+        pg.write_text("---\n" + "\n".join(keep) + "\n---\n" + text[m.end():], encoding="utf-8")
+    site = site_dir(vault)
+    refresh_assets(site)
+    for frag in (vault / "writing").rglob("*-explainer.html") if (vault / "writing").exists() else []:
+        build_explainer(vault, frag, site)
+    for md in (vault / "writing").rglob("*-essay.md") if (vault / "writing").exists() else []:
+        build_essay(vault, md, site)
+    write_hub(vault, site)
+    log(vault, f"{dt.date.today().isoformat()} · migrate · {len(rows)} item(s) to library/ writing/ and {site.name}/")
+    cmd_tidy(argparse.Namespace(vault=str(vault), auto=False, quiet=False, dry_run=False, undo=False, tag=None, min_age=3.0))
+    refresh_index(vault)
+    print(f"migrated {len(rows)} item(s). Pages are built in {site}")
+    return 0
+
+
 def find_browser():
     if os.environ.get("COGNIA_BROWSER"):
         return os.environ["COGNIA_BROWSER"]
@@ -1136,6 +1301,7 @@ def main(argv=None):
     s = sub.add_parser("where"); s.add_argument("vault"); s.add_argument("term"); s.set_defaults(fn=cmd_where)
     s = sub.add_parser("changed"); s.add_argument("vault"); s.set_defaults(fn=cmd_changed)
     s = sub.add_parser("context"); s.add_argument("skill"); s.add_argument("args", nargs="*"); s.set_defaults(fn=cmd_context)
+    s = sub.add_parser("migrate"); s.add_argument("vault"); s.add_argument("--apply", action="store_true"); s.add_argument("--topic"); s.set_defaults(fn=cmd_migrate)
     s = sub.add_parser("find"); s.add_argument("vault"); s.add_argument("terms", nargs="+"); s.set_defaults(fn=cmd_find)
     s = sub.add_parser("due"); s.add_argument("vault"); s.add_argument("--date"); s.add_argument("--limit", type=int, default=6); s.set_defaults(fn=cmd_due)
     s = sub.add_parser("record"); s.add_argument("vault"); s.add_argument("slug"); s.add_argument("grade", choices=GRADE_STEP); s.add_argument("--date"); s.set_defaults(fn=cmd_record)
