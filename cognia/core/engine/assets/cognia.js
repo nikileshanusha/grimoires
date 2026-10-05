@@ -181,7 +181,21 @@
   /* ---------- C: live figures ---------- */
   const figs = [];
   const size = svg => { const r = svg.getBoundingClientRect(); return { w: Math.max(340, Math.round(r.width)), h: Math.max(240, Math.round(r.height)) }; };
-  const run = f => { const { w, h } = size(f.svg); f.svg.setAttribute("viewBox", `0 0 ${w} ${h}`); f.draw(f.svg, w, h); mathify(f.svg); };
+  // A plot (a figure that drew an .axes group) is at most PLOT_ASPECT x its width tall, so a tall plate
+  // does not stretch it. The leftover height falls below the caption and controls. data-fill opts out.
+  const PLOT_ASPECT = 0.68;
+  const run = f => {
+    f.svg.style.flex = f.svg.style.height = "";
+    let { w, h } = size(f.svg);
+    const paint = () => { f.svg.setAttribute("viewBox", `0 0 ${w} ${h}`); f.draw(f.svg, w, h); mathify(f.svg); };
+    paint();
+    const cap = Math.round(w * PLOT_ASPECT);
+    if (!f.svg.hasAttribute("data-fill") && f.svg.querySelector(".axes") && h > cap && !matchMedia("(max-width: 860px)").matches) {
+      h = Math.max(240, cap);
+      f.svg.style.flex = "0 0 auto"; f.svg.style.height = h + "px";
+      paint();
+    }
+  };
   const redraw = () => figs.forEach(run);
   // cognia.fig("#figId", (svg, w, h) => { svg.innerHTML = ... }, ["#slider1", "#slider2"])
   function fig(sel, draw, inputs = []) {
@@ -214,18 +228,20 @@
   const fmt = v => String(+v.toPrecision(6)).replace("-", "−");
   const plot = (w, h, o) => {
     const cats = o.xCats, [x0, x1] = cats ? [0, cats.length] : o.x, [y0, y1] = o.y;
-    const m = Object.assign({ l: 62, r: 30, t: 20, b: 54 }, o.margin);
-    const X = v => m.l + (v - x0) / (x1 - x0) * (w - m.l - m.r), Y = v => h - m.b - (v - y0) / (y1 - y0) * (h - m.t - m.b);
     const xf = o.xFmt || fmt, yf = o.yFmt || fmt, esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
-    const xt = cats ? cats.map((_, k) => k + 0.5) : ticksOf(x0, x1, o.nx || 5), yt = ticksOf(y0, y1, o.ny || 5);
+    const yt = ticksOf(o.y[0], o.y[1], o.ny || 5);
+    const yw = Math.max(...yt.map(v => yf(v).length)) * 7.9;  // width of the widest y tick label (13px mono)
+    const m = Object.assign({ l: Math.max(56, Math.ceil(yw + 9 + 8 + 16)), r: 28, t: 18, b: 48 }, o.margin);
+    const X = v => m.l + (v - x0) / (x1 - x0) * (w - m.l - m.r), Y = v => h - m.b - (v - y0) / (y1 - y0) * (h - m.t - m.b);
+    const xt = cats ? cats.map((_, k) => k + 0.5) : ticksOf(x0, x1, o.nx || 5);
     const cut = cats ? Array.from({ length: cats.length + 1 }, (_, k) => k) : xt;  // tick marks: category edges, or the ticks themselves
     let g = `<g class="axes" data-xtitle="${esc(o.xTitle || "")}" data-ytitle="${esc(o.yTitle || "")}">`;
     cut.forEach(v => { g += `<line class="grid" x1="${X(v)}" x2="${X(v)}" y1="${Y(y0)}" y2="${Y(y1)}"/><line class="axis" x1="${X(v)}" x2="${X(v)}" y1="${Y(y0)}" y2="${Y(y0) + 5}"/>`; });
-    xt.forEach((v, k) => { g += `<text class="tm tick-x" x="${X(v)}" y="${Y(y0) + 22}" text-anchor="middle">${cats ? esc(cats[k]) : xf(v)}</text>`; });
+    xt.forEach((v, k) => { g += `<text class="tm tick-x" x="${X(v)}" y="${Y(y0) + 21}" text-anchor="middle">${cats ? esc(cats[k]) : xf(v)}</text>`; });
     yt.forEach(v => { g += `<line class="grid" x1="${X(x0)}" x2="${X(x1)}" y1="${Y(v)}" y2="${Y(v)}"/><line class="axis" x1="${X(x0) - 5}" x2="${X(x0)}" y1="${Y(v)}" y2="${Y(v)}"/><text class="tm tick-y" x="${X(x0) - 9}" y="${Y(v) + 4}" text-anchor="end">${yf(v)}</text>`; });
     g += `<line class="axis" x1="${X(x0)}" x2="${X(x1)}" y1="${Y(y0)}" y2="${Y(y0)}"/><line class="axis" x1="${X(x0)}" x2="${X(x0)}" y1="${Y(y0)}" y2="${Y(y1)}"/>`;
-    g += `<text class="ts" x="${(X(x0) + X(x1)) / 2}" y="${Y(y0) + 44}" text-anchor="middle">${esc(o.xTitle || "")}</text>`;
-    g += `<text class="ts" transform="translate(${X(x0) - 44} ${(Y(y0) + Y(y1)) / 2}) rotate(-90)" text-anchor="middle">${esc(o.yTitle || "")}</text></g>`;
+    g += `<text class="ts" x="${(X(x0) + X(x1)) / 2}" y="${Y(y0) + 40}" text-anchor="middle">${esc(o.xTitle || "")}</text>`;
+    g += `<text class="ts" transform="translate(${X(x0) - Math.ceil(yw) - 18} ${(Y(y0) + Y(y1)) / 2}) rotate(-90)" text-anchor="middle">${esc(o.yTitle || "")}</text></g>`;
     return { X, Y, axes: g, box: { l: X(x0), r: X(x1), t: Y(y1), b: Y(y0) } };
   };
 
