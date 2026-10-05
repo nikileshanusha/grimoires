@@ -1,10 +1,16 @@
 {
   "hooks": {
     "SessionStart": [
-      { "hooks": [ { "type": "command", "command": "python \"${CLAUDE_PLUGIN_ROOT}/core/vault.py\" tidy --auto --quiet" } ] }
+      { "hooks": [ { "type": "command", "command": "python \"${CLAUDE_PLUGIN_ROOT}/core/vault.py\" tidy --auto --quiet --session-start" } ] }
     ],
     "UserPromptSubmit": [
       { "hooks": [ { "type": "command", "command": "python \"${CLAUDE_PLUGIN_ROOT}/core/vault.py\" tidy --auto --quiet" } ] }
+    ],
+    "PostToolUse": [
+      { "matcher": "Write|Edit", "hooks": [ { "type": "command", "command": "python \"${CLAUDE_PLUGIN_ROOT}/core/vault.py\" hook-lint" } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "python \"${CLAUDE_PLUGIN_ROOT}/core/vault.py\" hook-lint --stop" } ] }
     ]
   }
 }

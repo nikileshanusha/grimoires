@@ -21,6 +21,7 @@ Usage:
                                                             new explainer fragment in writing/
   vault.py build  <vault> [source-slug] [--site DIR]        fragments + essays -> site folder pages and hub
   vault.py essay  <vault> <source-slug>                     build just the essay page
+  vault.py hook-lint [--stop]                               hook entry: lint the file just written (stdin JSON), or this session's files
   vault.py check  <fragment-or-page> [--static]             static lint, then (unless --static) build and layout self-check: failures or OK
 """
 import argparse
@@ -34,6 +35,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import quote, unquote
@@ -576,6 +578,35 @@ def in_writing(path):
     return vault
 
 
+def cmd_hook_lint(a):
+    """PostToolUse (stdin JSON) and Stop (--stop) hook. Exit 2 with failures on stderr blocks; anything odd exits 0."""
+    try:
+        data = json.loads(sys.stdin.read() or "{}")
+        fails = []
+        if a.stop:
+            if data.get("stop_hook_active"):
+                return 0
+            vault = find_vault(data.get("cwd") or None)
+            stamp = vault / "_meta" / ".session" if vault else None
+            if not stamp or not stamp.exists():
+                return 0
+            since = float(stamp.read_text().strip())
+            for f in sorted((vault / "writing").rglob("*")) if (vault / "writing").exists() else []:
+                if f.is_file() and f.stat().st_mtime > since and lint_file(f) is not None:
+                    fails += [f"{f.name}: {x}" for x in lint_failures(lint_file(f))]
+        else:
+            path = (data.get("tool_input") or {}).get("file_path")
+            if not path or not in_writing(path):
+                return 0
+            fails = [f"{Path(path).name}: {x}" for x in lint_failures(lint_file(path) or [])]
+        if fails:
+            print("cognia lint failed. Fix these, then save again:\n- " + "\n- ".join(fails), file=sys.stderr)
+            return 2
+    except Exception:
+        return 0
+    return 0
+
+
 def build_essay(vault, src, site):
     """Render writing/<topic>/<slug>/<slug>-essay.md to the site; returns (path, glossary size, missing, warnings)."""
     md = src.read_text(encoding="utf-8")
@@ -833,6 +864,12 @@ def cmd_tidy(a):
         if a.auto:
             return 0
         raise SystemExit(f"no vault at {vault} (no VAULT.md)")
+    if getattr(a, "session_start", False):  # the Stop hook lints only files changed after this moment
+        try:
+            (vault / "_meta").mkdir(exist_ok=True)
+            (vault / "_meta" / ".session").write_text(str(time.time()), encoding="utf-8")
+        except OSError:
+            pass
     if a.undo:
         return undo_tidy(vault)
     chat = {}
@@ -1543,7 +1580,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("init"); s.add_argument("vault"); s.set_defaults(fn=cmd_init)
-    s = sub.add_parser("tidy"); s.add_argument("vault", nargs="?"); s.add_argument("--auto", action="store_true"); s.add_argument("--quiet", action="store_true"); s.add_argument("--dry-run", action="store_true"); s.add_argument("--undo", action="store_true"); s.add_argument("--tag", action="append"); s.add_argument("--min-age", type=float, default=3.0); s.set_defaults(fn=cmd_tidy)
+    s = sub.add_parser("tidy"); s.add_argument("vault", nargs="?"); s.add_argument("--auto", action="store_true"); s.add_argument("--quiet", action="store_true"); s.add_argument("--dry-run", action="store_true"); s.add_argument("--undo", action="store_true"); s.add_argument("--tag", action="append"); s.add_argument("--min-age", type=float, default=3.0); s.add_argument("--session-start", action="store_true"); s.set_defaults(fn=cmd_tidy)
     s = sub.add_parser("rename"); s.add_argument("vault"); s.add_argument("old"); s.add_argument("new"); s.set_defaults(fn=cmd_rename)
     s = sub.add_parser("index"); s.add_argument("vault"); s.add_argument("--quiet", action="store_true"); s.set_defaults(fn=cmd_index)
     s = sub.add_parser("about"); s.add_argument("vault"); s.add_argument("terms", nargs="+"); s.set_defaults(fn=cmd_about)
@@ -1558,6 +1595,7 @@ def main(argv=None):
     s = sub.add_parser("lesson"); s.add_argument("vault"); s.add_argument("slug"); s.add_argument("--concept"); s.add_argument("--title"); s.add_argument("--source"); s.add_argument("--topic"); s.set_defaults(fn=cmd_lesson)
     s = sub.add_parser("build"); s.add_argument("vault"); s.add_argument("slug", nargs="?"); s.add_argument("--site"); s.set_defaults(fn=cmd_build)
     s = sub.add_parser("essay"); s.add_argument("vault"); s.add_argument("slug"); s.add_argument("--site"); s.set_defaults(fn=cmd_essay)
+    s = sub.add_parser("hook-lint"); s.add_argument("--stop", action="store_true"); s.set_defaults(fn=cmd_hook_lint)
     s = sub.add_parser("check"); s.add_argument("page"); s.add_argument("--static", action="store_true"); s.set_defaults(fn=cmd_check)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
