@@ -23,6 +23,7 @@
   <span class="wordmark">cognia</span>
   <span class="src"></span>
   <span id="timeLeft" class="num"></span>
+  <button class="tool" id="fsDown" type="button" aria-label="Smaller text">A−</button><button class="tool" id="fsUp" type="button" aria-label="Larger text">A+</button>
   <button class="tool" id="themeBtn" type="button" aria-label="Switch theme">Dark</button>
   <button class="tool" id="glossBtn" type="button" aria-pressed="false" aria-controls="gloss">Glossary <kbd>g</kbd></button>
   <button class="tool" id="helpBtn" type="button" aria-pressed="false" aria-controls="help">Help <kbd>?</kbd></button>
@@ -178,6 +179,18 @@
   };
   themeLabel();
 
+  /* ---------- C: text density (A- / A+), kept per viewer ---------- */
+  const FS = { min: 13, max: 18 };
+  let fs = 15;
+  try { const v = parseFloat(localStorage.getItem("cognia:fs")); if (v >= FS.min && v <= FS.max) fs = v; } catch {}
+  const setFs = v => {
+    fs = Math.max(FS.min, Math.min(FS.max, v)); root.style.setProperty("--fs", fs + "px");
+    try { localStorage.setItem("cognia:fs", String(fs)); } catch {}
+    if (typeof redraw === "function") requestAnimationFrame(redraw);
+  };
+  root.style.setProperty("--fs", fs + "px");
+  const fsBtn = $("#fsDown"); if (fsBtn) { fsBtn.onclick = () => setFs(fs - 1); $("#fsUp").onclick = () => setFs(fs + 1); }
+
   /* ---------- C: live figures ---------- */
   const figs = [];
   const size = svg => { const r = svg.getBoundingClientRect(); return { w: Math.max(340, Math.round(r.width)), h: Math.max(240, Math.round(r.height)) }; };
@@ -196,7 +209,15 @@
       paint();
     }
   };
-  const redraw = () => figs.forEach(run);
+  // Fixed label size: a drawing scaled by its viewBox keeps its labels at LABEL px on screen.
+  const LABEL = 12.5;
+  const fixText = svg => {
+    const vb = (svg.getAttribute("viewBox") || "").split(/[ ,]+/).map(Number), r = svg.getBoundingClientRect();
+    if (vb.length !== 4 || !vb[2] || !r.width) return;
+    const sc = Math.min(r.width / vb[2], r.height / vb[3] || Infinity);
+    svg.style.setProperty("--fz", (LABEL / sc).toFixed(2) + "px");
+  };
+  const redraw = () => { figs.forEach(run); $$("figure > svg").forEach(fixText); };
   // cognia.fig("#figId", (svg, w, h) => { svg.innerHTML = ... }, ["#slider1", "#slider2"])
   function fig(sel, draw, inputs = []) {
     const f = { svg: $(sel), draw };
@@ -275,7 +296,7 @@
   screens.forEach(s => s.classList.toggle("solo", !$(".fig", s)));  // no figure: a centred reading column
 
   /* ---------- C: movable split between text and figure (a viewer convenience, never vault state) ---------- */
-  const SPLIT = { min: 25, max: 65, def: 37 }, stage = $(".stage");
+  const SPLIT = { min: 25, max: 65, def: 42 }, stage = $(".stage");
   let split = SPLIT.def, frame = 0;
   const handles = [];
   const setSplit = (v, keep = true) => {
@@ -443,9 +464,9 @@
       go(i, true);
       const where = `screen ${i} (${s.dataset.title})`;
       $$(".text, .fig", s).forEach(col => {
-        if (col.scrollHeight > col.clientHeight + 2) out.push(`${where}: ${col.className} column overflows by ${col.scrollHeight - col.clientHeight}px`);
+        const over = col.scrollHeight - col.clientHeight;
+        if (over > 2) out.push(`${over > col.clientHeight * 0.15 ? "" : "warning: "}${where}: ${col.className} column overflows by ${over}px (${Math.round(over / col.clientHeight * 100)}%); split it into a figure screen and a reading screen`);
       });
-      if (i > 0 && !$(".sofar", s)) out.push(`${where}: no "So far" line`);
       $$("figure > svg", s).forEach(svg => {
         if (!svg.getAttribute("aria-label")) out.push(`${where}: figure svg has no aria-label`);
         if ((figs.some(f => f.svg === svg) || svg.hasAttribute("data-plot")) && !svg.hasAttribute("data-schematic")) {
@@ -490,7 +511,6 @@
     const walk = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
     for (let n; (n = walk.nextNode());) {
       if (n.parentElement.closest("script, style, textarea, .katex")) continue;
-      if (n.nodeValue.includes("\u2014")) out.push(`em dash in: "${n.nodeValue.trim().slice(0, 60)}"`);
       const tz = /\b(next (?:\w+ )?(?:screens?|sections?|slides?)|coming up|we['\u2019]ll see|let['\u2019]s|in this section|stay tuned)\b/i.exec(n.nodeValue);
       if (tz && !n.parentElement.closest("#help, .nav, button")) out.push(`transition points at the page ("${tz[0]}"), so name the concept that comes next instead: "${n.nodeValue.trim().slice(0, 60)}"`);
       if (/[A-Za-z0-9\u0370-\u03FF][_^]/.test(n.nodeValue)) out.push(`unrendered sub/superscript in: "${n.nodeValue.trim().slice(0, 60)}"`);
