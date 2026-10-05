@@ -89,8 +89,9 @@ If the reader does not care, use standard.
    rates `known` or plainly foundational. Create stub pages (`status: new`) for the rest.
 
 7. **Diagnose.** Load `core/guides/learning.md` (Diagnostic). Ask 2 (skim) to 6 rapid questions on the
-   prerequisites that matter most and are not yet rated, one per message. Record each as
-   `known`, `shaky` or `new`.
+   questions on the prerequisites that matter most and are not yet rated, all in one message.
+   Grade the one reply per question and record every rating in one `vault.py record` call
+   (`slug=grade` pairs); the format is in the guide.
 
 8. **Path.** Write `wiki/paths/path-<slug>.md`: units in dependency order, at most 10 minutes
    each, skipping `known` ones.

@@ -21,21 +21,39 @@ These cut the cost of starting and of coming back, which is where an ADHD learne
 
 ## Diagnostic (Ingest step 7)
 
-3 to 6 questions, one per message, about 30 seconds each:
+Send every diagnostic question in one message, 2 at Skim and up to 6 otherwise, numbered and
+each tagged with its concept, about 30 seconds each:
 
 ```
-Quick check 2/5, elasticity (~30s)
-If a 10% price rise cuts the quantity bought by 5%, what is the price elasticity?
-(Answer, or say "skip" or "no idea"; both are useful.)
+Quick check, 4 questions, about 2 minutes. Answer them in one reply, numbered; "skip" or "no idea" is useful data.
+
+1. Elasticity: if a 10% price rise cuts the quantity bought by 5%, what is the price elasticity?
+2. Deadweight loss: why does a tax create one?
+3. Semi-elasticity: what does a coefficient of 2.93 on a tax rate in a log regression mean?
 ```
 
-Prefer questions that test using a concept over defining it. Rate: `known` (right and sure),
-`shaky` (partly right, or right but unsure), `new` (wrong, skip, or no idea). Say that "no
-idea" is useful data, so the check stays low-stakes.
+Prefer questions that test using a concept over defining it. Grade the whole reply at once, a
+block per question: the rating (`known`, `shaky` or `new`), one line on why, and the correct
+answer when the rating is not `known`:
+
+```
+1. Elasticity: known. Right: 5% / 10% = 0.5.
+2. Deadweight loss: shaky. You named the triangle but not why it is lost: trades that no longer happen.
+3. Semi-elasticity: new. It is the % change in y per one-unit change in x; 2.93 means about 29% per 10 points.
+
+2 known, 1 shaky, 1 new: the path teaches the shaky and new ones first.
+```
+
+Ratings: `known` (right and sure), `shaky` (partly right, or right but unsure), `new` (wrong,
+skip, or no idea). A question the reply leaves unanswered is rated `new` with "(no answer)";
+do not ask again. Record all ratings in one call:
+`vault.py record <vault> slug=grade slug=grade ...`.
 
 ## Recall questions
 
 Always make the reader produce an answer. Multiple choice is for in-page quick checks only.
+Ask a set of questions (review, a lesson's closing checks) in one message, numbered, and grade
+them in one reply, a block per question, as in the diagnostic above.
 
 | Type | Example |
 |---|---|
@@ -58,7 +76,7 @@ A revisit moves a concept up one rung and never repeats the same rung:
 ## Grades
 
 `again` (wrong or blank), `hard` (right with a major gap or a long struggle), `good` (right),
-`easy` (instant and complete). After each, give the right answer briefly and the single gap.
+`easy` (instant and complete). For each, give the right answer briefly and the single gap.
 
 ## Explain-back diagnosis
 

@@ -22,11 +22,12 @@ types, the depth ladder and grades.
    answer needs a correction you cannot give from it. If nothing is due, offer the `shaky`
    concepts instead.
 2. Take at most 6 items. Say how many and how long ("5 due, about 5 minutes").
-3. For each item, ask one question one rung up the depth ladder from where the concept was
-   last solid. Vary the question every time: the same question trains recognition of the
-   question, not knowledge of the concept. Wait for the answer.
-4. Reply in one line (right, partly, or wrong), give the correction if needed, and record:
-   `python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" record <vault> <concept> <again|hard|good|easy>`.
+3. Ask all items in one message, numbered, each one question one rung up the depth ladder
+   from where the concept was last solid. Vary the question every time: the same question
+   trains recognition of the question, not knowledge of the concept. Wait for one reply.
+4. Grade every answer in one reply, a block per question (right, partly or wrong, and the
+   correction if needed), then reschedule all of them in one call:
+   `python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" record <vault> slug=<again|hard|good|easy> slug=...`.
 5. A wrong prediction from an explainer (shown in a pasted explain-back block) is the best
    review target there is: ask the reader why the result came out the way it did.
 6. Finish with one line: reviewed N, which moved up, the streak, and the next review date.

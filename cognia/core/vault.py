@@ -16,6 +16,7 @@ Usage:
   vault.py find   <vault> <term>...                         concept pages matching names or aliases
   vault.py due    <vault> [--date YYYY-MM-DD] [--limit N]   due items with their gist
   vault.py record <vault> <concept-slug> <again|hard|good|easy> [--date YYYY-MM-DD]
+  vault.py record <vault> slug=grade [slug=grade ...] [--date ...]   several concepts in one call
   vault.py stats  <vault> [--date YYYY-MM-DD]
   vault.py lesson <vault> <source-slug> [--concept SLUG] [--title T] [--source CITATION] [--topic T]
                                                             new explainer fragment in writing/
@@ -226,13 +227,33 @@ def cmd_due(a):
 
 
 def cmd_record(a):
+    """record <vault> <slug> <grade>, or several at once: record <vault> slug=grade slug=grade ..."""
     vault, today = Path(a.vault), parse_date(a.date)
-    p = vault / "wiki" / "concepts" / f"{a.slug}.md"
+    items = a.items
+    if len(items) == 2 and items[1] in GRADE_STEP:
+        pairs = [(items[0], items[1])]
+    else:
+        pairs = [tuple(x.rsplit("=", 1)) if "=" in x else (x, "") for x in items]
+    bad = [f"{s}={g}" for s, g in pairs if g not in GRADE_STEP]
+    if bad:
+        raise SystemExit(f"each item is slug=grade with grade one of {', '.join(GRADE_STEP)}; got: {', '.join(bad)}")
+    failed = 0
+    for slug, grade in pairs:
+        try:
+            record_one(vault, today, slug, grade)
+        except SystemExit as e:
+            failed += 1
+            print(e)
+    return 1 if failed else 0
+
+
+def record_one(vault, today, slug, grade):
+    p = vault / "wiki" / "concepts" / f"{slug}.md"
     if not p.exists():
         raise SystemExit(f"no concept page: {p}")
     fm, text = read_fm(p)
     box = int(fm.get("box") or 0)
-    step = GRADE_STEP[a.grade]
+    step = GRADE_STEP[grade]
     box = 0 if step is None else min(5, box + step)
     status = fm.get("status", "new")
     if status in ("new", "shaky"):
@@ -249,8 +270,8 @@ def cmd_record(a):
         "next_review": nxt.isoformat(),
         "reviews": int(fm.get("reviews") or 0) + 1,
     })
-    log(vault, f"{today.isoformat()} · review · {a.slug} · {a.grade}")
-    print(f"{a.slug}: box {box}, status {status}, next {nxt.isoformat()}")
+    log(vault, f"{today.isoformat()} · review · {slug} · {grade}")
+    print(f"{slug}: box {box}, status {status}, next {nxt.isoformat()}")
 
 
 def streak(vault, today):
@@ -1684,7 +1705,7 @@ def main(argv=None):
     s = sub.add_parser("migrate"); s.add_argument("vault"); s.add_argument("--apply", action="store_true"); s.add_argument("--topic"); s.set_defaults(fn=cmd_migrate)
     s = sub.add_parser("find"); s.add_argument("vault"); s.add_argument("terms", nargs="+"); s.set_defaults(fn=cmd_find)
     s = sub.add_parser("due"); s.add_argument("vault"); s.add_argument("--date"); s.add_argument("--limit", type=int, default=6); s.set_defaults(fn=cmd_due)
-    s = sub.add_parser("record"); s.add_argument("vault"); s.add_argument("slug"); s.add_argument("grade", choices=GRADE_STEP); s.add_argument("--date"); s.set_defaults(fn=cmd_record)
+    s = sub.add_parser("record"); s.add_argument("vault"); s.add_argument("items", nargs="+"); s.add_argument("--date"); s.set_defaults(fn=cmd_record)
     s = sub.add_parser("stats"); s.add_argument("vault"); s.add_argument("--date"); s.set_defaults(fn=cmd_stats)
     s = sub.add_parser("lesson"); s.add_argument("vault"); s.add_argument("slug"); s.add_argument("--concept"); s.add_argument("--title"); s.add_argument("--source"); s.add_argument("--topic"); s.set_defaults(fn=cmd_lesson)
     s = sub.add_parser("build"); s.add_argument("vault"); s.add_argument("slug", nargs="?"); s.add_argument("--site"); s.set_defaults(fn=cmd_build)

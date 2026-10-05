@@ -4,7 +4,7 @@
 The user believes they have ADHD. Every chat reply:
 - ends with exactly one next action and its time ("Next: the loss, about 4 min");
 - shows where they are and what is done;
-- asks one question at a time;
+- asks its set of questions in one numbered message and grades them in one reply (a single clarifying question is also fine);
 - parks tangents in `_meta/parking-lot.md` and says so in one line;
 - never uses shame language ("3 due", not "you fell behind").
 
