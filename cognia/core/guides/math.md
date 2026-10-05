@@ -67,3 +67,6 @@ An equation matching one of these is Tier 1. Check the domain file first.
 - Check limits: plug in 0, 1, or infinity and say what should happen.
 - If the extraction garbled an equation, reconstruct it from context, mark it
   "reconstructed, check against p. N", and never present the guess as the original.
+
+- Name a variable with `\mathrm{gap}_i`, never `\text{gap}_i`. KaTeX breaks a subscripted `\text` into
+  pieces in a narrow column, which scrambles the equation (`lint: mathrm`).

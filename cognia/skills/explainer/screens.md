@@ -26,9 +26,9 @@ write it inline in a paragraph.
 
 ```html
 <div class="equation" data-src="slide 9">
-  <p class="eq">\[ \text{gap}_i = \alpha + \beta_1\,\text{tax}_i + u_i \]</p>
+  <p class="eq">\[ \mathrm{gap}_i = \alpha + \beta_1\,\mathrm{tax}_i + u_i \]</p>
   <dl class="where">
-    <dt>\(\text{gap}_i\)</dt><dd>log export value minus log import value for good \(i\)</dd>
+    <dt>\(\mathrm{gap}_i\)</dt><dd>log export value minus log import value for good \(i\)</dd>
     <dt>\(\beta_1\)</dt><dd>extra gap per unit of tax rate; estimate 2.93 (s.e. 0.74)</dd>
   </dl>
 </div>

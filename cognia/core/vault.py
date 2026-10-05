@@ -401,8 +401,8 @@ def tex_symbols(tex):
         out.add(m.group(0).replace("{", "").replace(" ", ""))
     for m in re.finditer(r"(?<![\\A-Za-z])([A-Za-z])(?=\s*[_^])", tex):
         out.add(m.group(1) + "_")
-    for m in re.finditer(r"\\text\{([^}]*)\}", tex):
-        out.add("\\text{" + m.group(1) + "}")
+    for m in re.finditer(r"\\(text|mathrm)\{([^}]*)\}", tex):
+        out.add("\\" + m.group(1) + "{" + m.group(2) + "}")
     return out
 
 
@@ -411,7 +411,7 @@ class _Page(HTMLParser):
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
-        self.stack, self.screens, self.equations, self.stray, self.inline = [], [], [], [], []
+        self.stack, self.screens, self.equations, self.stray, self.inline, self.all_tex = [], [], [], [], [], []
 
     def handle_starttag(self, tag, attrs):
         a = dict(attrs)
@@ -446,6 +446,7 @@ class _Page(HTMLParser):
             for tag in ("h1", "h2"):
                 if any(n["tag"] == tag for n in self.stack):
                     self.screens[-1][tag] += data
+        self.all_tex += [m.group(1) for m in INLINE_RE.finditer(data)] + [m.group(1) for m in DISPLAY_RE.finditer(data)]
         for m in DISPLAY_RE.finditer(data):
             if eq is None:
                 self.stray.append(m.group(1).strip())
@@ -478,6 +479,9 @@ def lint_fragment(text):
     # equations: inline, display shape, symbols explained
     for tex, why in page.inline:
         out.append(f"inline equation \\({tex[:40]}\\) {why}; make it an .equation block (display, data-src, .where list) or reword it")
+    for tex in page.all_tex:
+        if re.search(r"\\text\{[^}]*\}\s*[_^]", tex):
+            out.append(f"\\({tex[:30]}\\): a named variable with a subscript must use \\mathrm{{...}}, not \\text{{...}} (KaTeX breaks it into pieces)")
     for tex in page.stray:
         out.append(f"display equation \\[{tex[:40]}\\] sits outside a .equation block (needs data-src and a .where list)")
     gsyms = " ".join(re.findall(r'data-sym="([^"]*)"', gloss))
@@ -489,7 +493,9 @@ def lint_fragment(text):
             continue
         have = re.sub(r"[\s{}]", "", eq["where"] + " " + gsyms)
         for sym in sorted(tex_symbols(eq["tex"])):
-            if re.sub(r"[\s{}]", "", sym) not in have:
+            plain = sym.rstrip("_")
+            found = re.search(rf"(?<![A-Za-z\]){plain}(?![A-Za-z])", have) if len(plain) == 1 else re.sub(r"[\s{}]", "", sym) in have
+            if not found:
                 out.append(f"equation {k}: symbol {sym.rstrip('_')} is in neither its .where list nor a glossary data-sym")
     # screen skeleton
     for i, s in enumerate(page.screens):
@@ -511,6 +517,12 @@ def lint_fragment(text):
         cap = re.search(r"<figcaption\b[^>]*>(.*?)</figcaption>", f, flags=re.S)
         capt = cap.group(1) if cap else ""
         label = re.search(r'aria-label="([^"]*)"', f)
+        if "<textarea" in f:
+            continue  # the explain-back box is not a figure
+        if re.search(r"<b>\s*Table\s+\d+\.?\s*</b>", capt):  # a table in a figure: needs a source, not a "What to notice"
+            if "Source:" not in capt:
+                out.append("a table caption lacks \"Source:\"")
+            continue
         fn = re.search(r"<b>\s*Figure\s+(\d+)\.?\s*</b>", capt)
         name = f"figure {fn.group(1)}" if fn else "a figure"
         if not cap:
