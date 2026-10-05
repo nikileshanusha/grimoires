@@ -9,6 +9,10 @@ argument-hint: "[source-slug]"
 
 Read `${CLAUDE_PLUGIN_ROOT}/core/rules.md` first. Paths starting `core/` are under `${CLAUDE_PLUGIN_ROOT}/core/`.
 
+State at start (already run for you; do not repeat it):
+
+!`python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" context explainer $ARGUMENTS`
+
 The explainer is Karpathy's top rung that cognia uses: an interactive HTML page. It is a view
 of the vault and is never the only place anything lives. Build one only when the reader asks
 for it (or says go to the offer at the end of ingest).

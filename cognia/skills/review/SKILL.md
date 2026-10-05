@@ -8,6 +8,10 @@ description: >
 
 Read `${CLAUDE_PLUGIN_ROOT}/core/rules.md` first. Paths starting `core/` are under `${CLAUDE_PLUGIN_ROOT}/core/`.
 
+State at start (already run for you; do not repeat it):
+
+!`python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" context review $ARGUMENTS`
+
 Fast retrieval, many concepts, little ceremony. Load `core/guides/learning.md` for question
 types, the depth ladder and grades.
 

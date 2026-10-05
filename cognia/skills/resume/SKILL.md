@@ -8,6 +8,10 @@ description: >
 
 Read `${CLAUDE_PLUGIN_ROOT}/core/rules.md` first. Paths starting `core/` are under `${CLAUDE_PLUGIN_ROOT}/core/`.
 
+State at start (already run for you; do not repeat it):
+
+!`python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" context resume $ARGUMENTS`
+
 Read `_meta/now.md`, run `python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" stats <vault>`, and reply in this
 shape:
 

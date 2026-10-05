@@ -9,6 +9,10 @@ argument-hint: "[concept]"
 
 Read `${CLAUDE_PLUGIN_ROOT}/core/rules.md` first. Paths starting `core/` are under `${CLAUDE_PLUGIN_ROOT}/core/`.
 
+State at start (already run for you; do not repeat it):
+
+!`python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" context learn $ARGUMENTS`
+
 1. Read the concept page, its `requires:` pages and their statuses. If a prerequisite is
    `new` or `shaky`, say so and offer to teach it first (default yes).
 2. Load `core/guides/writing.md`, plus `core/guides/math.md` if the concept has an equation and

@@ -9,6 +9,10 @@ argument-hint: "[concept]"
 
 Read `${CLAUDE_PLUGIN_ROOT}/core/rules.md` first. Paths starting `core/` are under `${CLAUDE_PLUGIN_ROOT}/core/`.
 
+State at start (already run for you; do not repeat it):
+
+!`python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" context explain-back $ARGUMENTS`
+
 The reader explains; Claude probes. Do not lecture first.
 
 **Inputs.** Best: a pasted "Explain-back for [[concept]]" block from an explainer's Copy

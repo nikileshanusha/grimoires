@@ -9,6 +9,10 @@ argument-hint: "[source-slug]"
 
 Read `${CLAUDE_PLUGIN_ROOT}/core/rules.md` first. Paths starting `core/` are under `${CLAUDE_PLUGIN_ROOT}/core/`.
 
+State at start (already run for you; do not repeat it):
+
+!`python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" context essay $ARGUMENTS`
+
 The essay is the on-the-go reading: one argument told as a Substack post or a chapter of
 Scott Cunningham's *Mixtape*, in Markdown that reads in Obsidian on a phone. It teaches the
 same thing as the explainer, at the same depth, without needing a desk.

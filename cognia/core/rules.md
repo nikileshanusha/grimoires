@@ -25,7 +25,11 @@ The user believes they have ADHD. Every chat reply:
 Tokens spent re-reading are tokens not spent teaching. Stop at the first rung that answers:
 nothing new needed, reuse, a targeted edit, one chat paragraph, a concept explainer, a full
 explainer or essay (built only when the reader picks it).
-- Let `vault.py` read for you: `find`, `due`, `stats` answer most questions in a few lines.
+- Every skill starts with the output of `vault.py context`, which already holds the state it
+  needs (the vault path, due items, the source's card). Use it; do not read files to learn it again.
+- Ask `vault.py about <vault> <name>` (a few lines: status, gist, what it requires, where it is
+  seen) before opening any page, and `where <term>` instead of listing folders.
 - Open a page only to edit it, and then only the section being edited.
+- After you write or edit vault pages, run `vault.py index <vault>` so the next query is current.
 - Read a source once; afterwards its worksheet is the cache.
 - Never cut evidence tags, exact math, the help legend or the reader rules to save tokens.

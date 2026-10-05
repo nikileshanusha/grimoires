@@ -12,5 +12,10 @@ web pages are in the `<vault>-site` folder next to this one.
 ## Paths
 (none yet)
 
+<!-- topics -->
+## Topics
+(no topics yet)
+<!-- /topics -->
+
 ## Counts
 concepts: 0 · sources: 0 · references carded: 0

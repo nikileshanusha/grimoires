@@ -10,6 +10,10 @@ argument-hint: "[file=topic | where <term> | rename <old> <new> | undo]"
 
 Read `${CLAUDE_PLUGIN_ROOT}/core/rules.md` first.
 
+State at start (already run for you; do not repeat it):
+
+!`python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" context tidy $ARGUMENTS`
+
 The plugin's hooks already run `tidy` at the start of every session and before every prompt, so
 files dropped in the vault root are filed before you see the request. This skill handles what
 the hook cannot decide, and the requests below.

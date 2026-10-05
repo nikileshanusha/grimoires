@@ -9,6 +9,10 @@ argument-hint: "[reference]"
 
 Read `${CLAUDE_PLUGIN_ROOT}/core/rules.md` first. Paths starting `core/` are under `${CLAUDE_PLUGIN_ROOT}/core/`.
 
+State at start (already run for you; do not repeat it):
+
+!`python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" context expand $ARGUMENTS`
+
 1. Read the reference card in `wiki/references/`.
 2. Look for an open-access copy in this order: arXiv, the author's page, SSRN, NBER,
    RePEc/IDEAS, Semantic Scholar, Unpaywall.

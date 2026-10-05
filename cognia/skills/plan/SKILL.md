@@ -9,6 +9,10 @@ argument-hint: "[goal]"
 
 Read `${CLAUDE_PLUGIN_ROOT}/core/rules.md` first. Paths starting `core/` are under `${CLAUDE_PLUGIN_ROOT}/core/`.
 
+State at start (already run for you; do not repeat it):
+
+!`python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" context plan $ARGUMENTS`
+
 Use this when the request is a goal rather than one source ("teach me optimal taxation
 properly", "build me a path from these three papers"). One paper stays in Ingest.
 

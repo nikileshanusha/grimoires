@@ -7,6 +7,11 @@ Usage:
   vault.py tidy   <vault> [--dry-run] [--undo] [--quiet] [--tag "file=topic"] [--min-age S]
                                                             file the vault root into library/ and notes/ by topic
   vault.py rename <vault> <old-slug> <new-slug>             controlled rename of a source and every reference
+  vault.py index  <vault>                                   update _meta/index.json, topic pages, VAULT.md topics
+  vault.py about  <vault> <name>...                         a few-line card for a page, instead of opening it
+  vault.py where  <vault> <term>                            paths of anything matching, across the vault
+  vault.py changed <vault>                                  pages edited since the last index
+  vault.py context <skill> [args]                           what a skill needs to start (finds the vault itself)
   vault.py find   <vault> <term>...                         concept pages matching names or aliases
   vault.py due    <vault> [--date YYYY-MM-DD] [--limit N]   due items with their gist
   vault.py record <vault> <concept-slug> <again|hard|good|easy> [--date YYYY-MM-DD]
@@ -597,6 +602,8 @@ def cmd_tidy(a):
         log(vault, f"{dt.date.today().isoformat()} · tidy · moved {len(moves)}, duplicates {len(dups)}")
     if links:
         summary += f", links fixed in {links} page(s)"
+    if entries:
+        refresh_index(vault)
     if a.auto:  # a hook: stay silent unless something happened or Claude must ask for a topic
         if entries:
             print(summary)
@@ -731,6 +738,319 @@ def cmd_rename(a):
     print(f"renamed {a.old} -> {a.new} ({n} page(s) updated)")
 
 
+# ---- index: the vault as a graph Claude can query instead of reading ---------------------
+
+WIKILINK = re.compile(r"\[\[([^\]|#]+)")
+INDEXED = ("wiki", "notes")
+TOPICS_RE = re.compile(r"<!-- topics -->.*?<!-- /topics -->", re.S)
+
+
+def wikilinks(text):
+    return list(dict.fromkeys(m.strip() for m in WIKILINK.findall(text)))
+
+
+def section_links(text, heading):
+    m = re.search(rf"^##\s+{re.escape(heading)}\s*$(.*?)(?=^##\s|\Z)", text, re.M | re.S)
+    return wikilinks(m.group(1)) if m else []
+
+
+def split_list(val):
+    return [x.strip().strip("\"'") for x in re.split(r"\s*,\s*", val.strip("[]")) if x.strip()]
+
+
+def parse_page(vault, p):
+    """One index node for a markdown page."""
+    fm, text = read_fm(p)
+    h = re.search(r"^#\s+(.+)$", text, re.M)
+    tags = fm_tags(text)
+    topic = clean_topic(fm.get("topic") or fm.get("domain") or (tags[0] if tags else ""))
+    return {
+        "type": fm.get("type") or ("note" if p.relative_to(vault).parts[0] == "notes" else ""),
+        "title": h.group(1).strip() if h else p.stem.replace("-", " "),
+        "aliases": split_list(fm.get("aliases", "")),
+        "gist": gist(text),
+        "status": fm.get("status", ""), "box": fm.get("box", ""), "next": fm.get("next_review", ""),
+        "topic": topic, "tags": [clean_topic(t) for t in tags],
+        "kind": fm.get("kind", ""), "depth": fm.get("depth", ""),
+        "requires": wikilinks(fm.get("requires", "")),
+        "seen_in": section_links(text, "Seen in"),
+        "connects": section_links(text, "Connects to"),
+        "links": wikilinks(text),
+    }
+
+
+def index_path(vault):
+    return vault / "_meta" / "index.json"
+
+
+def load_index(vault):
+    try:
+        return json.loads(index_path(vault).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"pages": {}}
+
+
+def vault_pages(vault):
+    for base in INDEXED:
+        root = vault / base
+        for p in sorted(root.rglob("*.md")) if root.exists() else []:
+            if "topics" not in p.relative_to(vault).parts[:2]:  # topic pages are generated from the index
+                yield p
+
+
+def update_index(vault):
+    """Re-parse only pages whose mtime or size changed. Returns (index, changed paths, removed paths)."""
+    idx, old, new, changed = load_index(vault), load_index(vault)["pages"], {}, []
+    for p in vault_pages(vault):
+        rel, st = p.relative_to(vault).as_posix(), p.stat()
+        stamp = [st.st_mtime_ns, st.st_size]
+        if rel in old and old[rel]["stamp"] == stamp:
+            new[rel] = old[rel]
+        else:
+            new[rel] = {"stamp": stamp, "node": parse_page(vault, p)}
+            changed.append(rel)
+    removed = [r for r in old if r not in new]
+    idx["pages"] = new
+    return idx, changed, removed
+
+
+def save_index(vault, idx):
+    index_path(vault).parent.mkdir(parents=True, exist_ok=True)
+    index_path(vault).write_text(json.dumps(idx, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+
+def stems(idx):
+    """name (normalised stem, title, alias) -> page path, for resolving [[links]] and lookups."""
+    m = {}
+    for rel, e in idx["pages"].items():
+        n = e["node"]
+        for name in [Path(rel).stem, n["title"], *n["aliases"]]:
+            m.setdefault(norm(name), rel)
+    return m
+
+
+def incoming(idx):
+    names, inc = stems(idx), {}
+    for rel, e in idx["pages"].items():
+        for t in e["node"]["links"]:
+            tgt = names.get(norm(t))
+            if tgt and tgt != rel:
+                inc.setdefault(tgt, []).append(rel)
+    return inc
+
+
+def topic_set(vault, idx):
+    """Every topic: from page fields, from where files sit, and every ancestor of those."""
+    topics = {e["node"]["topic"] for e in idx["pages"].values() if e["node"]["topic"]}
+    for base in ("library", "writing", "notes"):
+        root = vault / base
+        for d in ([root, *root.rglob("*")] if root.exists() else []):
+            if d.is_dir() and d != root and any(f.is_file() for f in d.iterdir()):
+                rel = d.relative_to(root) if base == "notes" else d.relative_to(root).parent  # library/writing: the slug folder sits inside its topic
+                if rel.parts:
+                    topics.add(rel.as_posix())
+    out = set()
+    for t in topics:
+        parts = t.split("/")
+        out.update("/".join(parts[:i + 1]) for i in range(len(parts)))
+    return sorted(out)
+
+
+def library_slugs(vault, topic):
+    root = vault / "library" / topic
+    return sorted(d.name for d in root.iterdir() if d.is_dir() and any(f.is_file() for f in d.iterdir())) if root.exists() else []
+
+
+def build_topic_page(vault, idx, topic, topics):
+    pages = idx["pages"]
+    mine = lambda n: n["topic"] == topic
+    sub = [t for t in topics if t.startswith(topic + "/") and "/" not in t[len(topic) + 1:]]
+    L = ["---", "type: topic", f"topic: {topic}", "---", f"# {topic.split('/')[-1].replace('-', ' ').title()}", "",
+         "> Built by vault.py index. Do not edit; changes are overwritten.", ""]
+    if sub:
+        L += ["## Subtopics"] + [f"- [[topics/{t}|{t.split('/')[-1]}]]" for t in sub] + [""]
+    src = [(r, e["node"]) for r, e in pages.items() if e["node"]["type"] == "source" and mine(e["node"])]
+    if src:
+        L += ["## Sources"] + [f"- [[{Path(r).stem}]]" + (f": {n['gist']}" if n["gist"] else "") for r, n in sorted(src)] + [""]
+    con = [(r, e["node"]) for r, e in pages.items() if e["node"]["type"] == "concept" and mine(e["node"])]
+    if con:
+        L += ["## Concepts"] + [f"- [[{Path(r).stem}]] ({n['status'] or 'new'})" for r, n in sorted(con)] + [""]
+    notes = [r for r, e in pages.items() if e["node"]["type"] == "note" and mine(e["node"])]
+    if notes:
+        L += ["## Your notes"] + [f"- [[{Path(r).stem}]]" for r in sorted(notes)] + [""]
+    w = vault / "writing" / topic
+    wr = sorted(f for f in w.rglob("*") if f.is_file()) if w.exists() else []
+    if wr:
+        L += ["## Writing"] + [f"- {f.relative_to(vault).as_posix()}" for f in wr] + [""]
+    todo = [s for s in library_slugs(vault, topic) if not (vault / "wiki" / "sources" / f"{s}.md").exists()]
+    if todo:
+        L += ["## Waiting to learn"] + [f"- library/{topic}/{s}/" for s in todo] + [""]
+    return "\n".join(L).rstrip() + "\n"
+
+
+def write_topics(vault, idx):
+    topics = topic_set(vault, idx)
+    root = vault / "wiki" / "topics"
+    keep = set()
+    for t in topics:
+        out = root / f"{t}.md"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        page = build_topic_page(vault, idx, t, topics)
+        if not out.exists() or out.read_text(encoding="utf-8") != page:
+            out.write_text(page, encoding="utf-8")
+        keep.add(out)
+    for f in root.rglob("*.md") if root.exists() else []:
+        if f not in keep:
+            f.unlink()  # a topic page nobody needs any more; it is generated, so nothing is lost
+    vm = vault / "VAULT.md"
+    if vm.exists():
+        text = vm.read_text(encoding="utf-8")
+        tops = [t for t in topics if "/" not in t]
+        body = "\n".join(f"- [[topics/{t}|{t}]]" for t in tops) or "(no topics yet)"
+        block = f"<!-- topics -->\n## Topics\n{body}\n<!-- /topics -->"
+        if TOPICS_RE.search(text):
+            new = TOPICS_RE.sub(lambda m: block, text)
+        elif re.search(r"^## Counts", text, re.M):
+            new = re.sub(r"^## Counts", lambda m: block + "\n\n## Counts", text, count=1, flags=re.M)
+        else:
+            new = text.rstrip() + "\n\n" + block + "\n"
+        kinds = {}
+        for e in idx["pages"].values():
+            kinds[e["node"]["type"]] = kinds.get(e["node"]["type"], 0) + 1
+        new = re.sub(r"^concepts: .*$", f"concepts: {kinds.get('concept', 0)} · sources: {kinds.get('source', 0)} · references carded: {kinds.get('reference', 0)}", new, flags=re.M)
+        if new != text:
+            vm.write_text(new, encoding="utf-8")
+
+
+def refresh_index(vault):
+    idx, changed, removed = update_index(vault)
+    save_index(vault, idx)
+    write_topics(vault, idx)
+    return idx, changed, removed
+
+
+def cmd_index(a):
+    vault = Path(a.vault).expanduser().resolve()
+    idx, changed, removed = refresh_index(vault)
+    if not a.quiet:
+        print(f"index: {len(idx['pages'])} pages ({len(changed)} updated, {len(removed)} removed)")
+
+
+def cmd_changed(a):
+    """Pages edited since the last index (typically by you in Obsidian). Refreshes the index afterwards."""
+    vault = Path(a.vault).expanduser().resolve()
+    idx, changed, removed = refresh_index(vault)
+    for r in changed:
+        print(f"changed: {r}")
+    for r in removed:
+        print(f"removed: {r}")
+    if not changed and not removed:
+        print("nothing changed since the last index")
+
+
+def card(idx, rel, names=None, inc=None):
+    """The few lines that stand in for opening a page."""
+    n = idx["pages"][rel]["node"]
+    names, inc = names or stems(idx), inc or incoming(idx)
+    status = lambda t: (lambda r: f"{t} ({idx['pages'][r]['node']['status'] or 'new'})" if r and idx['pages'][r]['node']['type'] == 'concept' else t)(names.get(norm(t)))
+    cap = lambda xs: ", ".join(xs[:8]) + (f" (+{len(xs) - 8})" if len(xs) > 8 else "")
+    head = f"{Path(rel).stem} · {n['type'] or 'page'} · {rel}"
+    if n["type"] == "concept":
+        head += f" · status={n['status']} box={n['box'] or 0}" + (f" next={n['next']}" if n["next"] else "")
+    if n["type"] == "source":
+        head += f" · kind={n['kind']} depth={n['depth']}"
+    lines = [head]
+    if n["topic"]:
+        lines.append(f"topic: {n['topic']}")
+    if n["gist"]:
+        lines.append(f"gist: {n['gist']}")
+    if n["requires"]:
+        lines.append("requires: " + cap([status(t) for t in n["requires"]]))
+    by = sorted({Path(r).stem for r in inc.get(rel, []) if idx["pages"][r]["node"]["requires"] and any(names.get(norm(t)) == rel for t in idx["pages"][r]["node"]["requires"])})
+    if by:
+        lines.append("required by: " + cap(by))
+    if n["seen_in"]:
+        lines.append("seen in: " + cap(n["seen_in"]))
+    if n["connects"]:
+        lines.append("connects to: " + cap(n["connects"]))
+    if n["type"] == "source":
+        used = [t for t in n["links"] if (names.get(norm(t)) or "").startswith("wiki/concepts/")]
+        if used:
+            lines.append("concepts: " + cap(used))
+    return "\n".join(lines)
+
+
+def cmd_about(a):
+    vault = Path(a.vault).expanduser().resolve()
+    idx = refresh_index(vault)[0]
+    names, hit = stems(idx), None
+    for term in a.terms:
+        hit = names.get(norm(term)) or next((r for n, r in names.items() if norm(term) in n), None)
+        print(card(idx, hit, names) if hit else f"{term}: no page (a gap, or not ingested yet)")
+
+
+def cmd_where(a):
+    vault = Path(a.vault).expanduser().resolve()
+    idx = refresh_index(vault)[0]
+    t, hits = norm(a.term), []
+    for rel, e in idx["pages"].items():
+        n = e["node"]
+        if any(t in norm(x) for x in [Path(rel).stem, n["title"], *n["aliases"]]):
+            hits.append(rel)
+    for base in ("library", "writing"):
+        root = vault / base
+        hits += [f.relative_to(vault).as_posix() for f in sorted(root.rglob("*")) if f.is_file() and t in norm(f.name)] if root.exists() else []
+    for r in hits[:12]:
+        print(r)
+    print(f"{len(hits)} match(es)" if hits else f"no match for '{a.term}'")
+
+
+def topics_line(vault):
+    root = [vault / b for b in ("library", "notes")]
+    found = sorted({"/".join(d.relative_to(r).parts) for r in root if r.exists() for d in r.rglob("*")
+                    if d.is_dir() and len(d.relative_to(r).parts) == 1})
+    return ", ".join(found) or "(none yet)"
+
+
+def cmd_context(a):
+    """What a skill needs to start, printed by an inline command so Claude does not read files for it."""
+    vault = find_vault()
+    if vault is None:
+        print("No cognia vault here (no VAULT.md in this folder or above). Ask where to create one, then run vault.py init <path>.")
+        return 0
+    import contextlib
+    import io
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        cmd_tidy(argparse.Namespace(vault=str(vault), auto=True, quiet=True, dry_run=False, undo=False, tag=None, min_age=3.0))
+    out = [f"Vault: {vault}"] + [x for x in buf.getvalue().splitlines() if x]
+    idx, changed, removed = refresh_index(vault)
+    skill, args = a.skill, a.args
+    ns = argparse.Namespace(vault=str(vault), date=None, limit=6)
+    cap = io.StringIO()
+    with contextlib.redirect_stdout(cap):
+        if skill == "resume":
+            now = vault / "_meta" / "now.md"
+            print(now.read_text(encoding="utf-8").strip() if now.exists() else "(no now.md yet)")
+            cmd_stats(ns)
+        elif skill == "review":
+            cmd_due(ns)
+        elif skill in ("essay", "explainer", "learn", "explain-back", "expand") and args:
+            cmd_about(argparse.Namespace(vault=str(vault), terms=[args[0]]))
+            slug = args[0]
+            for d in slug_dirs(vault, "library", slug) + slug_dirs(vault, "writing", slug):
+                print(f"files: {d.relative_to(vault).as_posix()}/ ({', '.join(sorted(f.name for f in d.iterdir()))})")
+        else:
+            print(f"topics: {topics_line(vault)}")
+            if skill in ("plan", "ingest"):
+                cmd_stats(ns)
+    out += cap.getvalue().rstrip().splitlines()
+    if changed:
+        out.append("edited since last index: " + ", ".join(changed[:8]) + (f" (+{len(changed) - 8})" if len(changed) > 8 else ""))
+    print("\n".join(out))
+    return 0
+
+
 def find_browser():
     if os.environ.get("COGNIA_BROWSER"):
         return os.environ["COGNIA_BROWSER"]
@@ -788,6 +1108,11 @@ def main(argv=None):
     s = sub.add_parser("init"); s.add_argument("vault"); s.set_defaults(fn=cmd_init)
     s = sub.add_parser("tidy"); s.add_argument("vault", nargs="?"); s.add_argument("--auto", action="store_true"); s.add_argument("--quiet", action="store_true"); s.add_argument("--dry-run", action="store_true"); s.add_argument("--undo", action="store_true"); s.add_argument("--tag", action="append"); s.add_argument("--min-age", type=float, default=3.0); s.set_defaults(fn=cmd_tidy)
     s = sub.add_parser("rename"); s.add_argument("vault"); s.add_argument("old"); s.add_argument("new"); s.set_defaults(fn=cmd_rename)
+    s = sub.add_parser("index"); s.add_argument("vault"); s.add_argument("--quiet", action="store_true"); s.set_defaults(fn=cmd_index)
+    s = sub.add_parser("about"); s.add_argument("vault"); s.add_argument("terms", nargs="+"); s.set_defaults(fn=cmd_about)
+    s = sub.add_parser("where"); s.add_argument("vault"); s.add_argument("term"); s.set_defaults(fn=cmd_where)
+    s = sub.add_parser("changed"); s.add_argument("vault"); s.set_defaults(fn=cmd_changed)
+    s = sub.add_parser("context"); s.add_argument("skill"); s.add_argument("args", nargs="*"); s.set_defaults(fn=cmd_context)
     s = sub.add_parser("find"); s.add_argument("vault"); s.add_argument("terms", nargs="+"); s.set_defaults(fn=cmd_find)
     s = sub.add_parser("due"); s.add_argument("vault"); s.add_argument("--date"); s.add_argument("--limit", type=int, default=6); s.set_defaults(fn=cmd_due)
     s = sub.add_parser("record"); s.add_argument("vault"); s.add_argument("slug"); s.add_argument("grade", choices=GRADE_STEP); s.add_argument("--date"); s.set_defaults(fn=cmd_record)
@@ -797,7 +1122,7 @@ def main(argv=None):
     s = sub.add_parser("essay"); s.add_argument("vault"); s.add_argument("slug"); s.add_argument("--site"); s.set_defaults(fn=cmd_essay)
     s = sub.add_parser("check"); s.add_argument("page"); s.set_defaults(fn=cmd_check)
     if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(errors="replace")
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     a = ap.parse_args(argv)
     return a.fn(a)
 

@@ -9,6 +9,10 @@ argument-hint: "[file or topic]"
 
 Read `${CLAUDE_PLUGIN_ROOT}/core/rules.md` first. Paths starting `core/` are under `${CLAUDE_PLUGIN_ROOT}/core/`.
 
+State at start (already run for you; do not repeat it):
+
+!`python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" context ingest $ARGUMENTS`
+
 Goal: one source mapped, its concepts merged into the vault, a short diagnostic and a
 learning path. Ingest is mapping only; the explainer is offered at the end and built when the
 reader says go, so a paper they only want filed costs no lesson.
