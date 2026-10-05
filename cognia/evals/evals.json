@@ -60,8 +60,8 @@
     {
       "id": "explainer-equation",
       "skill": "explainer",
-      "setup": "A vault with a source whose worksheet holds a regression equation (gap_i = alpha + beta_1 tax_i + u_i, slide 9).",
-      "prompt": "/cognia:explainer fisman-wei-2004-tax-evasion-china semi-elasticity. Build the concept explainer; the regression on slide 9 must be on it.",
+      "setup": "A vault with a source whose worksheet holds a regression equation (gap_i = alpha + beta_1 tax_i + u_i, slide 20).",
+      "prompt": "/cognia:explainer fisman-wei-2004-tax-evasion-china semi-elasticity. Build the concept explainer; the regression on slide 20 must be on it.",
       "expectations": [
         {
           "id": "lint",
@@ -80,8 +80,8 @@
         },
         {
           "id": "source",
-          "text": "The equation's data-src names slide 9",
-          "check": "equation_src:9"
+          "text": "The equation's data-src names slide 20",
+          "check": "equation_src:20"
         }
       ]
     },
