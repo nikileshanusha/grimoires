@@ -272,6 +272,7 @@
     segs.appendChild(b);
   });
   const segBtns = [...segs.children];
+  screens.forEach(s => s.classList.toggle("solo", !$(".fig", s)));  // no figure: a centred reading column
 
   /* ---------- C: movable split between text and figure (a viewer convenience, never vault state) ---------- */
   const SPLIT = { min: 25, max: 65, def: 37 }, stage = $(".stage");

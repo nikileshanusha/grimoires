@@ -45,6 +45,9 @@ write it inline in a paragraph.
 </section>
 ```
 
+A reading screen has no `.fig` div: write only `.text` (kicker, `.sofar`, `h2`, `.prose`, and an
+equation block, evidence table or steps if needed). The shell centres it in one column.
+
 Screen 0 uses `<div class="kicker"><b>Start</b></div>`, an `<h1>`, and no "So far" line.
 Glossary terms: `<a class="gl" href="#g-slug">term</a>` (see Glossary). Emphasis that is not a
 glossary term: `<strong class="key">`. Math: `\( \)` inline for one symbol, the `.equation` block above for any equation.

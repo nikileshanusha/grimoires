@@ -18,7 +18,8 @@ argument-hint: "[source-slug]"
 5. Every figure caption has `<b>Figure n.</b>`, `What to notice:` and `Source:`, numbered 1, 2, 3 in page order (`lint: figure`).
 6. Every glossary link has an entry, every entry is linked, and each `.short` is 20 words or fewer (`lint: glossary`).
 7. No em dashes and no teasers such as "next screen" (`lint: prose`).
-8. Then run `check <page>` without `--static` until it prints `OK`.
+8. No figure without a claim it shows better than a sentence. A screen with no `.fig` is a reading screen (`lint: figure`, which warns when a figure only restates its heading).
+9. Then run `check <page>` without `--static` until it prints `OK`.
 
 Read `${CLAUDE_PLUGIN_ROOT}/core/rules.md` first. Paths starting `core/` are under `${CLAUDE_PLUGIN_ROOT}/core/`.
 
@@ -49,12 +50,22 @@ the page has failed. It succeeds when the reader can answer the six questions in
 2. Read `${CLAUDE_PLUGIN_ROOT}/skills/explainer/screens.md` for the markup patterns. Load `core/guides/writing.md` and
    `core/guides/diagrams.md`; load `core/guides/math.md` only if there are equations and
    `core/guides/evidence.md` for the doubt screen; load the domain file if one exists.
-3. Plan the screens from `library/<topic>/<slug>/<slug>-worksheet.md` (do not reread the source) at the depth
+3. Plan the screens, one line each (claim, then "figure: none" or the claim its figure makes), from `library/<topic>/<slug>/<slug>-worksheet.md` (do not reread the source) at the depth
    recorded on the source page (`depth:`; table in `/cognia:ingest`). Write them into
    `#rail`, one glossary entry per term or symbol, and one `fig(...)` call per live figure.
 4. Self-check (below), then hand off.
 
 ## Screen sequence for a source
+
+**A figure must earn its screen.** Give a screen a figure only if it shows what prose cannot do
+as quickly: a quantity that varies (a plot), a mechanism with three or more moving parts (a
+schematic), a comparison of cases (a small table or bars), or data from the source. Add a
+slider only when moving it teaches something, such as a threshold or a sign change; otherwise
+the figure is static. A screen without a figure is a reading screen: the shell sets it as one
+centred column about 68 characters wide, and an equation block, an evidence table or a step
+list can sit in it. In the screen plan, write "figure: none" or the one claim the figure makes
+for every screen except the four that always have one: the question, the mechanism in one
+picture, where it comes together, and the whole picture.
 
 There is no screen limit. Use as many screens as the argument needs at the chosen depth, and
 no more: one claim per screen, so a hard step gets its own screen and an easy one shares.

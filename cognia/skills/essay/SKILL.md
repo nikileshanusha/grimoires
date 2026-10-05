@@ -15,6 +15,7 @@ argument-hint: "[source-slug]"
 2. Inline `$ $` holds one symbol or a short expression with no `=` (`lint: inline equation`).
 3. No em dashes and no teasers such as "next section" (`lint: prose`).
 4. Every `xychart-beta` has `x-axis` and `y-axis` titles (`lint: xychart`).
+5. No diagram without a claim it shows better than a sentence; most sections need none.
 
 Read `${CLAUDE_PLUGIN_ROOT}/core/rules.md` first. Paths starting `core/` are under `${CLAUDE_PLUGIN_ROOT}/core/`.
 
