@@ -6,6 +6,7 @@ Usage:
   vault.py init   <vault>
   vault.py tidy   <vault> [--dry-run] [--undo] [--quiet] [--tag "file=topic"] [--min-age S]
                                                             file the vault root into library/ and notes/ by topic
+  vault.py rename <vault> <old-slug> <new-slug>             controlled rename of a source and every reference
   vault.py find   <vault> <term>...                         concept pages matching names or aliases
   vault.py due    <vault> [--date YYYY-MM-DD] [--limit N]   due items with their gist
   vault.py record <vault> <concept-slug> <again|hard|good|easy> [--date YYYY-MM-DD]
@@ -616,6 +617,10 @@ def undo_tidy(vault):
     last = rows[-1]["run"]
     back = {}
     for r in reversed([r for r in rows if r["run"] == last]):
+        if r.get("kind") == "rename":
+            do_rename(vault, r["to"], r["from"])
+            back[Path(r["to"])] = Path(r["from"])
+            continue
         src, dst = vault / r["to"], vault / r["from"]
         if not src.exists() or dst.exists():
             print(f"skipped (changed since): {r['to']}")
@@ -626,10 +631,104 @@ def undo_tidy(vault):
         for d in (src.parent, src.parent.parent):  # drop folders the move left empty
             if d != vault and d.exists() and not any(d.iterdir()):
                 d.rmdir()
-    rewrite_links(vault, back)
+    rewrite_links(vault, {k: v for k, v in back.items() if k.is_absolute()})
     logf.write_text("".join(json.dumps(r) + "\n" for r in rows if r["run"] != last), encoding="utf-8")
     print(f"undone: {len(back)} move(s)")
     return 0
+
+
+# ---- rename: controlled names for sources -----------------------------------------------
+
+NAME_RE = re.compile(r"^[a-z][a-z0-9]*-(?:\d{4}|nd)(?:-[a-z0-9]+){1,6}$")
+SLUG_SUFFIX = ("text", "worksheet", "essay", "explainer")
+
+
+def check_name(new):
+    """The naming rule: <author-or-organisation>-<year or nd>-<2 to 6 title words>, lowercase ASCII, 50 characters."""
+    if len(new) > 50 or not NAME_RE.match(new):
+        raise SystemExit(f"'{new}' breaks the naming rule: <author>-<year or nd>-<title words>, lowercase ASCII with hyphens, "
+                         "at most 50 characters (saez-2001-optimal-income-tax, chandrasekhar-nd-unit-5-public-finance)")
+
+
+def slug_dirs(vault, base, slug):
+    root = vault / base
+    return [d for d in sorted(root.rglob(slug)) if d.is_dir()] if root.exists() else []
+
+
+def rename_in_folder(folder, old, new):
+    """Rename the folder's files that start with the old slug, then the folder itself."""
+    for f in sorted(folder.iterdir()):
+        if f.name == old or f.name.startswith(old + ".") or f.name.startswith(old + "-"):
+            f.rename(folder / (new + f.name[len(old):]))
+    target = folder.with_name(new)
+    folder.rename(target)
+    return target
+
+
+def do_rename(vault, old, new):
+    """Rename a source everywhere: library and writing folders, pages, and every reference. Returns pages edited."""
+    lib, wr = slug_dirs(vault, "library", old), slug_dirs(vault, "writing", old)
+    src, path = vault / "wiki" / "sources" / f"{old}.md", vault / "wiki" / "paths" / f"path-{old}.md"
+    if not (lib or wr or src.exists()):
+        raise SystemExit(f"no source called '{old}' (looked in library/, writing/ and wiki/sources/)")
+    for d in lib + wr:
+        if d.with_name(new).exists():
+            raise SystemExit(f"already exists: {d.with_name(new)}")
+    for pg, to in ((src, vault / "wiki" / "sources" / f"{new}.md"), (path, vault / "wiki" / "paths" / f"path-{new}.md")):
+        if pg.exists():
+            if to.exists():
+                raise SystemExit(f"already exists: {to}")
+            pg.rename(to)
+    for d in lib + wr:
+        rename_in_folder(d, old, new)
+    sfx = "|".join(SLUG_SUFFIX)
+    pats = [re.compile(rf"(?<![\w-]){re.escape(x)}(?=$|[^\w-]|-(?:{sfx})\b|-[\w-]*-explainer\b)", re.M) for x in (f"path-{old}", old)]
+    subs = (f"path-{new}", new)
+    edited = 0
+    for base in ("wiki", "writing", "notes", "_meta"):
+        root = vault / base
+        for md in root.rglob("*.md") if root.exists() else []:
+            text = md.read_text(encoding="utf-8")
+            out = text
+            for pat, sub in zip(pats, subs):
+                out = pat.sub(sub, out)
+            if out != text:
+                md.write_text(out, encoding="utf-8")
+                edited += 1
+    for frag in (vault / "writing").rglob("*-explainer.html") if (vault / "writing").exists() else []:
+        text = frag.read_text(encoding="utf-8")
+        out = text
+        for pat, sub in zip(pats, subs):
+            out = pat.sub(sub, out)
+        if out != text:
+            frag.write_text(out, encoding="utf-8")
+            edited += 1
+    return edited
+
+
+def original_name_of(vault, slug):
+    logf = vault / "_meta" / "moves.log"
+    for line in (logf.read_text(encoding="utf-8").splitlines() if logf.exists() else []):
+        r = json.loads(line)
+        if r.get("kind") != "rename" and Path(r["to"]).parent.name == slug:
+            return Path(r["from"]).name
+    return ""
+
+
+def cmd_rename(a):
+    vault = Path(a.vault).expanduser().resolve()
+    check_name(a.new)
+    orig = original_name_of(vault, a.old)
+    n = do_rename(vault, a.old, a.new)
+    page = vault / "wiki" / "sources" / f"{a.new}.md"
+    if orig and page.exists():
+        fm, text = read_fm(page)
+        if not fm.get("original_name"):
+            write_fm(page, text, {"original_name": f'"{orig}"'})
+    with (vault / "_meta" / "moves.log").open("a", encoding="utf-8") as f:
+        f.write(json.dumps({"run": dt.datetime.now().strftime("%Y%m%dT%H%M%S%f"), "kind": "rename", "from": a.old, "to": a.new}) + "\n")
+    log(vault, f"{dt.date.today().isoformat()} · rename · {a.old} -> {a.new}")
+    print(f"renamed {a.old} -> {a.new} ({n} page(s) updated)")
 
 
 def find_browser():
@@ -688,6 +787,7 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("init"); s.add_argument("vault"); s.set_defaults(fn=cmd_init)
     s = sub.add_parser("tidy"); s.add_argument("vault", nargs="?"); s.add_argument("--auto", action="store_true"); s.add_argument("--quiet", action="store_true"); s.add_argument("--dry-run", action="store_true"); s.add_argument("--undo", action="store_true"); s.add_argument("--tag", action="append"); s.add_argument("--min-age", type=float, default=3.0); s.set_defaults(fn=cmd_tidy)
+    s = sub.add_parser("rename"); s.add_argument("vault"); s.add_argument("old"); s.add_argument("new"); s.set_defaults(fn=cmd_rename)
     s = sub.add_parser("find"); s.add_argument("vault"); s.add_argument("terms", nargs="+"); s.set_defaults(fn=cmd_find)
     s = sub.add_parser("due"); s.add_argument("vault"); s.add_argument("--date"); s.add_argument("--limit", type=int, default=6); s.set_defaults(fn=cmd_due)
     s = sub.add_parser("record"); s.add_argument("vault"); s.add_argument("slug"); s.add_argument("grade", choices=GRADE_STEP); s.add_argument("--date"); s.set_defaults(fn=cmd_record)

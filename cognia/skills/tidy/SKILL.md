@@ -20,11 +20,18 @@ the hook cannot decide, and the requests below.
 |---|---|
 | "tidy my vault" | `tidy` (add `--dry-run` to preview) |
 | a file needs a topic | ask one question listing the existing topics (the folders under `library/` and `notes/`), then `tidy --tag "file name=topic"` |
-| "undo that move" | `tidy --undo` (reverses the last run, links included) |
+| "rename this" | `rename <old-slug> <new-slug>` (name rules below) |
+| "undo that move" | `tidy --undo` (reverses the last tidy or rename, links included) |
 
 **How a topic is found,** first match wins: frontmatter `tags:` or `topic:`; the first inline
 `#tag` in a note; a `#tag` or leading `[tag]` in the file name (`.` nests, so `[econ.labor]`
 is `econ/labor`); a tagged note in the root that links the file; the topic you give in chat.
 Files identical to one already in `library/` go to `_meta/duplicates/`; nothing is deleted.
+
+**Naming rule** for sources, enforced by `rename`: `<author-or-organisation>-<year or nd>-<2 to 6
+title words>`, lowercase ASCII, hyphens, at most 50 characters. A deck or lecture takes the course
+or unit as the first title words. Use only abbreviations the title itself uses, and `nd` when the
+year is unknown, never a guess. Examples: `saez-2001-optimal-income-tax`,
+`chandrasekhar-nd-unit-5-public-finance`. Your own notes keep the names you gave them.
 
 Report the one-line summary the command prints, then give the next action.

@@ -42,7 +42,13 @@ If the reader does not care, use standard.
 
 ## Steps
 
-1. **Capture.** Copy the file into `library/<topic>/<slug>/<slug>.<ext>` and never edit it again. Extract the text
+1. **Capture.** A file in the vault root is filed by the `tidy` hook before you get here; if one
+   is still there, run `tidy` first (`/cognia:tidy`). The source then sits in
+   `library/<topic>/<slug>/` under a provisional slug. Read the title page and propose the
+   controlled name in the same message as the depth question ("I'll file it as
+   `chandrasekhar-nd-unit-5-public-finance`; how deep: skim, standard or deep?"), then run
+   `vault.py rename <vault> <old> <new>`. Put the topic on the source page as `topic:` and
+   `tags:`. Never edit the original. Extract the text
    with the pdf or pptx skill or plain tools into `<slug>-text.md` beside it. If the PDF is
    scanned, read the page images instead of guessing. Check `core/domains/` for a file on the
    source's field and load it if one exists. Read the source once: from here on,
