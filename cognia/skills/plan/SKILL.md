@@ -41,7 +41,7 @@ plan is wrong. Ask one question: does this match what you want? Adjust, then bui
 
 ## Stage 2: build one unit per turn
 
-1. Write the confirmed plan to `wiki/paths/path-<goal-slug>.md` (format in `core/schema.md`).
+1. Write the confirmed plan to `wiki/paths/path-<goal-slug>.md` (format in `core/formats/path.md`).
 2. Build one unit per turn unless the reader asks for more. A unit with a source runs
    `/cognia:ingest` at the plan's depth; a unit without one runs `/cognia:learn` for each
    of its concepts. Each unit then offers its reading: explainer, essay or essay page.

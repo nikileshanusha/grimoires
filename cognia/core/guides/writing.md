@@ -30,12 +30,29 @@ written down. Short text with the links removed is harder to read, not easier.
 4. **A screen is one line of reasoning**: X, because Y, so Z. "And also" twice means two
    screens. No "because" means a list of facts, not an explanation. Aim for 120 to 220 words
    of prose beside a figure.
-5. **Screens connect.** The first sentence follows from the last screen's point, as the next
-   sentence in a paragraph would. End by leaving a question open or pointing ahead. No meta
-   openings such as "In this section we will look at".
+5. **Screens connect through the idea, never through the page.** A screen or section ends with
+   the consequence that makes the next concept necessary, and the next one opens from that
+   consequence, as the next sentence in a paragraph would. Never point at the page itself:
+   no "the next screen", "below", "coming up", "we'll see", "let's" or "in this section". Refer
+   back the way a paper does, by concept or figure ("the loss in Figure 2"), not by screen number.
 6. **Say why before showing what.** Before an equation, table, figure or simulation, one
    sentence on what to look for; after it, one sentence on what it showed.
 7. **Concrete before abstract**: the example first, then the general rule.
+
+## Transitions
+
+Before (points at the page):
+
+> The best rate is where they balance, and the next two screens measure each side.
+
+After (states the link to the next concept):
+
+> The best rate is where the gain and the two losses balance, so the next question is how large
+> each loss is, starting with the behavioural effect: how much reported income falls when the
+> rate rises.
+
+Before: "The next screen lets you set the tax rate and watch firms make the choice."
+After: "A firm's choice therefore turns on the tax rate it faces, which is the parameter to vary."
 
 ## Padding
 

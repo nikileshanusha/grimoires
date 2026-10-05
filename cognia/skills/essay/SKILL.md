@@ -56,6 +56,10 @@ $$ \tau^* = \frac{1-\bar g}{1-\bar g + a e} $$
 ```
 
 - **Title** is the source's question; the italic line under it is the dek (one sentence).
+- **Transitions**: a section ends with the consequence that makes the next concept necessary,
+  never with "next section" or "below"; `vault.py essay` and `build` warn on those phrases.
+- **Plots**: Mermaid `xychart-beta` with `x-axis "title"` and `y-axis "title"`, ticks at round values,
+  and a caption ending "Source: …" (`core/guides/diagrams.md`).
 - **Sections**: each `##` heading is a claim, never a topic label. Order them by the
   worksheet's dependency chain. Length follows depth; there is no word count.
 - **Terms**: link the first mention of each concept as `[[concept-slug|words in the text]]`.

@@ -31,9 +31,31 @@ A graph-shaped subject does not make a structural diagram the default.
 | Real-world context | a real chart from the subject with the part the source is about in solid | — |
 | The shape of a whole topic | a mind map: one centre, up to 6 branches, up to 4 leaves each | `mindmap` |
 
+## Precision
+
+The look stays: graphite palette, cards and glyphs, fill, hatch, outline and dash. An academic
+reader needs the figure to carry its numbers, so the aim is every label the reader needs and
+no more.
+
+**Plots** (a quantity against a parameter) always have both axes, an axis title with the variable,
+symbol and unit ("Top marginal tax rate τ (%)"), 3 to 6 numeric ticks at round values, every
+series labelled directly, and the one or two key points (the optimum, the crossing) annotated with
+exact values. In explainers build them with `plot()` (`skills/explainer/screens.md`); in essays use
+Mermaid `xychart-beta` with `x-axis` and `y-axis` titles.
+
+**Card-and-glyph schematics** stay. They gain a sign or direction on each causal arrow (+/−,
+"raises", "lowers") beside its verb, the quantity and unit on a card when the source gives one
+("revenue −4%", "e = 0.25"), and glyph charts drawn to scale. Two short axis ticks are enough where a
+full axis would crowd a card.
+
+**Every caption** reads "Figure n. <the claim>." then the "What to notice" sentence, then a
+**Source:** line naming the table or figure in the source, or "Illustration with chosen values,
+not from the source."
+
 ## Complexity budget
 
-- Box subtitles of 5 words or fewer; arrow labels of 1 to 3 words.
+- Schematics: box subtitles of 5 words or fewer; arrow labels of 1 to 3 words. Plots follow the
+  Precision section instead.
 - At most 3 encodings per figure. If an encoding carries meaning, it must appear in the
   explainer's help panel.
 - At most 4 boxes per row. Beyond that, split into an overview and a detail figure.

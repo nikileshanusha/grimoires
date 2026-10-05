@@ -39,4 +39,4 @@ against a different version of the idea than the one taught creates confusion.
 Be honest. Unearned praise makes the grade meaningless and the review schedule wrong.
 "That is a complete explanation" is also a valid verdict; do not invent a gap.
 
-A concept at box 5 that passes becomes `mastered` (`core/schema.md`).
+A concept at box 5 that passes becomes `mastered` (`core/formats/meta.md`).

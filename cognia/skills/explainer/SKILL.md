@@ -73,8 +73,10 @@ screens 3, 5 if there is an equation, and 8.
 
 - The headline is a claim ("The loss depends on how much reported income shrinks."), never a
   topic label. Each "So far:" line states what the previous screen established.
-- Later screens refer back by number ("the slice from screen 2"), and numbers carry through:
-  the person on screen 2 is the person on screen 3.
+- Later screens refer back by concept or figure number ("the slice in Figure 2"), and the
+  example carries through: the person in Figure 2 is the person in Figure 3.
+- A screen ends with the consequence that makes the next concept necessary. It never points at
+  the page ("the next screen", "coming up"); `check` flags those phrases.
 - No learning-management chrome: no status pills, mastery colours or reference cards. That
   state lives in the vault and in chat.
 

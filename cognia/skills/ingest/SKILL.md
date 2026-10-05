@@ -70,11 +70,12 @@ If the reader does not care, use standard.
    - result numbers, prerequisites, and the limitations the authors state.
 
 3. **Source page.** Write `wiki/sources/<slug>.md` from the worksheet (format in
-   `core/schema.md`).
+   `core/formats/source.md`), with `topic:` and `tags:`.
 
 4. **Merge concepts.** For each concept the source uses or introduces, run
    `python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" find <vault> <name> <alias>...` first, and update an existing page rather than
-   creating a duplicate; this is what makes the vault compound. Update with targeted edits
+   creating a duplicate (format in `core/formats/concept.md`; add the source's topic to the
+   concept's `tags:`); this is what makes the vault compound. Update with targeted edits
    (add a "Seen in" line, a new alias), never a full rewrite of an existing page. A new concept gets a page
    with its `requires:` links filled in, even to pages that do not exist yet. Add a "Seen in"
    line linking back to this source.
@@ -93,7 +94,7 @@ If the reader does not care, use standard.
    each, skipping `known` ones.
 
 9. **Update state.** Rewrite `_meta/now.md` (next step: the reading), append a line to
-   `_meta/log.md`, refresh the counts in `VAULT.md`.
+   `_meta/log.md`, then run `vault.py index <vault>`, which refreshes the topic pages and the counts in `VAULT.md`.
 
 10. **Hand off** in 3 to 5 lines: what was mapped (concepts new and reused), what the
     diagnostic found, and one question: "Next, about N min: the **explainer** (interactive, at
