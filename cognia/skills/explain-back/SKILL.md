@@ -1,8 +1,10 @@
 ---
 name: explain-back
-description: >
-  Feynman session: the learner explains a concept, Claude probes and grades against the source. Use for "let me explain X" or a pasted "Explain-back for" block.
+description: "Runs a Feynman session: the learner explains a concept, and Claude probes and grades it against the source."
+when_to_use: "Use for \"let me explain X\" or a pasted \"Explain-back for\" block."
 argument-hint: "[concept]"
+effort: medium
+allowed-tools: Bash(python *)
 ---
 
 # Explain-back (Feynman session)

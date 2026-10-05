@@ -1,8 +1,10 @@
 ---
 name: ingest
-description: >
-  Map a new paper, slide deck or notes into the vault: concepts, references, prerequisites, diagnostic and path. Use when the user drops in or names material to learn ("learn this", "add this paper").
+description: "Maps a new paper, slide deck or notes into the vault: concepts, references, prerequisites, diagnostic and path."
+when_to_use: "Use when the user drops in or names material to learn (\"learn this\", \"add this paper\")."
 argument-hint: "[file or topic]"
+effort: medium
+allowed-tools: Bash(python *)
 ---
 
 # Ingest a new source

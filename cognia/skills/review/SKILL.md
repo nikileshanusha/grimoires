@@ -1,7 +1,9 @@
 ---
 name: review
-description: >
-  Spaced recall in chat: quiz the due concepts, grade, reschedule. Use for "quiz me", "review", "what's due".
+description: "Runs spaced recall in chat: quizzes the due concepts, grades them and reschedules."
+when_to_use: "Use for \"quiz me\", \"review\", \"what's due\"."
+effort: low
+allowed-tools: Bash(python *)
 ---
 
 # Review (spaced recall in chat)

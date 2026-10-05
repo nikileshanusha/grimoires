@@ -1324,6 +1324,15 @@ def topics_line(vault):
 
 
 def cmd_context(a):
+    """Never fails: a non-zero exit from the inline command would abort the skill that runs it."""
+    try:
+        return _context(a)
+    except BaseException as e:  # SystemExit from helpers included
+        print(f"(cognia context unavailable: {e}. Carry on without it; run vault.py about/due/stats by hand if needed.)")
+        return 0
+
+
+def _context(a):
     """What a skill needs to start, printed by an inline command so Claude does not read files for it."""
     vault = find_vault()
     if vault is None:

@@ -1,8 +1,10 @@
 ---
 name: explainer
-description: >
-  Build the interactive HTML explainer for a source or one concept, with figures, math decoder and glossary. Use when the user picks the explainer or asks for an interactive lesson.
+description: "Builds the interactive HTML explainer for a source or one concept, with figures, math decoder and glossary."
+when_to_use: "Use when the user picks the explainer or asks for an interactive lesson."
 argument-hint: "[source-slug]"
+effort: medium
+allowed-tools: Bash(python *)
 ---
 
 # Explainer spec
@@ -27,9 +29,8 @@ State at start (already run for you; do not repeat it):
 
 !`python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" context explainer $ARGUMENTS`
 
-The explainer is Karpathy's top rung that cognia uses: an interactive HTML page. It is a view
-of the vault and is never the only place anything lives. Build one only when the reader asks
-for it (or says go to the offer at the end of ingest).
+Build an explainer only when the reader asks for it (or says go to the offer at the end of ingest).
+It is a view of the vault, never the only place anything lives.
 
 ## The one rule
 

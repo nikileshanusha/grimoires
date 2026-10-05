@@ -1,8 +1,10 @@
 ---
 name: essay
-description: >
-  Write the on-the-go essay (Markdown for Obsidian) or the one-page essay web page for a source. Use for "write it as an essay", "something to read on my phone".
+description: "Writes the on-the-go essay (Markdown for Obsidian) or the one-page essay web page for a source."
+when_to_use: "Use for \"write it as an essay\", \"something to read on my phone\"."
 argument-hint: "[source-slug]"
+effort: medium
+allowed-tools: Bash(python *)
 ---
 
 # Essay spec
@@ -23,9 +25,7 @@ State at start (already run for you; do not repeat it):
 
 !`python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" context essay $ARGUMENTS`
 
-The essay is the on-the-go reading: one argument told as a Substack post or a chapter of
-Scott Cunningham's *Mixtape*, in Markdown that reads in Obsidian on a phone. It teaches the
-same thing as the explainer, at the same depth, without needing a desk.
+The essay is the on-the-go reading, in Markdown that reads in Obsidian on a phone, at the same depth as the explainer.
 
 Two modes, both from one file:
 

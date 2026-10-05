@@ -5,6 +5,20 @@ every control from these attributes, so a page needs no JS beyond `fig(...)` cal
 for SVG text and shapes are listed at the end. `core/engine/examples/saez-2001-explainer.html` shows all of
 them in use; open it only to see how a finished screen looks.
 
+## Contents
+
+- Equation (the first component to copy)
+- Claim screen (every screen starts from this)
+- Live figure with controls
+- Prediction gate
+- Step-reveal math (the "In symbols" screen)
+- Evidence table (the "What to doubt" screen)
+- Concept map with recall
+- Check yourself and explain-back
+- Glossary
+- Math in figures
+- SVG classes (shared legend already explains these)
+
 ## Equation (the first component to copy)
 
 Every equation with `=`, `<`, `>` or more than a few symbols is one `.equation` block. Never

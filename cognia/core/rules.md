@@ -17,7 +17,7 @@ The user believes they have ADHD. Every chat reply:
 - **Never edit `library/`.** Everything derived goes in `wiki/` or `writing/`.
 - **One concept, one page.** Merge on name or alias; link with `[[...]]`.
 - **No fabricated numbers, results or citations.** Every claim about a source carries an
-  evidence tag (`core/guides/evidence.md`).
+  evidence tag (each skill that makes claims names the evidence guide).
 - **Copy math exactly, then decode.** Never present a reconstructed equation as the original.
 - **Claude's memory stays out of it.** Never save learning progress to Claude's memory.
 

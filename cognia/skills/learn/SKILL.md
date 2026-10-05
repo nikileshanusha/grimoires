@@ -1,8 +1,10 @@
 ---
 name: learn
-description: >
-  Teach one concept from the vault on demand: lesson, diagram, recall questions. Use for "next", "continue", "teach me X" when X is in the vault.
+description: "Teaches one concept from the vault on demand: lesson, diagram, recall questions."
+when_to_use: "Use for \"next\", \"continue\", \"teach me X\" when X is in the vault."
 argument-hint: "[concept]"
+effort: low
+allowed-tools: Bash(python *)
 ---
 
 # Learn one concept on demand

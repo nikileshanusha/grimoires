@@ -1,8 +1,10 @@
 ---
 name: expand
-description: >
-  Fetch and learn a work cited by a vault source. Use for "fetch that reference", "learn the paper it cites".
+description: "Fetches and learns a work cited by a vault source."
+when_to_use: "Use for \"fetch that reference\", \"learn the paper it cites\"."
 argument-hint: "[reference]"
+effort: low
+allowed-tools: Bash(python *)
 ---
 
 # Expand into a referenced work

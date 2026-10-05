@@ -1,8 +1,10 @@
 ---
 name: plan
-description: >
-  Plan a learning goal that spans several sources before building anything: units, concepts to keep, spiral map. Use for "teach me X properly" or several sources at once.
+description: "Plans a learning goal that spans several sources before anything is built: units, concepts to keep, spiral map."
+when_to_use: "Use for \"teach me X properly\" or several sources at once."
 argument-hint: "[goal]"
+effort: medium
+allowed-tools: Bash(python *)
 ---
 
 # Plan a learning goal

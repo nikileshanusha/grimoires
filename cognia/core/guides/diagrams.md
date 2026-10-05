@@ -8,6 +8,18 @@ faster, write the sentence. Draw the mechanism, not its name.
 hand-built inline SVG, never default Mermaid boxes. Load the `artifact-diagramming` skill
 before drawing SVG.
 
+## Contents
+
+- Route by intent, not by subject
+- Figure patterns
+- Precision
+- Complexity budget
+- Encoding (one mapping per explainer)
+- Colour: eight muted hues for marks
+- Craft
+- Interactivity
+- Maps
+
 ## Route by intent, not by subject
 
 - **Illustrative**: a mechanism that is hard to feel from equations (a shock spreading, a
