@@ -44,6 +44,21 @@
     .replace(/<p>\s*MATH(\d+)X\s*<\/p>/g, (_, i) => `<div class="math-block">\\[${esc(math[i].tex)}\\]</div>`)
     .replace(/MATH(\d+)X/g, (_, i) => math[i].display ? `<div class="math-block">\\[${esc(math[i].tex)}\\]</div>` : `\\(${esc(math[i].tex)}\\)`);
 
+  /* 5b. a display equation, its "Where:" list and "(Source: ...)" line become one numbered block */
+  $$(".math-block", art).forEach((m, k) => {
+    const box = document.createElement("div");
+    box.className = "equation";
+    m.before(box);
+    box.appendChild(m);
+    const n = document.createElement("span");
+    n.className = "eq-n"; n.textContent = `(${k + 1})`;
+    m.after(n);
+    let el = box.nextElementSibling;
+    if (el && el.tagName === "P" && /^Where:?$/i.test(el.textContent.trim())) { el.className = "where-h"; box.appendChild(el); el = box.nextElementSibling; }
+    if (el && (el.tagName === "UL" || el.tagName === "OL") && box.querySelector(".where-h")) { el.className = "where"; box.appendChild(el); el = box.nextElementSibling; }
+    if (el && el.tagName === "P" && /^\(Source:/i.test(el.textContent.trim())) { el.className = "eq-src"; box.appendChild(el); }
+  });
+
   /* 6. structure: dek, callouts, mermaid, tables */
   const h1 = $("h1", art), next = h1 && h1.nextElementSibling;
   if (h1) document.title = h1.textContent + " · Cognia";

@@ -429,6 +429,11 @@
       if (!$(".short", e) || !$(".more", e)) out.push(`glossary entry "${ename(e)}" needs a .short line and a .more block`);
       if (!$(`a.gl[href="#${e.id}"]`)) out.push(`glossary entry "${ename(e)}" is never linked from a screen`);
     });
+    $$(".katex-error").forEach(e => out.push(`equation does not parse (KaTeX error): "${e.textContent.trim().slice(0, 60)}"`));
+    screens.forEach((s, i) => {
+      go(i, true);
+      $$(".eq", s).forEach(e => { if (e.scrollWidth > e.clientWidth + 2) out.push(`screen ${i} (${s.dataset.title}): an equation is wider than its column by ${e.scrollWidth - e.clientWidth}px`); });
+    });
     const walk = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
     for (let n; (n = walk.nextNode());) {
       if (n.parentElement.closest("script, style, textarea, .katex")) continue;
@@ -448,6 +453,12 @@
   /* ---------- start (page scripts have registered their figures by now) ---------- */
   addEventListener("DOMContentLoaded", () => {
     rail.style.transition = "none";
+    // Equation blocks: number them "(1)", "(2)" per page and print the source location from data-src.
+    $$(".equation").forEach((q, k) => {
+      const eq = $(".eq", q);
+      if (!eq) return;
+      eq.insertAdjacentHTML("afterend", `<span class="eq-n" aria-label="equation ${k + 1}">(${k + 1})</span>` + (q.dataset.src ? `<span class="eq-src">(${q.dataset.src.replace(/&/g, "&amp;").replace(/</g, "&lt;")})</span>` : ""));
+    });
     const fromHash = /^#(\d+)$/.exec(location.hash);
     const saved = state.panel || (state.help ? "help" : null);
     help.hidden = gloss.hidden = true;

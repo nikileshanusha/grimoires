@@ -5,6 +5,26 @@ every control from these attributes, so a page needs no JS beyond `fig(...)` cal
 for SVG text and shapes are listed at the end. `core/engine/examples/saez-2001-explainer.html` shows all of
 them in use; open it only to see how a finished screen looks.
 
+## Equation (the first component to copy)
+
+Every equation with `=`, `<`, `>` or more than a few symbols is one `.equation` block. Never
+write it inline in a paragraph.
+
+```html
+<div class="equation" data-src="slide 9">
+  <p class="eq">\[ \text{gap}_i = \alpha + \beta_1\,\text{tax}_i + u_i \]</p>
+  <dl class="where">
+    <dt>\(\text{gap}_i\)</dt><dd>log export value minus log import value for good \(i\)</dd>
+    <dt>\(\beta_1\)</dt><dd>extra gap per unit of tax rate; estimate 2.93 (s.e. 0.74)</dd>
+  </dl>
+</div>
+```
+
+- `data-src` is where the equation sits in the source ("slide 9", "eq. 4, p. 12"). The shell
+  prints it as a tag and numbers the equation "(1)", "(2)", so prose can say "equation (1)".
+- `.where` lists every symbol in the equation, one `dt`/`dd` each, in plain words with units.
+- Inline `\( \)` is for one symbol or a short expression with no `=`.
+
 ## Claim screen (every screen starts from this)
 
 ```html
@@ -27,7 +47,7 @@ them in use; open it only to see how a finished screen looks.
 
 Screen 0 uses `<div class="kicker"><b>Start</b></div>`, an `<h1>`, and no "So far" line.
 Glossary terms: `<a class="gl" href="#g-slug">term</a>` (see Glossary). Emphasis that is not a
-glossary term: `<strong class="key">`. Math: `\( \)` inline, `<p class="eq">\[ \]</p>` display.
+glossary term: `<strong class="key">`. Math: `\( \)` inline for one symbol, the `.equation` block above for any equation.
 
 ## Live figure with controls
 

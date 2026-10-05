@@ -68,8 +68,10 @@ $$ \tau^* = \frac{1-\bar g}{1-\bar g + a e} $$
   starting *What to notice:*. Keep diagrams to the moving parts (`core/guides/diagrams.md`) and
   draw them top-down (`flowchart TD`): it reads on a phone, where left-to-right shrinks to
   unreadable. The page shows reading time itself, so the essay does not state it.
-- **Math**: `$…$` inline, `$$…$$` on its own line, then numbered decoding steps. Copy the
-  source's equation exactly and say where it is.
+- **Math**: `$…$` inline for one symbol or a short expression with no `=`. Every equation is
+  `$$…$$` on its own lines, then a line `Where:` with a bullet per symbol, then
+  `(Source: slide 9)`; then the numbered decoding steps. Copy the source's equation exactly.
+  The page numbers it and sets it in a box.
 - **Pull quote**: one `>` blockquote for the single sentence the reader should keep.
 - **Asides**: footnotes `[^1]`, never long parentheses.
 - **What to doubt**: assumptions, scope, the three limitation buckets, each claim tagged in

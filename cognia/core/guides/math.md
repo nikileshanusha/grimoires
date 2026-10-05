@@ -26,8 +26,14 @@ Five moves in this order, linked by sentences so the reader knows why the next o
    arithmetic, introduced with why and closed with what it showed.
 3. **Show the equation** exactly as in the source (or accurately reformatted), with its
    location, and a lead-in tying it to the example.
-4. **Give a symbol table**: symbol, plain meaning, type (number, set, function), and where the
+4. **Give a symbol list**: symbol, plain meaning, type (number, set, function), and where the
    reader met it.
+
+Moves 3 and 4 are one fixed component, never free markup. In an explainer it is the
+`.equation` block (`data-src` for the location, a `.where` list for the symbols; pattern at
+the top of `skills/explainer/screens.md`). In an essay it is `$$ ... $$` on its own lines,
+then `Where:` with a bullet per symbol, then `(Source: slide 9)`. An equation is never written
+inline in a paragraph.
 5. **Restate the idea in new words**, only at a genuine bottleneck you can name. Otherwise it
    turns into "in other words… put differently…" on a loop.
 

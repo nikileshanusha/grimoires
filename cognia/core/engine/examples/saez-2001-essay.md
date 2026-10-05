@@ -30,6 +30,14 @@ The top rate only taxes income above the top line, $\bar z$. Top incomes follow 
 
 $$ z_m = \frac{a}{a-1}\,\bar z $$
 
+Where:
+
+- $z_m$ is the average income above the line.
+- $a$ is the Pareto tail; small means fat.
+- $\bar z$ is the line where the top rate starts.
+
+(Source: p. N, sample)
+
 With $a = 1.5$ the average top earner makes three times the line: about $1.8M against a $600k line, so the slice the top rate taxes is $1.2M.
 
 ## The loss depends on how much reported income shrinks
@@ -43,6 +51,14 @@ The [[elasticity-of-taxable-income|elasticity of taxable income]], $e$, measures
 Setting the gain equal to the two losses gives Saez's formula:
 
 $$ \tau^* = \frac{1-\bar g}{1-\bar g+a\,e} $$
+
+Where:
+
+- $\tau^*$ is the best top marginal tax rate.
+- $a$ is the Pareto tail and $e$ the elasticity of taxable income.
+- $\bar g$ is the social value of a top earner's dollar.
+
+(Source: eq. N, p. N, sample)
 
 1. $1-\bar g$ is the gain from a small step, after counting what top earners lose at weight $\bar g$.
 2. $a\,e$ is the loss: a fat tail (small $a$) shrinks it, a strong response (large $e$) grows it.

@@ -105,6 +105,17 @@ svg .bg { fill: var(--plate); }
 
 /* C: math */
 .eq { font-size: clamp(1.25rem, 1.8vw, 1.9rem); overflow-x: auto; overflow-y: hidden; }
+/* An equation is always one .equation block: display math, a source tag, a where-list.
+   The shell (cognia.js) adds the "(1)" number and the "(slide 9)" tag from data-src. */
+.equation { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 14px; align-items: center; padding: 14px 16px; max-width: 62ch;
+  background: var(--plate); border: 1px solid var(--rule); border-radius: 8px; }
+.equation > .eq { grid-column: 1; text-align: center; }
+.equation > .eq-n { grid-column: 2; font: 500 .9rem var(--f-mono); color: var(--ink-2); }
+.equation > .eq-src { grid-column: 1 / -1; justify-self: end; font: 500 .78rem var(--f-mono); color: var(--ink-2); }
+.equation > .where { grid-column: 1 / -1; margin: 6px 0 0; padding-top: 10px; border-top: 1px solid var(--rule);
+  display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; align-items: baseline; font: 400 .92rem/1.5 var(--f-body); color: var(--ink-2); }
+.equation > .where dt { text-align: right; color: var(--ink); }
+.equation > .where dd { margin: 0; }
 table { border-collapse: collapse; width: 100%; font: 400 .93rem/1.45 var(--f-body); }
 th { text-align: left; font: 700 .72rem var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); padding: 6px 10px 6px 0; border-bottom: 1px solid var(--ink-2); }
 td { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }

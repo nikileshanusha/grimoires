@@ -146,7 +146,14 @@
         <p>The <a class="gl" href="#g-top-rate">top rate</a> applies only to income above a line, <a class="gl" href="#g-top-line">\(\bar z\)</a>. When the rate rises, each top earner pays more on their slice above that line, \(z_m - \bar z\), where <a class="gl" href="#g-zm">\(z_m\) is their average income</a>.</p>
         <p>That makes the size of the slice the whole story for the gain, and the slice depends on the shape of the top of the income distribution.</p>
         <p>Top incomes follow a <a class="gl" href="#g-pareto">Pareto tail</a>, a shape set by one number, \(a\). Above any line, the average income is</p>
-        <p class="eq">\[ z_m = \frac{a}{a-1}\,\bar z \]</p>
+        <div class="equation" data-src="p. N (sample)">
+          <p class="eq">\[ z_m = \frac{a}{a-1}\,\bar z \]</p>
+          <dl class="where">
+            <dt>\(z_m\)</dt><dd>average income above the line</dd>
+            <dt>\(a\)</dt><dd>Pareto tail; small means fat</dd>
+            <dt>\(\bar z\)</dt><dd>the line where the top rate starts</dd>
+          </dl>
+        </div>
         <p>so a small \(a\) means a fat tail, with many very high incomes, a big slice and a big gain. Move the slider to see it.</p>
       </div>
       <div class="note"><b>Side note.</b> Vilfredo Pareto found this shape in Italian land records in the 1890s, and US tax data shows it too, with \(a\) near 1.5. Screen 5 uses one consequence: \((z_m-\bar z)/z_m = 1/a\) exactly.</div>
@@ -231,14 +238,15 @@
       <div class="kicker"><b>5</b> / 8 · In symbols · eq. (N), p. N (sample)</div>
       <p class="sofar">So far: you have seen the argument with pictures and numbers. Here it is as algebra.</p>
       <h2>The same argument, in symbols.</h2>
-      <p class="eq">\[\tau^* = \frac{1 - \bar g}{1 - \bar g + a\,e}\]</p>
-      <table>
-        <tr><th>Symbol</th><th>Meaning</th><th>Where you met it</th></tr>
-        <tr><td>\(\tau^*\)</td><td><a class="gl" href="#g-top-rate">best top marginal tax rate</a> (a number from 0 to 1)</td><td>the crossing, screen 4</td></tr>
-        <tr><td>\(a\)</td><td><a class="gl" href="#g-pareto">Pareto tail</a>; small means fat</td><td>screen 2</td></tr>
-        <tr><td>\(e\)</td><td><a class="gl" href="#g-eti">elasticity of taxable income</a></td><td>screen 3</td></tr>
-        <tr><td>\(\bar g\)</td><td><a class="gl" href="#g-welfare-weight">social value of a top earner's dollar</a></td><td>screen 4 note</td></tr>
-      </table>
+      <div class="equation" data-src="eq. (N), p. N (sample)">
+        <p class="eq">\[\tau^* = \frac{1 - \bar g}{1 - \bar g + a\,e}\]</p>
+        <dl class="where">
+          <dt>\(\tau^*\)</dt><dd><a class="gl" href="#g-top-rate">best top marginal tax rate</a>, from 0 to 1. Met at the crossing, screen 4.</dd>
+          <dt>\(a\)</dt><dd><a class="gl" href="#g-pareto">Pareto tail</a>; small means fat. Met on screen 2.</dd>
+          <dt>\(e\)</dt><dd><a class="gl" href="#g-eti">elasticity of taxable income</a>. Met on screen 3.</dd>
+          <dt>\(\bar g\)</dt><dd><a class="gl" href="#g-welfare-weight">social value of a top earner's dollar</a>. Met in the screen 4 note.</dd>
+        </dl>
+      </div>
       <div class="note"><b>Check by limits.</b> Setting \(e = 0\) gives \(\tau^* = 1\), and setting \(\bar g = 1\) gives \(\tau^* = 0\). Both match what the figure on screen 4 does.</div>
     </div>
     <div class="fig">
