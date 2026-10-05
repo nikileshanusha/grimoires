@@ -3,7 +3,7 @@ name: review
 description: "Runs spaced recall in chat: quizzes the due concepts, grades them and reschedules."
 when_to_use: "Use for \"quiz me\", \"review\", \"what's due\"."
 effort: low
-allowed-tools: Bash(python *)
+allowed-tools: Bash(python *) PowerShell(python *)
 ---
 
 # Review (spaced recall in chat)

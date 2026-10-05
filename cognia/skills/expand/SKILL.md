@@ -4,7 +4,7 @@ description: "Fetches and learns a work cited by a vault source."
 when_to_use: "Use for \"fetch that reference\", \"learn the paper it cites\"."
 argument-hint: "[reference]"
 effort: low
-allowed-tools: Bash(python *)
+allowed-tools: Bash(python *) PowerShell(python *)
 ---
 
 # Expand into a referenced work

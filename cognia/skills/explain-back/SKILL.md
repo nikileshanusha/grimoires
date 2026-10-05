@@ -4,7 +4,7 @@ description: "Runs a Feynman session: the learner explains a concept, and Claude
 when_to_use: "Use for \"let me explain X\" or a pasted \"Explain-back for\" block."
 argument-hint: "[concept]"
 effort: medium
-allowed-tools: Bash(python *)
+allowed-tools: Bash(python *) PowerShell(python *)
 ---
 
 # Explain-back (Feynman session)

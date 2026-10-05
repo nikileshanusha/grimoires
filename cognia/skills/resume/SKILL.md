@@ -3,7 +3,7 @@ name: resume
 description: "Says where the learner left off and what the single next step is."
 when_to_use: "Use for \"where was I\", \"status\", \"what do I know\"."
 effort: low
-allowed-tools: Bash(python *)
+allowed-tools: Bash(python *) PowerShell(python *)
 ---
 
 # Resume

@@ -4,7 +4,7 @@ description: "Writes the on-the-go essay (Markdown for Obsidian) or the one-page
 when_to_use: "Use for \"write it as an essay\", \"something to read on my phone\"."
 argument-hint: "[source-slug]"
 effort: medium
-allowed-tools: Bash(python *)
+allowed-tools: Bash(python *) PowerShell(python *)
 ---
 
 # Essay spec

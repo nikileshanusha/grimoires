@@ -4,7 +4,7 @@ description: "Maps a new paper, slide deck or notes into the vault: concepts, re
 when_to_use: "Use when the user drops in or names material to learn (\"learn this\", \"add this paper\")."
 argument-hint: "[file or topic]"
 effort: medium
-allowed-tools: Bash(python *)
+allowed-tools: Bash(python *) PowerShell(python *)
 ---
 
 # Ingest a new source

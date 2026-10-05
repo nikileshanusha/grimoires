@@ -4,7 +4,7 @@ description: "Builds the interactive HTML explainer for a source or one concept,
 when_to_use: "Use when the user picks the explainer or asks for an interactive lesson."
 argument-hint: "[source-slug]"
 effort: medium
-allowed-tools: Bash(python *)
+allowed-tools: Bash(python *) PowerShell(python *)
 ---
 
 # Explainer spec

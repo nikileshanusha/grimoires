@@ -4,7 +4,7 @@ description: "Teaches one concept from the vault on demand: lesson, diagram, rec
 when_to_use: "Use for \"next\", \"continue\", \"teach me X\" when X is in the vault."
 argument-hint: "[concept]"
 effort: low
-allowed-tools: Bash(python *)
+allowed-tools: Bash(python *) PowerShell(python *)
 ---
 
 # Learn one concept on demand

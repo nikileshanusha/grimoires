@@ -4,7 +4,7 @@ description: "Plans a learning goal that spans several sources before anything i
 when_to_use: "Use for \"teach me X properly\" or several sources at once."
 argument-hint: "[goal]"
 effort: medium
-allowed-tools: Bash(python *)
+allowed-tools: Bash(python *) PowerShell(python *)
 ---
 
 # Plan a learning goal
