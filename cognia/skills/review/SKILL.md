@@ -1,9 +1,17 @@
-# Mode: Review (spaced recall in chat)
+---
+name: review
+description: >
+  Spaced recall in chat: quiz the due concepts, grade, reschedule. Use for "quiz me", "review", "what's due".
+---
 
-Fast retrieval, many concepts, little ceremony. Load `guides/learning.md` for question
+# Review (spaced recall in chat)
+
+Read `${CLAUDE_PLUGIN_ROOT}/core/rules.md` first. Paths starting `core/` are under `${CLAUDE_PLUGIN_ROOT}/core/`.
+
+Fast retrieval, many concepts, little ceremony. Load `core/guides/learning.md` for question
 types, the depth ladder and grades.
 
-1. Run `python <skill>/vault/vault.py due <vault>`. Each line carries the concept's gist; write
+1. Run `python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" due <vault>`. Each line carries the concept's gist; write
    the question from that and open the concept page only when the gist is missing or an
    answer needs a correction you cannot give from it. If nothing is due, offer the `shaky`
    concepts instead.
@@ -12,7 +20,7 @@ types, the depth ladder and grades.
    last solid. Vary the question every time: the same question trains recognition of the
    question, not knowledge of the concept. Wait for the answer.
 4. Reply in one line (right, partly, or wrong), give the correction if needed, and record:
-   `python <skill>/vault/vault.py record <vault> <concept> <again|hard|good|easy>`.
+   `python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" record <vault> <concept> <again|hard|good|easy>`.
 5. A wrong prediction from an explainer (shown in a pasted explain-back block) is the best
    review target there is: ask the reader why the result came out the way it did.
 6. Finish with one line: reviewed N, which moved up, the streak, and the next review date.

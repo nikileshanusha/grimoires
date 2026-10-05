@@ -1,4 +1,13 @@
+---
+name: explainer
+description: >
+  Build the interactive HTML explainer for a source or one concept, with figures, math decoder and glossary. Use when the user picks the explainer or asks for an interactive lesson.
+argument-hint: "[source-slug]"
+---
+
 # Explainer spec
+
+Read `${CLAUDE_PLUGIN_ROOT}/core/rules.md` first. Paths starting `core/` are under `${CLAUDE_PLUGIN_ROOT}/core/`.
 
 The explainer is Karpathy's top rung that cognia uses: an interactive HTML page. It is a view
 of the vault and is never the only place anything lives. Build one only when the reader asks
@@ -10,19 +19,19 @@ The reader spends effort on the idea, never on the page. The explainer is one ar
 in screens, the way a good essay reads (Substack, Scott Cunningham's *Mixtape*). If the
 reader has to work out how the page works, what a mark means, or how two screens relate,
 the page has failed. It succeeds when the reader can answer the six questions in
-`modes/ingest.md` without notes.
+`/cognia:ingest` without notes.
 
 ## Build
 
-1. `python <skill>/vault/vault.py lesson <vault> <source-slug> --title "<Author Year>" --source "<full citation>"`
+1. `python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" lesson <vault> <source-slug> --title "<Author Year>" --source "<full citation>"`
    (add `--concept <slug>` for a concept explainer). It makes the page and refreshes
    `lessons/_shell/`, which holds the look, header, navigation, help legend and every control.
    Never copy or edit the shell from a lesson.
-2. Read `explainer/screens.md` for the markup patterns. Load `guides/writing.md` and
-   `guides/diagrams.md`; load `guides/math.md` only if there are equations and
-   `guides/evidence.md` for the doubt screen; load the domain file if one exists.
+2. Read `${CLAUDE_PLUGIN_ROOT}/skills/explainer/screens.md` for the markup patterns. Load `core/guides/writing.md` and
+   `core/guides/diagrams.md`; load `core/guides/math.md` only if there are equations and
+   `core/guides/evidence.md` for the doubt screen; load the domain file if one exists.
 3. Plan the screens from `raw/<slug>/worksheet.md` (do not reread the source) at the depth
-   recorded on the source page (`depth:`; table in `modes/ingest.md`). Write them into
+   recorded on the source page (`depth:`; table in `/cognia:ingest`). Write them into
    `#rail`, one glossary entry per term or symbol, and one `fig(...)` call per live figure.
 4. Self-check (below), then hand off.
 
@@ -40,10 +49,10 @@ that carries an idea its own screen, and add a screen on what each key reference
    `new`; `known` ones get a one-line reminder), with a live figure where a parameter matters.
 4. **Where it comes together**: the result as a picture (a crossing, a balance, a flow), with
    a prediction gate on its slider.
-5. **In symbols**: the math decoder (`guides/math.md`): the equation as written with its
+5. **In symbols**: the math decoder (`core/guides/math.md`): the equation as written with its
    location, a symbol table with "where you met it", and step-reveal derivation, each step
    pointing back to its screen.
-6. **What to doubt**: assumptions, scope and limitations (`guides/evidence.md`), an evidence
+6. **What to doubt**: assumptions, scope and limitations (`core/guides/evidence.md`), an evidence
    table, and how far the answer moves if the weakest input is wrong.
 7. **The whole picture**: a concept map with recall mode, a one-sentence summary, and where
    the references lead.
@@ -88,7 +97,7 @@ say so.
 
 ## Self-check before delivering
 
-1. `python <skill>/vault/vault.py check <page>` and fix everything it prints until it says
+1. `python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" check <page>` and fix everything it prints until it says
    `OK`. It finds column overflow at 1366×768, overlapping or clipped figure labels, missing
    "So far" lines and `aria-label`s, marks with no legend entry, glossary links to missing
    entries and unlinked entries, sub/superscripts showing as raw text, and em dashes.

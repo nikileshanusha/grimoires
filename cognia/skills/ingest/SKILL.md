@@ -1,4 +1,13 @@
-# Mode: Ingest a new source
+---
+name: ingest
+description: >
+  Map a new paper, slide deck or notes into the vault: concepts, references, prerequisites, diagnostic and path. Use when the user drops in or names material to learn ("learn this", "add this paper").
+argument-hint: "[file or topic]"
+---
+
+# Ingest a new source
+
+Read `${CLAUDE_PLUGIN_ROOT}/core/rules.md` first. Paths starting `core/` are under `${CLAUDE_PLUGIN_ROOT}/core/`.
 
 Goal: one source mapped, its concepts merged into the vault, a short diagnostic and a
 learning path. Ingest is mapping only; the explainer is offered at the end and built when the
@@ -26,7 +35,7 @@ argument needs at that depth.
 | Depth | Covers | Mapping | Math |
 |---|---|---|---|
 | **Skim**: the gist and whether to trust it | the question, the mechanism in one picture, the result, the main doubt, a quick check | the references the argument rests on; prerequisites as one-line reminders; 2 diagnostic questions | the central equation, read aloud in words (Tier 3) |
-| **Standard**: understand and explain it | everything in the screen sequence of `explainer/spec.md`; `shaky` and `new` prerequisites taught in place | as in the steps below | tiered as in `guides/math.md` |
+| **Standard**: understand and explain it | everything in the screen sequence of `/cognia:explainer`; `shaky` and `new` prerequisites taught in place | as in the steps below | tiered as in `core/guides/math.md` |
 | **Deep**: master it, build on it | every assumption, every derivation step that carries an idea, each `shaky` or `new` prerequisite on its own, what each key reference contributes, robustness and extensions | every cited work the argument depends on; prerequisites walked to `known` | every step decoded, with a numeric check |
 
 If the reader does not care, use standard.
@@ -35,7 +44,7 @@ If the reader does not care, use standard.
 
 1. **Capture.** Copy the file into `raw/<slug>/` and never edit it again. Extract the text
    with the pdf or pptx skill or plain tools into `raw/<slug>/text.md`. If the PDF is
-   scanned, read the page images instead of guessing. Check `domains/` for a file on the
+   scanned, read the page images instead of guessing. Check `core/domains/` for a file on the
    source's field and load it if one exists. Read the source once: from here on,
    `text.md` and the worksheet are the cache. Later steps and modes reopen the original
    only for a page the worksheet lacks, and then only that page.
@@ -45,16 +54,16 @@ If the reader does not care, use standard.
    - the core claim in one sentence;
    - the **dependency chain**: which idea must come before which. This sets the order of
      the explainer's screens. If you cannot write it, reread the source;
-   - every equation with its tier and role (load `guides/math.md`), and every symbol with
+   - every equation with its tier and role (load `core/guides/math.md`), and every symbol with
      where it first appears;
-   - an evidence tag for every claim (load `guides/evidence.md`);
+   - an evidence tag for every claim (load `core/guides/evidence.md`);
    - result numbers, prerequisites, and the limitations the authors state.
 
 3. **Source page.** Write `wiki/sources/<slug>.md` from the worksheet (format in
-   `vault/schema.md`).
+   `core/schema.md`).
 
 4. **Merge concepts.** For each concept the source uses or introduces, run
-   `python <skill>/vault/vault.py find <vault> <name> <alias>...` first, and update an existing page rather than
+   `python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" find <vault> <name> <alias>...` first, and update an existing page rather than
    creating a duplicate; this is what makes the vault compound. Update with targeted edits
    (add a "Seen in" line, a new alias), never a full rewrite of an existing page. A new concept gets a page
    with its `requires:` links filled in, even to pages that do not exist yet. Add a "Seen in"
@@ -66,7 +75,7 @@ If the reader does not care, use standard.
 6. **Map prerequisites.** Walk `requires:` down until you reach concepts the vault already
    rates `known` or plainly foundational. Create stub pages (`status: new`) for the rest.
 
-7. **Diagnose.** Load `guides/learning.md` (Diagnostic). Ask 2 (skim) to 6 rapid questions on the
+7. **Diagnose.** Load `core/guides/learning.md` (Diagnostic). Ask 2 (skim) to 6 rapid questions on the
    prerequisites that matter most and are not yet rated, one per message. Record each as
    `known`, `shaky` or `new`.
 
@@ -81,7 +90,7 @@ If the reader does not care, use standard.
     a desk), the **essay** (Markdown, reads in Obsidian on your phone) or the **essay page**
     (one scrolling web page)?"
 
-11. **Build what they pick**, at the recorded depth: the explainer with `explainer/spec.md`,
-    either essay mode with `essay/spec.md`. Prerequisites rated `shaky` or `new` are taught
+11. **Build what they pick**, at the recorded depth: the explainer with `/cognia:explainer`,
+    either essay mode with `/cognia:essay`. Prerequisites rated `shaky` or `new` are taught
     where the argument needs them. If they want both later, the essay page costs almost
     nothing once the essay exists.

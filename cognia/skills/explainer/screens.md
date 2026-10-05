@@ -1,8 +1,8 @@
 # Screen patterns
 
-Copy-ready markup for the page made by `vault.py lesson`. The shell (`_shell/cognia.js`) wires
+Copy-ready markup for the page made by `vault.py lesson`. The shell (`assets/cognia.js`) wires
 every control from these attributes, so a page needs no JS beyond `fig(...)` calls. Classes
-for SVG text and shapes are listed at the end. `explainer/example/saez-2001.html` shows all of
+for SVG text and shapes are listed at the end. `core/engine/examples/saez-2001-explainer.html` shows all of
 them in use; open it only to see how a finished screen looks.
 
 ## Claim screen (every screen starts from this)

@@ -16,7 +16,7 @@ Tag every claim about a source, in the worksheet, on vault pages and in the expl
 
 ## Central results: the falsifiability argument
 
-For anything that answers the six questions in `modes/ingest.md`, work out the claim, its
+For anything that answers the six questions in `/cognia:ingest`, work out the claim, its
 evidence and tag, the assumptions that must hold, another explanation of the same evidence,
 and what would show the claim false. On the page, write it as one short connected argument,
 not a form: "The authors find X, and the evidence is Y. That only holds if Z. If Z failed,

@@ -24,10 +24,11 @@ import sys
 import tempfile
 from pathlib import Path
 
-SKILL = Path(__file__).resolve().parent.parent
-SKELETON = SKILL / "vault" / "skeleton"
-SHELL = SKILL / "explainer" / "_shell"
-LESSON = SKILL / "explainer" / "lesson.html"
+CORE = Path(__file__).resolve().parent
+SKELETON = CORE / "skeleton"
+ENGINE = CORE / "engine"
+SHELL = ENGINE / "assets"
+LESSON = ENGINE / "lesson.html"
 INTERVALS = {0: 1, 1: 2, 2: 4, 3: 8, 4: 16, 5: 32}  # box -> days
 GRADE_STEP = {"again": None, "hard": 0, "good": 1, "easy": 2}
 KNOWN_AT_BOX = 3
@@ -250,7 +251,7 @@ def cmd_essay(a):
     data = {s: gloss[s] for s in found if s in gloss}
     data["__alias"] = {k: v for k, v in alias.items() if v in data}
     title = re.search(r"^#\s+(.+)$", md, re.M)
-    page = (SKILL / "essay" / "essay.html").read_text(encoding="utf-8")
+    page = (ENGINE / "essay.html").read_text(encoding="utf-8")
     page = page.replace("{{TITLE}}", html.escape(title.group(1).strip() if title else a.slug))
     page = page.replace("{{MARKDOWN}}", md.replace("</script", "<\\/script"))
     page = page.replace("{{GLOSSARY}}", json.dumps(data, ensure_ascii=False).replace("</", "<\\/"))

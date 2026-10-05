@@ -76,7 +76,7 @@ Plain language is a bonus, not a requirement. Map the result to a grade: all fou
 
 ## Scheduling
 
-`vault/vault.py` uses a Leitner scheme because it is easy to reason about and edit:
+`core/vault.py` uses a Leitner scheme because it is easy to reason about and edit:
 
 | Box | 0 | 1 | 2 | 3 | 4 | 5 |
 |---|---|---|---|---|---|---|

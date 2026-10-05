@@ -1,4 +1,13 @@
-# Mode: Explain-back (Feynman session)
+---
+name: explain-back
+description: >
+  Feynman session: the learner explains a concept, Claude probes and grades against the source. Use for "let me explain X" or a pasted "Explain-back for" block.
+argument-hint: "[concept]"
+---
+
+# Explain-back (Feynman session)
+
+Read `${CLAUDE_PLUGIN_ROOT}/core/rules.md` first. Paths starting `core/` are under `${CLAUDE_PLUGIN_ROOT}/core/`.
 
 The reader explains; Claude probes. Do not lecture first.
 
@@ -12,7 +21,7 @@ against a different version of the idea than the one taught creates confusion.
 1. **One concept.** Name it and the audience: "Explain X to a smart friend outside the field,
    no notation, 3 to 6 sentences."
 2. **Wait.** Give no hints in advance.
-3. **Diagnose** against the source on four points (details in `guides/learning.md`):
+3. **Diagnose** against the source on four points (details in `core/guides/learning.md`):
    mechanism, assumptions, precision (where they hand-waved) and fidelity (where they
    upgraded a claim, such as an interpretation stated as established).
 4. **One probe**, aimed at the most important gap: a question that makes them fill it, not a
@@ -26,4 +35,4 @@ against a different version of the idea than the one taught creates confusion.
 Be honest. Unearned praise makes the grade meaningless and the review schedule wrong.
 "That is a complete explanation" is also a valid verdict; do not invent a gap.
 
-A concept at box 5 that passes becomes `mastered` (`vault/schema.md`).
+A concept at box 5 that passes becomes `mastered` (`core/schema.md`).

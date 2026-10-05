@@ -1,4 +1,13 @@
+---
+name: essay
+description: >
+  Write the on-the-go essay (Markdown for Obsidian) or the one-page essay web page for a source. Use for "write it as an essay", "something to read on my phone".
+argument-hint: "[source-slug]"
+---
+
 # Essay spec
+
+Read `${CLAUDE_PLUGIN_ROOT}/core/rules.md` first. Paths starting `core/` are under `${CLAUDE_PLUGIN_ROOT}/core/`.
 
 The essay is the on-the-go reading: one argument told as a Substack post or a chapter of
 Scott Cunningham's *Mixtape*, in Markdown that reads in Obsidian on a phone. It teaches the
@@ -8,13 +17,13 @@ Two modes, both from one file:
 
 - **essay**: write `lessons/<slug>/essay.md`. Done.
 - **essay page**: write the essay if it does not exist, then run
-  `python <skill>/vault/vault.py essay <vault> <slug>`. It builds `essay.html` next to it: one
+  `python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" essay <vault> <slug>`. It builds `essay.html` next to it: one
   scrolling column in cognia's light and dark themes, with math, diagrams, folding questions,
   tap-to-peek glossary terms and an A to Z glossary at the end. You write nothing extra.
 
-Before writing, load `guides/writing.md`, plus `guides/math.md` if there are equations and
-`guides/evidence.md`. Build from `raw/<slug>/worksheet.md` at the source's recorded `depth:`
-(table in `modes/ingest.md`); do not reread the source.
+Before writing, load `core/guides/writing.md`, plus `core/guides/math.md` if there are equations and
+`core/guides/evidence.md`. Build from `raw/<slug>/worksheet.md` at the source's recorded `depth:`
+(table in `/cognia:ingest`); do not reread the source.
 
 ## Shape
 
@@ -48,7 +57,7 @@ $$ \tau^* = \frac{1-\bar g}{1-\bar g + a e} $$
 - **Terms**: link the first mention of each concept as `[[concept-slug|words in the text]]`.
   These become Obsidian links in the vault and tap-to-peek terms with a glossary in the page.
 - **Figures**: a ` ```mermaid ` diagram or a small table, each followed by one italic line
-  starting *What to notice:*. Keep diagrams to the moving parts (`guides/diagrams.md`) and
+  starting *What to notice:*. Keep diagrams to the moving parts (`core/guides/diagrams.md`) and
   draw them top-down (`flowchart TD`): it reads on a phone, where left-to-right shrinks to
   unreadable. The page shows reading time itself, so the essay does not state it.
 - **Math**: `$…$` inline, `$$…$$` on its own line, then numbered decoding steps. Copy the
@@ -67,10 +76,10 @@ $$ \tau^* = \frac{1-\bar g}{1-\bar g + a e} $$
 
 ## Self-check
 
-- Could the reader answer the six questions in `modes/ingest.md` from the essay alone?
+- Could the reader answer the six questions in `/cognia:ingest` from the essay alone?
 - Every heading is a claim, and consecutive sections read as consecutive sentences.
 - Equations copied exactly; numeric examples verified by hand.
-- No em dashes; prose follows `guides/writing.md`.
+- No em dashes; prose follows `core/guides/writing.md`.
 - For the essay page: open it once at phone width and check that the math and diagrams render.
 
-`essay/example/saez-2001.md` shows every element in use; open it only to see one.
+`core/engine/examples/saez-2001-essay.md` shows every element in use; open it only to see one.
