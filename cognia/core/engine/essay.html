@@ -1,0 +1,41 @@
+<!doctype html>
+<!-- Cognia essay page. Built by `vault.py essay` from lessons/<slug>/essay.md; never edit by hand,
+     edit the Markdown and rebuild. Look and renderer live in the shared assets/ (essay.css, essay.js). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{TITLE}} · Cognia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:ital,wght@0,400;0,700;1,400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script>try { const t = localStorage.getItem("cognia:theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}</script>
+<link rel="stylesheet" href="{{ASSETS}}/essay.css">
+</head>
+<body>
+<div class="bar">
+  <div class="bar-in">
+    <span class="wordmark">cognia</span>
+    <span class="ttl">{{TITLE}}</span>
+    <span id="readTime"></span>
+    <a class="tool" id="glossLink" href="#glossary" hidden>Glossary</a>
+    <button class="tool" id="themeBtn" type="button" aria-label="Switch theme">Dark</button>
+  </div>
+  <div class="progress"></div>
+</div>
+<main>
+  <article id="essay"></article>
+  <section class="glossary" id="glossary" hidden></section>
+</main>
+<script type="text/markdown" id="md">{{MARKDOWN}}</script>
+<script type="application/json" id="gl">{{GLOSSARY}}</script>
+<script src="{{ASSETS}}/essay.js"></script>
+</body>
+</html>
