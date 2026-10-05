@@ -15,14 +15,14 @@ same thing as the explainer, at the same depth, without needing a desk.
 
 Two modes, both from one file:
 
-- **essay**: write `lessons/<slug>/essay.md`. Done.
+- **essay**: write `writing/<topic>/<slug>/<slug>-essay.md`. Done.
 - **essay page**: write the essay if it does not exist, then run
-  `python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" essay <vault> <slug>`. It builds `essay.html` next to it: one
+  `python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" essay <vault> <slug>`. It builds `<slug>-essay.html` in the site folder beside the vault: one
   scrolling column in cognia's light and dark themes, with math, diagrams, folding questions,
   tap-to-peek glossary terms and an A to Z glossary at the end. You write nothing extra.
 
 Before writing, load `core/guides/writing.md`, plus `core/guides/math.md` if there are equations and
-`core/guides/evidence.md`. Build from `raw/<slug>/worksheet.md` at the source's recorded `depth:`
+`core/guides/evidence.md`. Build from `library/<topic>/<slug>/<slug>-worksheet.md` at the source's recorded `depth:`
 (table in `/cognia:ingest`); do not reread the source.
 
 ## Shape

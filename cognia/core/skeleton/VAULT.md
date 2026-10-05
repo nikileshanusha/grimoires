@@ -1,7 +1,8 @@
 # Cognia Vault
 
-Raw sources go in `raw/` and are never edited. Claude compiles them into `wiki/`.
-Interactive explainers live in `lessons/` (open in a browser).
+Material you add lives in `library/` and is never edited; your own notes go in `notes/`.
+Claude compiles them into `wiki/`. Essays and explainer sources are in `writing/`; the built
+web pages are in the `<vault>-site` folder next to this one.
 
 **Start here:** [[now]] · [[log]] · [[parking-lot]]
 

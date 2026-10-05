@@ -1,6 +1,6 @@
 <!doctype html>
 <!-- Cognia essay page. Built by `vault.py essay` from lessons/<slug>/essay.md; never edit by hand,
-     edit the Markdown and rebuild. Look and renderer live in ../_shell/ (essay.css, essay.js). -->
+     edit the Markdown and rebuild. Look and renderer live in the shared assets/ (essay.css, essay.js). -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -17,7 +17,7 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
 <script>try { const t = localStorage.getItem("cognia:theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}</script>
-<link rel="stylesheet" href="../_shell/essay.css">
+<link rel="stylesheet" href="{{ASSETS}}/essay.css">
 </head>
 <body>
 <div class="bar">
@@ -36,6 +36,6 @@
 </main>
 <script type="text/markdown" id="md">{{MARKDOWN}}</script>
 <script type="application/json" id="gl">{{GLOSSARY}}</script>
-<script src="../_shell/essay.js"></script>
+<script src="{{ASSETS}}/essay.js"></script>
 </body>
 </html>

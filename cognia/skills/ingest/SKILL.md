@@ -42,15 +42,15 @@ If the reader does not care, use standard.
 
 ## Steps
 
-1. **Capture.** Copy the file into `raw/<slug>/` and never edit it again. Extract the text
-   with the pdf or pptx skill or plain tools into `raw/<slug>/text.md`. If the PDF is
+1. **Capture.** Copy the file into `library/<topic>/<slug>/<slug>.<ext>` and never edit it again. Extract the text
+   with the pdf or pptx skill or plain tools into `<slug>-text.md` beside it. If the PDF is
    scanned, read the page images instead of guessing. Check `core/domains/` for a file on the
    source's field and load it if one exists. Read the source once: from here on,
    `text.md` and the worksheet are the cache. Later steps and modes reopen the original
    only for a page the worksheet lacks, and then only that page.
 
 2. **Extraction worksheet.** Before writing anything the reader sees, write terse notes to
-   `raw/<slug>/worksheet.md`:
+   `library/<topic>/<slug>/<slug>-worksheet.md`:
    - the core claim in one sentence;
    - the **dependency chain**: which idea must come before which. This sets the order of
      the explainer's screens. If you cannot write it, reread the source;

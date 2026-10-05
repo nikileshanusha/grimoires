@@ -5,10 +5,12 @@ authors: []
 year:
 kind: paper
 depth: standard
-raw:
+library:
+topic:
+tags: []
+original_name:
 path:
-lesson:
-essay:
+writing:
 ingested:
 ---
 

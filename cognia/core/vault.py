@@ -8,9 +8,11 @@ Usage:
   vault.py due    <vault> [--date YYYY-MM-DD] [--limit N]   due items with their gist
   vault.py record <vault> <concept-slug> <again|hard|good|easy> [--date YYYY-MM-DD]
   vault.py stats  <vault> [--date YYYY-MM-DD]
-  vault.py lesson <vault> <source-slug> [--concept SLUG] [--title T] [--source CITATION]
-  vault.py essay  <vault> <source-slug>                     essay.md -> essay.html (phone page)
-  vault.py check  <lesson.html>                             layout self-check: failures or OK
+  vault.py lesson <vault> <source-slug> [--concept SLUG] [--title T] [--source CITATION] [--topic T]
+                                                            new explainer fragment in writing/
+  vault.py build  <vault> [source-slug] [--site DIR]        fragments + essays -> site folder pages and hub
+  vault.py essay  <vault> <source-slug>                     build just the essay page
+  vault.py check  <fragment-or-page.html>                   build, then layout self-check: failures or OK
 """
 import argparse
 import datetime as dt
@@ -29,9 +31,16 @@ SKELETON = CORE / "skeleton"
 ENGINE = CORE / "engine"
 SHELL = ENGINE / "assets"
 LESSON = ENGINE / "lesson.html"
+FRAGMENT = ENGINE / "fragment.html"
+HUB = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{NAME}} · Cognia</title>
+<style>:root{--bg:#f6f6f4;--fg:#1d1f21;--mut:#5d6166;--line:#d9dad6}@media(prefers-color-scheme:dark){:root{--bg:#18191b;--fg:#e8e8e6;--mut:#a0a4a8;--line:#34363a}}
+body{background:var(--bg);color:var(--fg);font:16px/1.5 Atkinson Hyperlegible,system-ui,sans-serif;margin:0;padding:2rem 16px}main{max-width:44rem;margin:auto}h1,h2{font-family:Lexend,system-ui,sans-serif;text-wrap:balance}h2{border-bottom:1px solid var(--line);padding-bottom:.25rem;margin-top:2rem}ul{list-style:none;padding:0}li{display:flex;gap:1rem;justify-content:space-between;padding:.4rem 0}a{color:inherit}span{color:var(--mut);font-size:.85rem}</style></head><body><main><h1>{{NAME}}</h1>
+{{BODY}}</main></body></html>"""
 INTERVALS = {0: 1, 1: 2, 2: 4, 3: 8, 4: 16, 5: 32}  # box -> days
 GRADE_STEP = {"again": None, "hard": 0, "good": 1, "easy": 2}
 KNOWN_AT_BOX = 3
+FRAG_RE = re.compile(r"<!--@(\w+)(?: ([^>]*?))?-->")
+TOPIC_DIRS = ("library", "notes", "writing")
 FM_RE = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n", re.S)
 
 
@@ -85,9 +94,60 @@ def norm(s):
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
 
 
-def refresh_shell(vault):
-    """Copy the explainer shell to lessons/_shell, so every lesson links one shared copy."""
-    shutil.copytree(SHELL, vault / "lessons" / "_shell", dirs_exist_ok=True)
+def site_dir(vault, override=None):
+    """Built pages live beside the vault, never inside it."""
+    return Path(override).expanduser().resolve() if override else vault.parent / f"{vault.name}-site"
+
+
+def refresh_assets(site):
+    """Copy the shared look and controls into the site folder, so every page links one copy."""
+    shutil.copytree(SHELL, site / "assets", dirs_exist_ok=True)
+
+
+def topic_of(vault, slug):
+    """Topic folder of a source: its page's topic field, else where its library folder sits."""
+    page = vault / "wiki" / "sources" / f"{slug}.md"
+    if page.exists():
+        t = read_fm(page)[0].get("topic")
+        if t:
+            return t
+    lib = vault / "library"
+    for d in sorted(lib.rglob(slug)) if lib.exists() else []:
+        if d.is_dir():
+            return "/".join(d.relative_to(lib).parts[:-1]) or "general"
+    return "general"
+
+
+def writing_dir(vault, slug, topic=None):
+    return vault / "writing" / (topic or topic_of(vault, slug)) / slug
+
+
+def parse_fragment(text):
+    """Split a fragment into its marked regions: title, source, rail, glossary, help, script."""
+    parts, pos, name, val = {}, 0, None, ""
+    for m in FRAG_RE.finditer(text):
+        if name is not None:
+            parts[name] = (val, text[pos:m.start()].strip("\n"))
+        name, val, pos = m.group(1), (m.group(2) or "").strip(), m.end()
+    if name is not None:
+        parts[name] = (val, text[pos:].strip("\n"))
+    return {k: (v[0] if k in ("title", "source") else v[1]) for k, v in parts.items()}
+
+
+def build_explainer(vault, frag, site):
+    """Wrap one explainer fragment in the lesson page; returns the written path."""
+    f = parse_fragment(frag.read_text(encoding="utf-8"))
+    rel = frag.relative_to(vault / "writing")
+    out = site / rel.parent / (frag.stem + ".html")
+    assets = os.path.relpath(site / "assets", out.parent).replace(os.sep, "/")
+    page = LESSON.read_text(encoding="utf-8")
+    for key, val in (("TITLE", html.escape(f.get("title", ""))), ("SOURCE", html.escape(f.get("source", ""))),
+                     ("ASSETS", assets), ("RAIL", f.get("rail", "")), ("GLOSSARY", f.get("glossary", "")),
+                     ("HELP", f.get("help", "")), ("SCRIPT", f.get("script", ""))):
+        page = page.replace("{{" + key + "}}", val)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(page, encoding="utf-8")
+    return out
 
 
 def log(vault, line):
@@ -108,9 +168,8 @@ def cmd_init(a):
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dst)
             created += 1
-    for sub in ("raw", "wiki/concepts", "wiki/sources", "wiki/references", "wiki/paths", "lessons"):
+    for sub in ("library", "notes", "wiki/concepts", "wiki/sources", "wiki/references", "wiki/paths", "writing"):
         (vault / sub).mkdir(parents=True, exist_ok=True)
-    refresh_shell(vault)
     print(f"vault ready at {vault} ({created} files created, existing files kept)")
 
 
@@ -216,28 +275,22 @@ def cmd_stats(a):
 
 
 def cmd_lesson(a):
+    """Start an explainer fragment in writing/<topic>/<slug>/. The look lives in the site assets."""
     vault = Path(a.vault).expanduser().resolve()
-    refresh_shell(vault)
-    out = vault / "lessons" / a.slug / (f"{a.concept}.html" if a.concept else "index.html")
+    name = f"{a.slug}-{a.concept}-explainer.html" if a.concept else f"{a.slug}-explainer.html"
+    out = writing_dir(vault, a.slug, a.topic) / name
     if out.exists():
         print(f"exists, left unchanged: {out}")
         return
     out.parent.mkdir(parents=True, exist_ok=True)
-    page = LESSON.read_text(encoding="utf-8")
-    page = page.replace("{{TITLE}}", html.escape(a.title or a.concept or a.slug))
-    page = page.replace("{{SOURCE}}", html.escape(a.source or ""))
+    page = FRAGMENT.read_text(encoding="utf-8")
+    page = page.replace("{{TITLE}}", (a.title or a.concept or a.slug).replace("-->", "")).replace("{{SOURCE}}", (a.source or "").replace("-->", ""))
     out.write_text(page, encoding="utf-8")
     print(out)
 
 
-def cmd_essay(a):
-    """Build lessons/<slug>/essay.html from essay.md, with a glossary map from the concept pages."""
-    vault = Path(a.vault).expanduser().resolve()
-    src = vault / "lessons" / a.slug / "essay.md"
-    if not src.exists():
-        raise SystemExit(f"no essay yet: {src}")
-    refresh_shell(vault)
-    md = src.read_text(encoding="utf-8")
+def essay_glossary(vault, md):
+    """Glossary data for the essay page: the concept pages the essay links."""
     gloss, alias = {}, {}
     for p in concepts(vault):
         fm, text = read_fm(p)
@@ -250,16 +303,74 @@ def cmd_essay(a):
     found = {alias.get(t.lower(), t) for t in links}
     data = {s: gloss[s] for s in found if s in gloss}
     data["__alias"] = {k: v for k, v in alias.items() if v in data}
+    missing = sorted(t for t in links if alias.get(t.lower(), t) not in gloss)
+    return data, missing
+
+
+def build_essay(vault, src, site):
+    """Render writing/<topic>/<slug>/<slug>-essay.md to the site; returns (path, glossary size, missing)."""
+    md = src.read_text(encoding="utf-8")
+    data, missing = essay_glossary(vault, md)
     title = re.search(r"^#\s+(.+)$", md, re.M)
+    out = site / src.relative_to(vault / "writing").parent / (src.stem + ".html")
+    assets = os.path.relpath(site / "assets", out.parent).replace(os.sep, "/")
     page = (ENGINE / "essay.html").read_text(encoding="utf-8")
-    page = page.replace("{{TITLE}}", html.escape(title.group(1).strip() if title else a.slug))
+    page = page.replace("{{TITLE}}", html.escape(title.group(1).strip() if title else src.stem))
+    page = page.replace("{{ASSETS}}", assets)
     page = page.replace("{{MARKDOWN}}", md.replace("</script", "<\\/script"))
     page = page.replace("{{GLOSSARY}}", json.dumps(data, ensure_ascii=False).replace("</", "<\\/"))
-    out = src.with_suffix(".html")
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(page, encoding="utf-8")
-    missing = sorted(t for t in links if alias.get(t.lower(), t) not in gloss)
+    return out, len(data) - 1, missing
+
+
+def cmd_essay(a):
+    vault = Path(a.vault).expanduser().resolve()
+    src = writing_dir(vault, a.slug) / f"{a.slug}-essay.md"
+    if not src.exists():
+        raise SystemExit(f"no essay yet: {src}")
+    site = site_dir(vault, getattr(a, "site", None))
+    refresh_assets(site)
+    out, n, missing = build_essay(vault, src, site)
+    write_hub(vault, site)
     print(out)
-    print(f"glossary: {len(data) - 1} terms from the vault" + (f"; no concept page for: {', '.join(missing)}" if missing else ""))
+    print(f"glossary: {n} terms from the vault" + (f"; no concept page for: {', '.join(missing)}" if missing else ""))
+
+
+def write_hub(vault, site):
+    """site/index.html: every explainer and essay page, grouped by topic."""
+    groups = {}
+    for p in sorted(site.rglob("*.html")):
+        rel = p.relative_to(site)
+        if rel.parts[0] == "assets" or rel.name == "index.html" and len(rel.parts) == 1:
+            continue
+        groups.setdefault("/".join(rel.parts[:-2]) or "general", []).append((rel.parts[-2], rel))
+    body = []
+    for topic in sorted(groups):
+        body.append(f"<h2>{html.escape(topic)}</h2><ul>")
+        for slug, rel in groups[topic]:
+            kind = "Explainer" if rel.stem.endswith("explainer") else "Essay"
+            body.append(f'<li><a href="{html.escape(rel.as_posix())}">{html.escape(rel.stem)}</a> <span>{kind}</span></li>')
+        body.append("</ul>")
+    page = HUB.replace("{{NAME}}", html.escape(vault.name)).replace("{{BODY}}", "\n".join(body) or "<p>Nothing built yet.</p>")
+    (site / "index.html").write_text(page, encoding="utf-8")
+
+
+def cmd_build(a):
+    vault = Path(a.vault).expanduser().resolve()
+    site = site_dir(vault, a.site)
+    refresh_assets(site)
+    n = 0
+    base = vault / "writing"
+    for d in sorted(base.rglob("*")) if base.exists() else []:
+        if a.slug and d.parent.name != a.slug:
+            continue
+        if d.name.endswith("-explainer.html"):
+            print(build_explainer(vault, d, site)); n += 1
+        elif d.name.endswith("-essay.md"):
+            print(build_essay(vault, d, site)[0]); n += 1
+    write_hub(vault, site)
+    print(f"built {n} page(s) into {site}")
 
 
 def find_browser():
@@ -282,6 +393,14 @@ def cmd_check(a):
     page = Path(a.page).resolve()
     if not page.exists():
         raise SystemExit(f"no such page: {page}")
+    if "<!--@rail-->" in page.read_text(encoding="utf-8"):  # a fragment: build it, then check the built page
+        vault = next((d for d in page.parents if (d / "VAULT.md").exists()), None)
+        if not vault:
+            raise SystemExit("fragment is not inside a vault (no VAULT.md above it)")
+        site = site_dir(vault)
+        refresh_assets(site)
+        page = build_explainer(vault, page, site)
+        write_hub(vault, site)
     browser, W, H = find_browser(), 1366, 768
 
     def run(w, h):
@@ -313,8 +432,9 @@ def main(argv=None):
     s = sub.add_parser("due"); s.add_argument("vault"); s.add_argument("--date"); s.add_argument("--limit", type=int, default=6); s.set_defaults(fn=cmd_due)
     s = sub.add_parser("record"); s.add_argument("vault"); s.add_argument("slug"); s.add_argument("grade", choices=GRADE_STEP); s.add_argument("--date"); s.set_defaults(fn=cmd_record)
     s = sub.add_parser("stats"); s.add_argument("vault"); s.add_argument("--date"); s.set_defaults(fn=cmd_stats)
-    s = sub.add_parser("lesson"); s.add_argument("vault"); s.add_argument("slug"); s.add_argument("--concept"); s.add_argument("--title"); s.add_argument("--source"); s.set_defaults(fn=cmd_lesson)
-    s = sub.add_parser("essay"); s.add_argument("vault"); s.add_argument("slug"); s.set_defaults(fn=cmd_essay)
+    s = sub.add_parser("lesson"); s.add_argument("vault"); s.add_argument("slug"); s.add_argument("--concept"); s.add_argument("--title"); s.add_argument("--source"); s.add_argument("--topic"); s.set_defaults(fn=cmd_lesson)
+    s = sub.add_parser("build"); s.add_argument("vault"); s.add_argument("slug", nargs="?"); s.add_argument("--site"); s.set_defaults(fn=cmd_build)
+    s = sub.add_parser("essay"); s.add_argument("vault"); s.add_argument("slug"); s.add_argument("--site"); s.set_defaults(fn=cmd_essay)
     s = sub.add_parser("check"); s.add_argument("page"); s.set_defaults(fn=cmd_check)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")

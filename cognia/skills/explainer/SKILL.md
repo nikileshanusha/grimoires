@@ -24,13 +24,15 @@ the page has failed. It succeeds when the reader can answer the six questions in
 ## Build
 
 1. `python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" lesson <vault> <source-slug> --title "<Author Year>" --source "<full citation>"`
-   (add `--concept <slug>` for a concept explainer). It makes the page and refreshes
-   `lessons/_shell/`, which holds the look, header, navigation, help legend and every control.
-   Never copy or edit the shell from a lesson.
+   (add `--concept <slug>` for a concept explainer). It makes a fragment,
+   `writing/<topic>/<slug>/<slug>-explainer.html`, holding only the screens, glossary entries and
+   figure code, in the regions its comments mark. The look, header, navigation, help legend and
+   every control are built around it into the site folder by `vault.py build` (or `check`), so
+   never copy or edit them.
 2. Read `${CLAUDE_PLUGIN_ROOT}/skills/explainer/screens.md` for the markup patterns. Load `core/guides/writing.md` and
    `core/guides/diagrams.md`; load `core/guides/math.md` only if there are equations and
    `core/guides/evidence.md` for the doubt screen; load the domain file if one exists.
-3. Plan the screens from `raw/<slug>/worksheet.md` (do not reread the source) at the depth
+3. Plan the screens from `library/<topic>/<slug>/<slug>-worksheet.md` (do not reread the source) at the depth
    recorded on the source page (`depth:`; table in `/cognia:ingest`). Write them into
    `#rail`, one glossary entry per term or symbol, and one `fig(...)` call per live figure.
 4. Self-check (below), then hand off.
@@ -60,7 +62,7 @@ that carries an idea its own screen, and add a screen on what each key reference
    one "why", one prediction, one about doubt), and the explain-back box.
 
 A plan unit after the first opens with a warm-up screen of recall questions on earlier
-concepts. **Concept explainer** (`lessons/<source-slug>/<concept>.html`):
+concepts. **Concept explainer** (`writing/<topic>/<slug>/<slug>-<concept>-explainer.html`):
 screens 3, 5 if there is an equation, and 8.
 
 ## Continuity

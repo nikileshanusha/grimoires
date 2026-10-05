@@ -14,7 +14,7 @@ The user believes they have ADHD. Every chat reply:
   `python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" init <path>`.
 - **The vault is the record.** Status, reviews and progress live in vault files. Explainers
   and essays are views, never the only copy of anything.
-- **Never edit `raw/`.** Everything derived goes in `wiki/` or `lessons/`.
+- **Never edit `library/`.** Everything derived goes in `wiki/` or `writing/`.
 - **One concept, one page.** Merge on name or alias; link with `[[...]]`.
 - **No fabricated numbers, results or citations.** Every claim about a source carries an
   evidence tag (`core/guides/evidence.md`).
