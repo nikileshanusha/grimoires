@@ -148,15 +148,20 @@ one picture, where it comes together, and the whole picture always have a figure
 - No learning-management chrome: no status pills, mastery colours or reference cards. That
   state lives in the vault and in chat.
 
-## Layout
+## Layout is the shell's job
 
-- The shell gives each screen a text column (about 42%) and a figure plate (about 58%). Body
-  text is about 15px; the reader sets 13 to 18px with the A-/A+ buttons. Diagram labels render at
-  a fixed 12 to 13px whatever the plate size, so draw for the viewBox and let it scale.
-  Figures fill the plate. Controls sit in one row under their figure: a readout, at most 3
-  sliders.
-- Every screen must fit 1366×768 with the help panel closed. If one overflows, move an aside
-  to the figure column or split the claim into two screens; never shrink the text.
+- The shell gives each screen a text column and a figure plate, and fits every screen from
+  measurements, at any window size and at any A-/A+ text size. When the text runs long, it widens
+  the text column, moves the note and evidence block under the figure, folds asides into one-line
+  disclosures, and last of all turns the column into pages the reader steps through with Next.
+  Figures take the height that is left, labels wrap to their cards, and wide equations shrink to
+  their column.
+- So never edit for fit: do not count words, trim prose, move an aside or split a screen because
+  it looks long. Split a screen only when it holds two steps of the argument (Inside a screen).
+- Boxes and arrows are a declared `.diagram` (`screens.md`), never hand-placed SVG. Plots use
+  `plot()` or `bars()`, and labels inside a live figure use `label()`. Hand-drawn SVG is only for
+  pictures that are not boxes and arrows, and it scales as one picture.
+- Controls sit in one row under their figure: a readout, at most 3 sliders.
 
 ## Glossary and legend
 
@@ -185,9 +190,8 @@ dash; hue only groups. Illustrations with chosen numbers say so.
 6. Every glossary link has an entry, every entry is linked, and each `.short` is 20 words or fewer (`lint: glossary`).
 7. No pointing at the page ("next screen", "coming up", "in this section"). Every punctuation mark does its own job (`writing.md`), and none is banned (`lint: prose`).
 8. No figure without a claim it shows better than a sentence. A screen with no `.fig` is a reading screen (`lint: figure`, which warns when a figure only restates its heading).
-9. A screen fits its word budget (about 250 words of prose, figure or not; `.where` rows, evidence blocks, table rows and steps count extra). Over budget: split into a figure screen and a reading screen (`lint: budget`).
-10. An `.evidence` block has `data-src`, `p.design` and `p.result`; figure code sets no `font-size` above 14 (`lint: evidence`, `lint: figure`).
-11. Then run `check <page>` without `--static` until it prints `OK`. Overflow up to 15% is a warning.
+9. An `.evidence` block has `data-src`, `p.design` and `p.result`; figure code sets no `font-size` above 14 (`lint: evidence`, `lint: figure`).
+10. Then run `check <page>` without `--static` once, after every screen is written, and fix what it prints. It reports content only, never layout.
 
 ## Self-check before delivering
 
@@ -196,12 +200,11 @@ dash; hue only groups. Illustrations with chosen numbers say so.
    get a screen it did not earn? Fix the emphasis before anything else, then check the
    headlines against the quoted contribution line.
 2. `python "${CLAUDE_PLUGIN_ROOT}/core/vault.py" check <page>` and fix everything it prints until it says
-   `OK`. It finds column overflow at 1366×768 (a warning up to 15%, a failure beyond), overlapping
-   or clipped figure labels, missing `aria-label`s, marks with no legend entry, glossary links to
-   missing entries and unlinked entries, and sub/superscripts showing as raw text.
-3. Then screenshot only: each screen `check` flagged, one screen with a live figure in the
-   other theme, and one at phone width. Look for what a script cannot judge: does each figure
-   show its one claim?
+   `OK`. It finds missing `aria-label`s, plots without axes, titles or a Source line, marks with no
+   legend entry, glossary links to missing entries and unlinked entries, and sub/superscripts
+   showing as raw text. It does not report layout; the shell fits every screen itself.
+3. Then one screenshot of a screen with a live figure, for what a script cannot judge: does the
+   figure show its one claim?
 4. Read back against the writing, math and evidence checklists you loaded: claims as
    headlines, the lecturer's voice, equations copied exactly and decoded at their tier, numeric
    examples verified by hand, every claim about the source tagged, nothing fabricated.

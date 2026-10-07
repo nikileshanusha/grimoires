@@ -24,7 +24,8 @@ Usage:
   vault.py essay  <vault> <source-slug>                     build just the essay page
   vault.py eval   <vault> [--id ID]                         lint a vault after an eval run (evals/evals.json): pass/fail per expectation
   vault.py hook-lint [--stop]                               hook entry: lint the file just written (stdin JSON), or this session's files
-  vault.py check  <fragment-or-page> [--static]             static lint, then (unless --static) build and layout self-check: failures or OK
+  vault.py check  <fragment-or-page> [--static]             static lint, then (unless --static) build and the browser content check: failures or OK
+                 [--layout] [--size WxH] [--fs PX] [--json] the shell's own layout probes (evals/layout.py), not for pages
 """
 import argparse
 import datetime as dt
@@ -310,11 +311,6 @@ def cmd_stats(a):
         print(f"path {p.stem}: {done}/{done + todo} units")
 
 
-LESSON_BUDGET = """<!-- Budget at 1366x768: a screen holds about 250 words of prose, with or without a figure (evals/calibrate.py).
-     A .where row counts 8 words, an evidence block 15, a table row 10, a step 8. Over budget: split into a figure screen and a reading screen. -->
-"""
-
-
 def cmd_lesson(a):
     """Start an explainer fragment in writing/<topic>/<slug>/. The look lives in the site assets."""
     vault = Path(a.vault).expanduser().resolve()
@@ -326,7 +322,6 @@ def cmd_lesson(a):
     out.parent.mkdir(parents=True, exist_ok=True)
     page = FRAGMENT.read_text(encoding="utf-8")
     page = page.replace("{{TITLE}}", (a.title or a.concept or a.slug).replace("-->", "")).replace("{{SOURCE}}", (a.source or "").replace("-->", ""))
-    page = page.replace("<!--@rail-->" + chr(10), "<!--@rail-->" + chr(10) + LESSON_BUDGET, 1)
     out.write_text(page, encoding="utf-8")
     print(out)
 
@@ -366,7 +361,8 @@ def essay_warnings(md):
 
 # ---- static lint: structural rules a script can test without a browser -------------------------
 # Rules live here because prose rules get dropped by a model working fast; a hook runs this on
-# every save (hook-lint). The browser `check` still covers what only rendering shows.
+# every save (hook-lint). The browser `check` still covers what only rendering shows. Layout (fit,
+# overflow, label collisions) is not linted at all: the shell lays every screen out from measurements.
 
 # Why these numbers: an inline equation that runs past 25 TeX characters is already a display
 # equation in disguise (the study bug was 49); a glossary short line is read in one glance, and
@@ -410,10 +406,6 @@ def tex_symbols(tex):
     return out
 
 
-BUDGET_FIG, BUDGET_SOLO = 250, 250  # words of prose that fit one screen at 1366x768 (evals/calibrate.py)
-WEIGHT = {"evidence": 15, "dd": 8, "tr": 10, "step": 8}  # extra words an evidence block, .where row, table row or step costs
-
-
 class _Page(HTMLParser):
     """Collects what the lint needs from a fragment's rail: screens, equation blocks, display math."""
 
@@ -427,7 +419,7 @@ class _Page(HTMLParser):
         cls = (a.get("class") or "").split()
         node = {"tag": tag, "cls": cls, "attrs": a}
         if tag == "section" and "screen" in cls:
-            self.screens.append({"tags": set(), "cls": set(), "h2": "", "h1": "", "title": a.get("data-title", ""), "words": 0, "extra": 0, "fig": False})
+            self.screens.append({"tags": set(), "cls": set(), "h2": "", "h1": "", "title": a.get("data-title", ""), "fig": False})
         if self.screens:
             sc = self.screens[-1]
             sc["tags"].add(tag)
@@ -435,14 +427,9 @@ class _Page(HTMLParser):
             if "fig" in cls:
                 sc["fig"] = True
             if tag == "div" and "evidence" in cls:
-                sc["extra"] += WEIGHT["evidence"]
                 self.evidence.append({"src": a.get("data-src", ""), "cls": set()})
             elif tag == "p" and self.evidence and any(n["tag"] == "div" and "evidence" in n["cls"] for n in self.stack):
                 self.evidence[-1]["cls"].update(cls)
-            elif tag in ("dd", "tr"):
-                sc["extra"] += WEIGHT[tag]
-            elif tag == "li" and any(n["tag"] == "ol" and "steps" in n["cls"] for n in self.stack):
-                sc["extra"] += WEIGHT["step"]
         if tag == "div" and "equation" in cls:
             node["eq"] = {"src": a.get("data-src", "").strip(), "where": "", "tex": "", "has_where": False}
             self.equations.append(node["eq"])
@@ -463,8 +450,6 @@ class _Page(HTMLParser):
             return
         eq = next((n["eq"] for n in reversed(self.stack) if "eq" in n), None)
         in_steps = any(n["tag"] == "ol" and "steps" in n["cls"] for n in self.stack)
-        if self.screens and any("text" in n["cls"] for n in self.stack) and not any(n["tag"] in ("h1", "h2") or "kicker" in n["cls"] for n in self.stack):
-            self.screens[-1]["words"] += len(data.split())
         if self.screens:
             for tag in ("h1", "h2"):
                 if any(n["tag"] == tag for n in self.stack):
@@ -528,7 +513,7 @@ def lint_fragment(text):
                 out.append(f"evidence block {k} has no p.{need} (a block holds p.design, p.result and optionally p.strength)")
     for m in re.finditer(r"font-size\s*[=:]\s*[\"']?(\d+(?:\.\d+)?)(?![\d.%])", rail + parts.get("script", "")):
         if float(m.group(1)) > 14:
-            out.append(f"figure code sets font-size {m.group(1)}; the shell fixes label size (about 12.5px), so drop font-size and let the drawing scale")
+            out.append(f"figure code sets font-size {m.group(1)}; labels follow the reader's text size, so drop font-size")
     # screen skeleton
     for i, s in enumerate(page.screens):
         where = f"screen {i} ({s['title']})"
@@ -540,12 +525,6 @@ def lint_fragment(text):
             out.append(f"{where}: no h2 headline")
         if "sofar" in s["cls"]:
             out.append(f"warning: {where}: .sofar is retired; open with a bridge sentence from the open question, and put the reader's place in the .kicker thread label")
-        budget = BUDGET_FIG if s["fig"] else BUDGET_SOLO
-        used = s["words"] + s["extra"]
-        if used > budget * 1.15:
-            out.append(f"{where}: about {used} words against a budget of {budget} ({used - budget} over); split it into a figure screen and a reading screen")
-        elif used > budget:
-            out.append(f"warning: {where}: about {used} words against a budget of {budget}; it may scroll")
         if "prose" not in s["cls"] and not ({"check", "evidence"} & s["cls"] or "textarea" in s["tags"]):
             out.append(f"{where}: no .prose block")
     # figures
@@ -1716,13 +1695,17 @@ def cmd_check(a):
         refresh_assets(site)
         page = build_explainer(vault, page, site)
         write_hub(vault, site)
-    browser, W, H = find_browser(), 1366, 768
+    browser = find_browser()
+    W, H = (int(v) for v in (a.size or "1366x768").lower().split("x"))
+    mode = "#check-layout" if a.layout else "#check"
+    if a.fs:
+        mode += f"&fs={a.fs}"
 
     def run(w, h):
         with tempfile.TemporaryDirectory() as prof:  # fresh profile: no saved predictions, theme or screen
             r = subprocess.run([browser, "--headless=new", "--disable-gpu", "--hide-scrollbars",
                                 f"--user-data-dir={prof}", f"--window-size={w},{h}", "--virtual-time-budget=8000",
-                                "--dump-dom", page.as_uri() + "#check"],
+                                "--dump-dom", page.as_uri() + mode],
                                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
         m = re.search(r'<pre id="cognia-check">(.*?)</pre>', r.stdout, re.S)
         if not m:
@@ -1733,6 +1716,9 @@ def cmd_check(a):
     if (res["vw"], res["vh"]) != (W, H):  # headless windows lose some size to browser chrome
         res = run(2 * W - res["vw"], 2 * H - res["vh"])
     problems = static + lint_failures(res["problems"])
+    if a.json:
+        print(json.dumps(res))
+        return 1 if problems else 0
     for p in res["problems"]:
         print(p)
     print("OK" if not problems else f"{len(problems)} problem(s)")
@@ -1760,7 +1746,7 @@ def main(argv=None):
     s = sub.add_parser("essay"); s.add_argument("vault"); s.add_argument("slug"); s.add_argument("--site"); s.set_defaults(fn=cmd_essay)
     s = sub.add_parser("hook-lint"); s.add_argument("--stop", action="store_true"); s.set_defaults(fn=cmd_hook_lint)
     s = sub.add_parser("eval"); s.add_argument("vault"); s.add_argument("--id"); s.set_defaults(fn=cmd_eval)
-    s = sub.add_parser("check"); s.add_argument("page"); s.add_argument("--static", action="store_true"); s.set_defaults(fn=cmd_check)
+    s = sub.add_parser("check"); s.add_argument("page"); s.add_argument("--static", action="store_true"); s.add_argument("--layout", action="store_true"); s.add_argument("--size"); s.add_argument("--fs", type=float); s.add_argument("--json", action="store_true"); s.set_defaults(fn=cmd_check)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     a = ap.parse_args(argv)

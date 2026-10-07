@@ -58,15 +58,14 @@ It is not the voice itself; taken all the way, it reads like a manual.
 1. **Each sentence answers the question the one before it raised.** If two neighbouring
    sentences could swap places without loss, the link between them is missing.
 2. **Write the connecting words down**: because, so, which means, but, for example. Never
-   delete them to save space; split the screen instead.
+   delete them to save space.
 3. **No labels standing in for sentences.** Do not open a paragraph with "Key point:" or
    "Intuition:". Labels belong to the interface only: headings, table headers, notes, figure
    boxes.
 4. **A screen is one line of reasoning**: X, because Y, so Z. "And also" twice means two
-   screens. No "because" means a list of facts, not an explanation. A screen holds about 250
-   words of prose with or without a figure (equation `.where` rows, evidence blocks, table rows
-   and steps count as extra words; `vault.py` budgets them). Over that, split the screen into a
-   figure screen and a reading screen; never delete the "because" and "so" links.
+   screens. No "because" means a list of facts, not an explanation. Length is not a reason to
+   split: the shell fits a long screen itself (it pages the text), so never delete the "because"
+   and "so" links to save space.
 5. **A screen opens with a bridge sentence**, not a recap line: it picks up the question the last
    screen left open. The question comes before the answer. For a finding, a good default order
    is the puzzle, why it should be true (the mechanism), the finding in plain words, the

@@ -10,6 +10,8 @@ them in use; open it only to see how a finished screen looks.
 - Equation (the first component to copy)
 - Claim screen (every screen starts from this)
 - Live figure with controls
+- Diagram: boxes and arrows, declared
+- Bars and labels
 - Prediction gate
 - Step-reveal math (the "In symbols" screen)
 - Evidence table (the "What to doubt" screen)
@@ -67,12 +69,11 @@ block or the puzzle when the step does not need them.
 </section>
 ```
 
-**Budget** at 1366x768: about 250 words of prose per screen, with or without a figure. Count
-8 extra words per `.where` row, 15 per evidence block, 10 per table row and 8 per step. Over
-budget, split into a figure screen and a reading screen; never trim the "because" and "so" links.
-`vault.py lesson` writes this budget as a comment in the fragment, and the save-time lint
-reports overflow by screen. The `.evidence` block is for the test behind a finding (`data-src`,
-`p.design`, `p.result`, optional `p.strength`); an equation that is the concept stays in `.equation`.
+**Length** is the argument's call, not the page's: a screen holds one step, however many words
+that takes. The shell fits it (widens the column, moves or folds the asides, then pages the text),
+so never trim or split for space. The `.evidence` block is for the test behind a finding
+(`data-src`, `p.design`, `p.result`, optional `p.strength`); an equation that is the concept stays
+in `.equation`.
 
 A reading screen has no `.fig` div: write only `.text` (kicker, `h2`, `.prose`, and an
 equation block, evidence table or steps if needed). The shell centres it in one column.
@@ -105,9 +106,11 @@ fig("#figLoss", (svg, w, h) => {
 }, ["#e1"]);
 ```
 
-Label size is fixed: the shell renders every SVG label at about 12.5px, so do not set `font-size`
-(the lint rejects values above 14). `fig` sizes the viewBox to the box and redraws on resize and on input. `curve(fn, x0, x1, n, X, Y)`
-returns a path. Draw at the box size; never stretch a fixed viewBox.
+Labels follow the reader's text size, so do not set `font-size` (the lint rejects values above
+14). `fig` sizes the viewBox to the box and redraws on resize, on A-/A+ and on input; after each
+draw the shell wraps labels that carry a width, moves colliding labels apart and grows the drawing
+to hold anything at its edge. `curve(fn, x0, x1, n, X, Y)` returns a path. Draw at the box size;
+never stretch a fixed viewBox.
 
 **Plots always use `plot(w, h, {x, y, xTitle, yTitle})`.** It draws both axes, titles, 3 to 6
 numeric ticks at round values, a light grid and zero, and returns `p.X`, `p.Y` (use them for every
@@ -118,6 +121,52 @@ two points that matter with their exact values. Options: `nx`, `ny` (about how m
 the same `.axes` group classes. A live figure that is a schematic (cards, bars drawn to scale)
 rather than a plot adds `data-schematic`. `check` fails a plot with no axes, a missing axis
 title, fewer than 2 numeric ticks per axis, or a caption with no "Source:" line.
+
+## Diagram: boxes and arrows, declared
+
+Any figure of boxes and arrows (a mechanism, a chain of ideas, the concept map) is written as
+nodes and edges. The shell ranks the nodes into columns, sizes each box to its text, chooses
+across or down from the space it has, and draws every arrow and its label from the measured boxes.
+Never give a coordinate.
+
+```html
+<figure>
+  <div class="diagram" id="cmap" data-ranks="You measure or choose|It drives|You get" role="group" aria-label="(the figure's one claim)">
+    <div class="node" id="m-a"><b>\(a\)</b> Pareto tail</div>
+    <div class="node gain" id="m-gain">Mechanical gain <small>more tax, same income</small></div>
+    <div class="node loss" id="m-loss" data-rank="1">Behavioural loss <small>less income to tax</small></div>
+    <div class="node acc" id="m-rate"><b>\(\tau^*\)</b> best top rate</div>
+    <span class="edge" data-from="m-a" data-to="m-gain">sizes</span>
+    <span class="edge acc" data-from="m-gain" data-to="m-rate">raises</span>
+    <span class="edge dash" data-from="m-loss" data-to="m-rate">lowers</span>
+  </div>
+  <figcaption><b>Figure 6.</b> … <b>What to notice:</b> … <small>Source: …</small></figcaption>
+</figure>
+```
+
+- A node sits one rank after everything that points to it; `data-rank="n"` pins it. An edge that
+  closes a loop is drawn as a loop back.
+- Node roles: plain (context or a step), `gain` (solid edge), `loss` (hatched), `ref` (dashed),
+  `acc` (the result, shaded). `<b>` holds a symbol or short name; `<small>` a subtitle of 5 words
+  or fewer. Math works inside nodes.
+- Edge text is its verb, 1 to 3 words. `acc` marks the arrow that carries the result, `dash` a
+  weaker or opposing link. Each edge is read to screen readers as a sentence.
+- `data-ranks` titles the columns; `data-flow="right"` or `"down"` sets a direction (otherwise the
+  shell chooses). Recall mode works on it: `<button class="btn" data-recall="cmap">`.
+
+## Bars and labels
+
+```js
+fig("#figRates", (svg, w, h) => {
+  const b = bars(w, h, { cats: ["10", "22", "37"], values: [10, 22, 37], y: [0, 40], xTitle: "Bracket (%)", yTitle: "Marginal rate (%)", acc: [2] });
+  svg.innerHTML = b.svg + label(b.X(2.5), b.Y(37) - 24, "the top bracket the paper is about", { maxWidth: 120, anchor: "middle", bg: true });
+});
+```
+
+`bars` draws on `plot()`'s axes; `acc` lists the bars that are the thing explained (solid), the
+rest are grey, and each bar gets its value. `label(x, y, text, { maxWidth, cls, anchor, bg })`
+returns a label the shell wraps at `maxWidth`, backs with paper colour if `bg`, and moves clear of
+other labels and of the axes.
 
 ## Prediction gate
 
@@ -161,17 +210,11 @@ Tags: `established`, `derived`, `interpretation`, `external`, `open`.
 
 ## Concept map with recall
 
+The concept map is a declared diagram (above) with a recall button over it:
+
 ```html
 <div class="row"><button class="btn" data-recall="cmap">Recall mode</button><span class="hint recall-hint">Hides every box label; the arrows stay as clues.</span></div>
-<figure>
-  <svg class="cmap" id="cmap" viewBox="0 0 900 500" role="img" aria-label="…">
-    <g class="node"><rect x="268" y="82" width="174" height="56" rx="10" class="card"/>
-      <text x="355" y="106" text-anchor="middle" class="tb lbl">Income above the line</text>
-      <text x="355" y="116" text-anchor="middle" class="tbig qm">?</text></g>
-    <path d="M150,110 L262,110" class="ink2" marker-end="url(#arr)"/>
-    <rect x="183" y="97" width="44" height="18" rx="4" class="bg"/><text x="205" y="110" text-anchor="middle" class="ts">sets</text>
-  </svg>
-</figure>
+<figure><div class="diagram" id="cmap" data-ranks="…" role="group" aria-label="…"> nodes and edges </div><figcaption>…</figcaption></figure>
 ```
 
 ## Check yourself and explain-back
