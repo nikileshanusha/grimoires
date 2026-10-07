@@ -7,6 +7,14 @@
    rose a policy, stone context or "before". Series classes s-1..s-8 (line), f-N (fill), fs-N (soft fill), tc-N (text)
    follow that order. Every hue is at least 3:1 against --plate in both themes.
    Type: Lexend headings, Atkinson Hyperlegible body, Atkinson Hyperlegible Mono numbers (legibility-first faces). */
+/* Fonts are self-hosted (SIL OFL, licences in fonts/) so every page measures with the same metrics.
+   font-display: block, and the shell lays out only after document.fonts.ready. */
+@font-face { font-family: "Lexend"; font-style: normal; font-weight: 400 600; font-display: block; src: url(fonts/lexend-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Lexend"; font-style: normal; font-weight: 400 600; font-display: block; src: url(fonts/lexend-latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Atkinson Hyperlegible Next"; font-style: normal; font-weight: 400 700; font-display: block; src: url(fonts/atkinson-hyperlegible-next-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Atkinson Hyperlegible Next"; font-style: normal; font-weight: 400 700; font-display: block; src: url(fonts/atkinson-hyperlegible-next-latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Atkinson Hyperlegible Mono"; font-style: normal; font-weight: 400 500; font-display: block; src: url(fonts/atkinson-hyperlegible-mono-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Atkinson Hyperlegible Mono"; font-style: normal; font-weight: 400 500; font-display: block; src: url(fonts/atkinson-hyperlegible-mono-latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
 :root {
   --paper: #f5f5f3; --plate: #fcfcfb; --ink: #1c1c1c; --ink-2: #555553; --ink-3: #94948f; --rule: #dbdbd8;
   --accent: #2a2a29; --accent-mid: #a3a29e; --accent-soft: #e7e7e3;
@@ -20,7 +28,7 @@
   --c-rose-soft: color-mix(in srgb, var(--c-rose) 18%, var(--plate));
   --c-stone-soft: color-mix(in srgb, var(--c-stone) 18%, var(--plate));
   --f-head: "Lexend", "Atkinson Hyperlegible Next", Verdana, sans-serif;
-  --f-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", Verdana, Tahoma, sans-serif;
+  --f-body: "Atkinson Hyperlegible Next", Verdana, Tahoma, sans-serif;
   --f-mono: "Atkinson Hyperlegible Mono", ui-monospace, Consolas, monospace;
   --pad: clamp(18px, 2.2vw, 40px);
   color-scheme: light;
@@ -40,14 +48,17 @@
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
+/* One size variable: --fs (set by A-/A+, 13 to 18px) is the body size, and every rem follows it.
+   The root is fs * 16/15, so at the default 15px every rem keeps its original 16px-based value. */
+html { font-size: calc(var(--fs, 15px) * 16 / 15); }
 html, body { height: 100%; }
 body { margin: 0; background: var(--paper); color: var(--ink); overflow: hidden;
-  font: 400 var(--fs, 15px)/1.5 var(--f-body); letter-spacing: .005em;
+  font: 400 .9375rem/1.5 var(--f-body); letter-spacing: .005em;
   display: grid; grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr) auto; }
 a { color: var(--ink); text-underline-offset: 3px; }
 h1, h2, h3 { font-family: var(--f-head); font-weight: 500; text-wrap: balance; margin: 0; letter-spacing: -.01em; }
-h1 { font-size: clamp(1.9rem, 3vw, 3rem); line-height: 1.08; }
-h2 { font-size: clamp(1.2rem, 1.6vw, 1.7rem); line-height: 1.2; }
+h1 { font-size: clamp(1.9rem, 1.2rem + 3cqi, 3rem); line-height: 1.08; }
+h2 { font-size: clamp(1.2rem, .9rem + 1.6cqi, 1.7rem); line-height: 1.2; }
 h3 { font-size: 1rem; font-weight: 600; }
 p { margin: 0; }
 strong.key { font-weight: 700; border-bottom: 2px solid var(--accent-mid); }
@@ -74,8 +85,8 @@ kbd { font: 500 .78rem var(--f-mono); border: 1px solid var(--rule); border-bott
 .split::after { content: ""; position: absolute; inset: 50% 1px auto 1px; height: 44px; margin-top: -22px; border-radius: 3px; background: var(--accent-mid); opacity: .55; }
 .split:hover, .split:focus-visible, .split.drag { background: var(--accent-soft); }
 .split:hover::after, .split:focus-visible::after, .split.drag::after { opacity: 1; }
-.text { min-width: 0; min-height: 0; overflow-y: auto; padding: clamp(14px, 1.6vw, 28px); display: flex; flex-direction: column; gap: 12px; scrollbar-width: thin; }
-.fig { min-width: 0; min-height: 0; overflow-y: auto; padding: clamp(12px, 1.4vw, 24px); background: var(--plate); border-left: 1px solid var(--rule);
+.text { container-type: inline-size; min-width: 0; min-height: 0; overflow-y: auto; padding: clamp(14px, 1.6vw, 28px); display: flex; flex-direction: column; gap: 12px; scrollbar-width: thin; }
+.fig { container-type: inline-size; min-width: 0; min-height: 0; overflow-y: auto; padding: clamp(12px, 1.4vw, 24px); background: var(--plate); border-left: 1px solid var(--rule);
   display: flex; flex-direction: column; gap: 14px; scrollbar-width: thin; }
 .kicker { display: flex; gap: 10px; align-items: baseline; font: 500 .82rem var(--f-mono); color: var(--ink-2); }
 .kicker b { color: var(--ink); font-weight: 500; }
@@ -84,8 +95,10 @@ kbd { font: 500 .78rem var(--f-mono); border: 1px solid var(--rule); border-bott
 div.evidence { display: grid; gap: 4px; padding: 8px 12px; border: 1px solid var(--rule); border-left: 3px solid var(--accent-mid); border-radius: 6px; background: var(--plate); font-size: .93em; max-width: 62ch; }
 div.evidence p b, div.evidence .design::before, .evidence .result::before, .evidence .strength::before { font: 600 .7rem var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); margin-right: 6px; }
 .evidence .design::before { content: "Design"; } .evidence .result::before { content: "Result"; } .evidence .strength::before { content: "Strength"; }
-figure svg text { font-size: var(--fz, 12.5px); }
-.prose { display: grid; gap: .85em; max-width: 62ch; }
+/* Live figures (fig()) draw in real pixels and set --u: 1rem, so their labels follow A-/A+; a static drawing
+   keeps --u at 16px and scales as one picture, text with shapes, so its authored layout holds at any size. */
+figure svg text { font-size: calc(var(--u, 16px) * .78); }
+.prose { display: grid; gap: .85em; max-width: 62ch; text-wrap: pretty; hyphens: auto; }
 .note { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--rule); font: 400 .9rem/1.55 var(--f-body); color: var(--ink-2); max-width: 62ch; }
 .note b { color: var(--ink); font-weight: 700; }
 
@@ -97,15 +110,15 @@ figure svg text { font-size: var(--fz, 12.5px); }
 
 /* C: figures */
 figure { margin: 0; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
-figure > svg { flex: 1 1 auto; width: 100%; height: 0; min-height: 240px; display: block; color: var(--ink); }
+figure > svg { flex: 1 1 0; width: 100%; height: 0; min-height: 0; display: block; color: var(--ink); }
 figcaption { font: 400 .92rem/1.5 var(--f-body); color: var(--ink-2); max-width: 82ch; }
 figcaption b { color: var(--ink); font-weight: 700; }
-svg .t    { font: 400 14px var(--f-body); fill: var(--ink); }
-svg .tb   { font: 700 14.5px var(--f-body); fill: var(--ink); }
-svg .ts   { font: 400 13px var(--f-body); fill: var(--ink-2); }
-svg .tm   { font: 400 13px var(--f-mono); fill: var(--ink-2); }
-svg .tcap { font: 700 10.5px var(--f-body); letter-spacing: .1em; fill: var(--ink-3); }
-svg .tbig { font: 500 25px var(--f-head); fill: var(--ink); }
+svg .t    { font: 400 calc(var(--u, 16px) * .875) var(--f-body); fill: var(--ink); }
+svg .tb   { font: 700 calc(var(--u, 16px) * .906) var(--f-body); fill: var(--ink); }
+svg .ts   { font: 400 calc(var(--u, 16px) * .8125) var(--f-body); fill: var(--ink-2); }
+svg .tm   { font: 400 calc(var(--u, 16px) * .8125) var(--f-mono); fill: var(--ink-2); }
+svg .tcap { font: 700 calc(var(--u, 16px) * .656) var(--f-body); letter-spacing: .1em; fill: var(--ink-3); }
+svg .tbig { font: 500 calc(var(--u, 16px) * 1.5625) var(--f-head); fill: var(--ink); }
 svg .ta   { fill: var(--accent); }
 svg .axis { stroke: var(--ink-2); stroke-width: 1; fill: none; }
 svg .grid { stroke: var(--rule); stroke-width: 1; fill: none; }
@@ -136,7 +149,7 @@ svg .s-8 { stroke: var(--c-stone); stroke-width: 2.6; fill: none; }  svg .f-8 { 
 .controls label b { font: 500 .92rem var(--f-mono); color: var(--ink); }
 .controls input { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); }
 .controls input:disabled { opacity: .35; }
-.readout { font: 500 clamp(2.1rem, 3.4vw, 3.2rem)/1 var(--f-mono); letter-spacing: -.02em; font-variant-numeric: tabular-nums; min-width: 5.5ch; }
+.readout { font: 500 clamp(1.6rem, .8rem + 4cqi, 3.2rem)/1 var(--f-mono); letter-spacing: -.02em; font-variant-numeric: tabular-nums; min-width: 5.5ch; }
 .readout small { display: block; font: 700 .7rem var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 6px; }
 .gate { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--c-slate); border-radius: 8px; background: var(--c-slate-soft); }
 .gate p { font-weight: 600; }
@@ -144,21 +157,21 @@ svg .s-8 { stroke: var(--c-stone); stroke-width: 2.6; fill: none; }  svg .f-8 { 
 .gate .verdict { font: 400 .92rem/1.5 var(--f-body); }
 
 /* C: math */
-.eq { font-size: clamp(1.25rem, 1.8vw, 1.9rem); overflow-x: auto; overflow-y: hidden; }
+.eq { font-size: 1.5rem; overflow-x: auto; overflow-y: hidden; }
 /* An equation is always one .equation block: display math, a source tag, a where-list.
    The shell (cognia.js) adds the "(1)" number and the "(slide 9)" tag from data-src. */
 .equation { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; align-items: center; padding: 8px 14px; max-width: 62ch;
   background: var(--plate); border: 1px solid var(--rule); border-radius: 8px; }
-.equation > .eq { grid-column: 1; text-align: center; font-size: clamp(1.05rem, 1.45vw, 1.45rem); }
+.equation > .eq { grid-column: 1; text-align: center; font-size: 1.3rem; }
 .equation > .eq-n { grid-column: 2; font: 500 .9rem var(--f-mono); color: var(--ink-2); }
 .equation > .eq-src { grid-column: 1 / -1; justify-self: end; font: 500 .78rem var(--f-mono); color: var(--ink-2); }
-.equation > .where { grid-column: 1 / -1; margin: 2px 0 0; padding-top: 6px; border-top: 1px solid var(--rule);
+.equation .where { grid-column: 1 / -1; margin: 2px 0 0; padding-top: 6px; border-top: 1px solid var(--rule);
   display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 14px; align-items: baseline; font: 400 .88rem/1.4 var(--f-body); color: var(--ink-2); }
-.equation > .where dt { text-align: right; color: var(--ink); }
-.equation > .where dd { margin: 0; }
+.equation .where dt { text-align: right; color: var(--ink); }
+.equation .where dd { margin: 0; }
 table { border-collapse: collapse; width: 100%; font: 400 .93rem/1.45 var(--f-body); }
 th { text-align: left; font: 700 .72rem var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); padding: 6px 10px 6px 0; border-bottom: 1px solid var(--ink-2); }
-td { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+td { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--rule); vertical-align: top; overflow-wrap: anywhere; }
 ol.steps { list-style: none; margin: 0; padding: 0; counter-reset: s; }
 ol.steps li { counter-increment: s; display: grid; grid-template-columns: 2.4em 1fr; gap: 3px 12px; padding: 12px 0; border-top: 1px solid var(--rule); }
 ol.steps li::before { content: counter(s, decimal-leading-zero); font: 500 .84rem var(--f-mono); color: var(--ink-2); padding-top: .3em; grid-row: span 2; }
@@ -242,11 +255,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, .node:focus-v
   .help, .gloss { position: fixed; inset: 0; width: auto; z-index: 10; }
 }
 @media (max-height: 820px) and (min-width: 861px) {
-  body { font-size: .98rem; line-height: 1.62; }
-  h2 { font-size: clamp(1.3rem, 1.75vw, 1.9rem); }
   .text, .fig { gap: 12px; padding-block: 18px; }
   .prose { gap: .7em; }
-  .eq { font-size: 1.15rem; }
 }
 @media (prefers-reduced-motion: reduce) { .rail { transition: none; } }
 .head { grid-row: 1; } .stage { grid-row: 2; } .nav { grid-row: 3; }
@@ -280,3 +290,57 @@ a.gl:hover { text-decoration-color: var(--ink); }
 /* C: math symbols in figures, in KaTeX's own math font so they match the formulas in the text */
 svg .tx { font-family: KaTeX_Math, "Cambria Math", "Times New Roman", serif; font-style: italic; }
 .label .sym, .readout small .sym, th .sym { text-transform: none; letter-spacing: 0; }
+
+/* C: narrow columns (container queries): the symbol list stacks */
+@container (max-width: 26rem) {
+  .equation .where { grid-template-columns: minmax(0, 1fr); }
+  .equation .where dt { text-align: left; }
+  .equation .where dd { margin-bottom: 4px; }
+}
+
+/* C: fit ladder (cognia.js layout()). Each screen is fitted from measurements, in order:
+   balance the split, fold asides, move asides under the figure, then page the text. */
+.equation > details.fold { grid-column: 1 / -1; }
+details.fold { border-top: 1px solid var(--rule); padding-top: 6px; max-width: 62ch; }
+details.fold > summary { cursor: pointer; font: 600 .74rem/1.6 var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); list-style: none; }
+details.fold > summary::before { content: "▸ "; }
+details.fold[open] > summary::before { content: "▾ "; }
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold[open] > :not(summary) { margin-top: 6px; }
+.fig > .moved { flex: none; }
+figcaption.clamped { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.capmore { justify-self: start; align-self: flex-start; }
+.paged { overflow: hidden; display: block; position: relative; }
+.flow { column-fill: auto; transition: transform .35s cubic-bezier(.3, .7, .2, 1); }
+.flow > * + * { margin-top: 12px; }
+.flow .equation, .flow div.evidence, .flow .gate, .flow .check, .flow tr, .flow ol.steps li, .flow figure, .flow h1, .flow h2, .flow .kicker { break-inside: avoid; }
+.flow h1, .flow h2, .flow .kicker { break-after: avoid; }
+.pager { position: absolute; right: 12px; bottom: 8px; font: 500 .78rem var(--f-mono); color: var(--ink-2); background: var(--paper); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--rule); }
+@media (prefers-reduced-motion: reduce) { .flow { transition: none; } }
+
+/* C: declared diagrams. The page writes nodes and edges; the shell ranks the nodes into columns
+   (or rows), and draws the arrows and their labels from the measured boxes. Text is HTML, so it wraps. */
+.diagram { position: relative; flex: 1 1 0; min-height: 0; min-width: 0; display: flex; align-items: stretch; justify-content: space-between; gap: var(--rank-gap, 4.5rem); padding: 8px 4px; font: 400 .9rem/1.35 var(--f-body); }
+.diagram[data-dir="down"] { flex-direction: column; }
+.diagram .rank { display: flex; flex-direction: column; justify-content: space-around; align-items: center; gap: 14px; min-width: min-content; flex: 0 1 auto; }
+.diagram[data-dir="down"] .rank { flex-direction: row; }
+.diagram .rank { position: relative; padding-top: var(--title-h, 0px); }
+.diagram .rank-title { position: absolute; top: 0; left: 0; right: 0; text-align: center; font-size: .8em; }
+.diagram[data-dir="down"] .rank { padding-top: 0; }
+.diagram[data-dir="down"] .rank-title { position: static; flex: 0 0 6em; text-align: left; }
+.diagram .node.gain { border-left: 5px solid var(--c-slate); }
+.diagram .node { position: relative; z-index: 1; max-width: 16em; padding: 8px 12px; border: 1.3px solid var(--rule); border-radius: 10px; background: var(--plate); text-align: center; overflow-wrap: break-word; hyphens: auto; }
+.diagram .node b { display: block; font: 500 1.3em/1.2 var(--f-head); }
+.diagram .node.acc { background: var(--c-slate-soft); border-color: var(--c-slate); border-width: 1.5px; }
+.diagram .node.loss { background: repeating-linear-gradient(45deg, var(--plate) 0 4px, var(--c-clay-soft) 4px 6px); border-color: var(--c-clay); }
+.diagram .node.ref { border-style: dashed; border-color: var(--c-ochre); }
+.diagram .node.ghost { border-color: transparent; background: transparent; }
+.diagram .node small { display: block; color: var(--ink-2); font-size: .85em; }
+.diagram > svg.wires { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 0; }
+.diagram > svg.wires { --u: 1rem; }
+.diagram > svg.wires text { font: 400 .9em var(--f-body); fill: var(--ink-2); }
+.diagram .edge { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.diagram.recall .node:not(.shown) { color: transparent; cursor: pointer; }
+.diagram.recall .node:not(.shown) .katex { visibility: hidden; }
+.diagram.recall .node:not(.shown)::after { content: "?"; position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink); font: 500 1.6rem var(--f-head); }
+@media (max-width: 860px) { .diagram { flex: none; } }  /* phones scroll, so a diagram takes the height it needs */

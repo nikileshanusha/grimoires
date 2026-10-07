@@ -293,30 +293,21 @@
     <div class="fig">
       <div class="row"><button class="btn" data-recall="cmap">Recall mode</button><span class="hint recall-hint">Hides every box label; the arrows stay as clues.</span></div>
       <figure>
-        <svg class="cmap" id="cmap" viewBox="0 0 900 500" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Concept map: the Pareto tail sets income above the line, which sizes the mechanical gain; the social weight discounts the gain; the elasticity sizes the behavioural loss; the gain raises and the loss lowers the best rate">
-          <text x="110" y="30" text-anchor="middle" class="tcap">YOU MEASURE OR CHOOSE</text>
-          <text x="485" y="30" text-anchor="middle" class="tcap">IT DRIVES</text>
-          <text x="820" y="30" text-anchor="middle" class="tcap">YOU GET</text>
-          <path d="M150,110 L262,110" class="ink2" marker-end="url(#arr)"/>
-          <path d="M442,118 C486,124 496,160 522,174" class="ink2" marker-end="url(#arr)"/>
-          <path d="M150,262 C300,262 420,212 522,198" class="ink2" marker-end="url(#arr)"/>
-          <path d="M150,410 L520,410" class="ink2" marker-end="url(#arr)"/>
-          <path d="M702,185 C732,185 736,236 752,258" class="acc-line" stroke-width="1.8" marker-end="url(#arrA)"/>
-          <path d="M702,410 C732,410 736,358 752,336" class="ink2" stroke-dasharray="5 4" marker-end="url(#arr)"/>
-          <rect x="183" y="97" width="44" height="18" rx="4" class="bg"/><text x="205" y="110" text-anchor="middle" class="ts">sets</text>
-          <rect x="462" y="136" width="44" height="18" rx="4" class="bg"/><text x="484" y="149" text-anchor="middle" class="ts">sizes</text>
-          <rect x="300" y="231" width="68" height="18" rx="4" class="bg"/><text x="334" y="244" text-anchor="middle" class="ts">discounts</text>
-          <rect x="312" y="397" width="44" height="18" rx="4" class="bg"/><text x="334" y="410" text-anchor="middle" class="ts">sizes</text>
-          <rect x="716" y="212" width="48" height="18" rx="4" class="bg"/><text x="740" y="225" text-anchor="middle" class="ts">raises</text>
-          <rect x="714" y="366" width="52" height="18" rx="4" class="bg"/><text x="740" y="379" text-anchor="middle" class="ts">lowers</text>
-          <g class="node"><circle cx="110" cy="110" r="40" class="card"/><text x="110" y="119" text-anchor="middle" class="tbig lbl"><tspan class="tx">a</tspan></text><text x="110" y="170" text-anchor="middle" class="t lbl">Pareto tail</text><text x="110" y="119" text-anchor="middle" class="tbig qm">?</text></g>
-          <g class="node"><circle cx="110" cy="262" r="40" class="card"/><text x="110" y="271" text-anchor="middle" class="tbig lbl"><tspan class="tx">ḡ</tspan></text><text x="110" y="322" text-anchor="middle" class="t lbl">social weight</text><text x="110" y="271" text-anchor="middle" class="tbig qm">?</text></g>
-          <g class="node"><circle cx="110" cy="410" r="40" class="card"/><text x="110" y="419" text-anchor="middle" class="tbig lbl"><tspan class="tx">e</tspan></text><text x="110" y="470" text-anchor="middle" class="t lbl">elasticity</text><text x="110" y="419" text-anchor="middle" class="tbig qm">?</text></g>
-          <g class="node"><rect x="268" y="82" width="174" height="56" rx="10" class="card"/><text x="355" y="106" text-anchor="middle" class="tb lbl">Income above the line</text><text x="355" y="126" text-anchor="middle" class="t lbl">z_m − <tspan class="tx">z̄</tspan></text><text x="355" y="116" text-anchor="middle" class="tbig qm">?</text></g>
-          <g class="node"><rect x="526" y="155" width="176" height="60" rx="10" class="card"/><rect x="542" y="171" width="12" height="12" class="acc-fill"/><text x="562" y="182" class="tb lbl">Mechanical gain</text><text x="562" y="201" class="ts lbl">more tax, same income</text><text x="620" y="194" text-anchor="middle" class="tbig qm">?</text></g>
-          <g class="node"><rect x="526" y="380" width="176" height="60" rx="10" class="card"/><rect x="542" y="396" width="12" height="12" class="hatch"/><text x="562" y="407" class="tb lbl">Behavioural loss</text><text x="562" y="426" class="ts lbl">less income to tax</text><text x="620" y="419" text-anchor="middle" class="tbig qm">?</text></g>
-          <g class="node"><rect x="756" y="252" width="128" height="88" rx="12" class="card-acc"/><text x="820" y="294" text-anchor="middle" class="tbig lbl"><tspan class="tx">τ</tspan><tspan baseline-shift="super" font-size="60%">*</tspan></text><text x="820" y="320" text-anchor="middle" class="t lbl">best top rate</text><text x="820" y="304" text-anchor="middle" class="tbig qm">?</text></g>
-        </svg>
+        <div class="diagram" id="cmap" data-ranks="You measure or choose|It drives|It drives|You get" role="group" aria-label="Concept map: the Pareto tail sets income above the line, which sizes the mechanical gain; the social weight discounts the gain; the elasticity sizes the behavioural loss; the gain raises and the loss lowers the best rate">
+          <div class="node" id="m-a"><b>\(a\)</b> Pareto tail</div>
+          <div class="node" id="m-g"><b>\(\bar g\)</b> social weight</div>
+          <div class="node" id="m-e"><b>\(e\)</b> elasticity</div>
+          <div class="node" id="m-slice">Income above the line <small>\(z_m - \bar z\)</small></div>
+          <div class="node gain" id="m-gain" data-rank="2">Mechanical gain <small>more tax, same income</small></div>
+          <div class="node loss" id="m-loss" data-rank="2">Behavioural loss <small>less income to tax</small></div>
+          <div class="node acc" id="m-rate"><b>\(\tau^*\)</b> best top rate</div>
+          <span class="edge" data-from="m-a" data-to="m-slice">sets</span>
+          <span class="edge" data-from="m-slice" data-to="m-gain">sizes</span>
+          <span class="edge" data-from="m-g" data-to="m-gain">discounts</span>
+          <span class="edge" data-from="m-e" data-to="m-loss">sizes</span>
+          <span class="edge acc" data-from="m-gain" data-to="m-rate">raises</span>
+          <span class="edge dash" data-from="m-loss" data-to="m-rate">lowers</span>
+        </div>
         <figcaption><b>Figure 6.</b> The argument as a chain of ideas. <b>What to notice:</b> every arrow says how one idea feeds the next. The two arrows into \(\tau^*\) pull in opposite directions, and the rate sits where they cancel. <small>Source: the argument on screens 1 to 5.</small></figcaption>
       </figure>
     </div>

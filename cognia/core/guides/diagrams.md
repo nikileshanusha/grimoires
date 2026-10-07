@@ -4,9 +4,10 @@ A diagram earns its place when it shows a mechanism the reader would otherwise a
 prose: what causes what, what moves, what changes between two cases. If a sentence says it
 faster, write the sentence. Draw the mechanism, not its name.
 
-**Medium.** Vault markdown uses Mermaid, which Obsidian renders. HTML explainers use
-hand-built inline SVG, never default Mermaid boxes. Load the `artifact-diagramming` skill
-before drawing SVG.
+**Medium.** Vault markdown uses Mermaid, which Obsidian renders. In HTML explainers, boxes and
+arrows are a declared `.diagram` (nodes and edges; the shell lays them out and draws the arrows),
+plots are `plot()` or `bars()`, and hand-built inline SVG is kept for pictures that are neither.
+Load the `artifact-diagramming` skill before drawing SVG by hand.
 
 ## Contents
 
@@ -33,9 +34,8 @@ A graph-shaped subject does not make a structural diagram the default.
 
 ## Label size and what a figure shows
 
-Label size is fixed: the shell sets every SVG label to about 12.5px on screen, whatever the plate
-size, so the drawing scales and the text does not. Never set `font-size` above 14 in figure code.
-A figure shows the finding (the direction and shape of the relationship, or the mechanism), not an
+Label size follows the reader's text setting in live figures and diagrams; a hand-drawn SVG scales
+as one picture. Never set `font-size` above 14 in figure code. A figure shows the finding (the direction and shape of the relationship, or the mechanism), not an
 estimate: a slider over a coefficient value teaches nothing.
 
 ## Figure patterns
