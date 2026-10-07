@@ -1,16 +1,18 @@
 # How high should the top tax rate be?
 
-*Three numbers you can measure settle one of the oldest fights in tax policy.*
+*Three numbers settle one of the oldest fights in tax policy, and most of the fight is about just one of them.*
 
 Saez (2001) · Skim depth
 
-In 2024 a single American pays 37 cents in federal tax on each dollar earned above $609,350. Some economists say that rate should be closer to 70%. Emmanuel Saez showed that the answer follows from just three numbers, and that most of the argument is really about one of them.
+Meet a surgeon who earns $1.8 million a year. In 2024 she pays 37 cents in federal tax on each dollar she earns above $609,350. Some economists say that rate should be closer to 70%; others say it is already too high. Both sides claim economics is on their side. So who is right, and what would it take to know?
+
+Emmanuel Saez's answer is surprising: the best top rate follows from just three numbers, and two of them are close to settled. Let's start with the small question he asks in place of "which rate?".
 
 ## Raise the rate a little, and three things happen
 
-Saez does not search over every possible rate. He asks what happens if the current [[top-tax-rate|top rate]] rises by one small step.
+Here is the turn that makes the problem tractable. Instead of searching over every possible rate, Saez asks one small question: what happens if the current [[top-tax-rate|top rate]] rises by one small step?
 
-The government gains, because top earners pay more on the same income. This is the [[mechanical-effect|mechanical effect]]. The government also loses, because some top earners report less income, so there is less to tax: the [[elasticity-of-taxable-income|behavioural response]]. Top earners lose as well, and how much that counts depends on how much society values their dollars.
+Three things happen to our surgeon and everyone like her. The government gains, because she pays more on the same income; this is the [[mechanical-effect|mechanical effect]]. The government also loses, because she may report a little less income, so there is less to tax; this is the [[elasticity-of-taxable-income|behavioural response]]. And she loses too, by keeping less of what she earns. How much that last loss counts depends on how much society values her extra dollar.
 
 ```mermaid
 flowchart TD
@@ -22,11 +24,15 @@ flowchart TD
   W --> T
 ```
 
-*What to notice:* one gain and two losses. The best rate is where they balance, so a small step in either direction changes nothing.[^foc]
+*What to notice:* one gain and two losses. If the gain is bigger, raise the rate; if the losses are bigger, lower it. The best rate is where they balance.[^foc]
+
+So the question becomes: how big is each side? Two things decide it. Take the gain first.
 
 ## The gain depends on how far top incomes reach
 
-The top rate only taxes income above the top line, $\bar z$. Top incomes follow a [[pareto-tail|Pareto tail]], a shape set by one number $a$, and the average income above the line is
+The top rate only taxes income above the top line, $\bar z$. For our surgeon that is the $1.2 million she earns above roughly $600,000, so the gain from a higher rate depends on how far incomes like hers stretch past the line.
+
+You might expect that to need the whole income distribution. It does not, because top incomes follow a [[pareto-tail|Pareto tail]], a shape set by one number $a$: the smaller $a$, the fatter the tail and the further top incomes reach. The average income above the line is then
 
 $$ z_m = \frac{a}{a-1}\,\bar z $$
 
@@ -38,17 +44,19 @@ Where:
 
 (Source: p. N, sample)
 
-With $a = 1.5$ the average top earner makes three times the line: about $1.8M against a $600k line, so the slice the top rate taxes is $1.2M.
+With $a = 1.5$, the average top earner makes three times the line. That is our surgeon: $1.8 million against a $600,000 line. US tax data pin $a$ down well, so the gain side is close to settled.
 
 ## The loss depends on how much reported income shrinks
 
-The [[elasticity-of-taxable-income|elasticity of taxable income]], $e$, measures the response. If the take-home share $1-\tau$ falls by 10%, reported income falls by $e \times 10\%$. Estimates run from about 0.1 to above 1.
+Now the hard part. If the top rate rises and our surgeon keeps 10% less of each extra dollar, how much less income does she report? That response is the [[elasticity-of-taxable-income|elasticity of taxable income]], $e$: reported income falls by $e \times 10\%$. At $e = 0.25$ she reports 2.5% less, about $45,000.
 
-> Most of the political fight over top rates is a fight over one number: $e$.
+You might expect economists to agree on $e$ by now. They do not. Estimates run from about 0.1 to above 1, and this is the heart of the paper, because the formula turns that disagreement directly into a disagreement about the rate.
+
+> Most of the fight over top tax rates is a fight over one number: $e$.
 
 ## The whole argument in symbols
 
-Setting the gain equal to the two losses gives Saez's formula:
+We now hold all three pieces: the gain, set by $a$; the behavioural loss, set by $e$; and the weight on the surgeon's lost dollar, $\bar g$. Setting the gain equal to the two losses gives Saez's formula:
 
 $$ \tau^* = \frac{1-\bar g}{1-\bar g+a\,e} $$
 
@@ -70,7 +78,7 @@ Where:
 | $e$ | 0.25 | middle of the estimates |
 | $\bar g$ | 0 | a value judgment |
 
-*What to notice:* only $\bar g$ is not measured. It says how much a rich person's extra dollar matters, which no data set can tell you.
+*What to notice:* $a$ is measured well, and $\bar g$ is a value judgment no data set can settle. That leaves $e$ as the one number where evidence can change the answer.
 
 ## What to doubt
 
@@ -78,11 +86,11 @@ The formula is **Established**: it follows from the model. The 73% is **Derived*
 
 ## In one sentence
 
-The top rate should be high when top incomes are concentrated, top earners respond little, and society puts little weight on their extra dollar.
+The top rate should be high when top incomes reach far, top earners respond little, and society puts little weight on their extra dollar, and of those three, the response is what people really disagree about.
 
 ## Check yourself
 
-> [!question]- If top earners stopped responding to taxes ($e = 0$), what would the best rate be?
+> [!question]- If our surgeon stopped responding to taxes ($e = 0$), what would the best rate be?
 > 100% when $\bar g = 0$, because raising the rate would never lose revenue.
 
 > [!question]- Two economists agree on $a$ and $\bar g$ but recommend 45% and 75%. What do they disagree about?

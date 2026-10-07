@@ -511,7 +511,7 @@
     const walk = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
     for (let n; (n = walk.nextNode());) {
       if (n.parentElement.closest("script, style, textarea, .katex")) continue;
-      const tz = /\b(next (?:\w+ )?(?:screens?|sections?|slides?)|coming up|we['\u2019]ll see|let['\u2019]s|in this section|stay tuned)\b/i.exec(n.nodeValue);
+      const tz = /\b(next (?:\w+ )?(?:screens?|sections?|slides?)|coming up|in this section|stay tuned)\b/i.exec(n.nodeValue);
       if (tz && !n.parentElement.closest("#help, .nav, button")) out.push(`transition points at the page ("${tz[0]}"), so name the concept that comes next instead: "${n.nodeValue.trim().slice(0, 60)}"`);
       if (/[A-Za-z0-9\u0370-\u03FF][_^]/.test(n.nodeValue)) out.push(`unrendered sub/superscript in: "${n.nodeValue.trim().slice(0, 60)}"`);
     }

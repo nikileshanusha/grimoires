@@ -31,8 +31,11 @@ Every worksheet item has one kind. Teach findings; use the rest in their support
 | **example** | an illustration that makes something concrete | the 100 / 140 firm |
 
 The worksheet lists the source's 3 to 6 findings. Each names the concepts it needs and its
-evidence. The dependency chain runs over findings and concepts, not slides. A number is evidence
-for a finding; it is never the topic of a screen.
+evidence, and one is marked `central`. Every item also carries a weight: `core`, `supporting`
+or `aside`, set by how much of the argument rests on it, not by how many slides cover it. The
+dependency chain runs over findings and concepts, not slides. A number is evidence for a
+finding; it is never the topic of a screen. The explainer and the essay turn these into a
+lecture plan (`core/guides/lecture.md`).
 
 ## Diagnostic (Ingest step 7)
 

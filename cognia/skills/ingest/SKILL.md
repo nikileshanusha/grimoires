@@ -41,7 +41,7 @@ argument needs at that depth.
 | Depth | Covers | Mapping | Math |
 |---|---|---|---|
 | **Skim**: the gist and whether to trust it | the question, the mechanism in one picture, the result, the main doubt, a quick check | the references the argument rests on; prerequisites as one-line reminders; 2 diagnostic questions | the central equation, read aloud in words (Tier 3) |
-| **Standard**: understand and explain it | everything in the screen sequence of `/cognia:explainer`; `shaky` and `new` prerequisites taught in place | as in the steps below | tiered as in `core/guides/math.md` |
+| **Standard**: understand and explain it | everything in the screen arc of `/cognia:explainer`; `shaky` and `new` prerequisites taught in place | as in the steps below | tiered as in `core/guides/math.md` |
 | **Deep**: master it, build on it | every assumption, every derivation step that carries an idea, each `shaky` or `new` prerequisite on its own, what each key reference contributes, robustness and extensions | every cited work the argument depends on; prerequisites walked to `known` | every step decoded, with a numeric check |
 
 If the reader does not care, use standard.
@@ -63,12 +63,18 @@ If the reader does not care, use standard.
 
 2. **Extraction worksheet.** Before writing anything the reader sees, write terse notes to
    `library/<topic>/<slug>/<slug>-worksheet.md`:
-   - the core claim in one sentence;
+   - the core claim in one sentence, and the line where the source **states its contribution**
+     (abstract, the intro's "this paper shows", the conclusion, or a deck's title and summary
+     slides), quoted with its location;
    - **every slide item tagged with one kind**: `concept` (an idea to understand), `finding`
      (a claim about the world), `evidence` (the test, design and result behind a finding) or
      `example` (an illustration). See `core/guides/learning.md`;
-   - the source's **3 to 6 findings**, each with the concepts it needs and its evidence. A number
-     is evidence for a finding, never a topic of its own;
+   - **every item given a weight**: `core` (the argument rests on it), `supporting` (a core
+     item needs it) or `aside` (could be cut without loss). Weight comes from how much of the
+     argument rests on the item, never from how many slides or pages cover it;
+   - the source's **3 to 6 findings**, each with the concepts it needs and its evidence, and
+     **one marked `central`**: the finding the stated contribution names. A number is evidence
+     for a finding, never a topic of its own;
    - the **dependency chain** over findings and concepts, not slides: which must come before which. This sets the order of
      the explainer's screens. If you cannot write it, reread the source;
    - every equation with its tier and role (load `core/guides/math.md`), and every symbol with
