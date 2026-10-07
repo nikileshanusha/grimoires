@@ -41,18 +41,21 @@ write it inline in a paragraph.
 
 ## Claim screen (every screen starts from this)
 
+The markup is fixed; the beats inside `.prose` are a default, not a mold. Drop the evidence
+block or the puzzle when the step does not need them.
+
 ```html
 <section class="screen" data-title="The loss" data-min="4">
   <div class="text">
     <div class="kicker"><b>Finding 2 of 4</b> · evasion and the rate</div>
     <h2>The loss depends on how much reported income shrinks.</h2>
-    <div class="prose"><p>(bridge sentence from the open question)</p><p>(puzzle, mechanism, the finding in plain words)</p></div>
+    <div class="prose"><p>(bridge sentence from the open question)</p><p>(the step of the argument; by default puzzle, mechanism, the finding in plain words)</p></div>
     <div class="evidence" data-src="Author Year, slide 20">
       <p class="design">What was compared, in one sentence.</p>
       <p class="result">What it showed, with the number as its meaning ("about 29% more missing").</p>
       <p class="strength">How well it holds, and what else moves it.</p>
     </div>
-    <div class="prose"><p>(implication, ending in the next question)</p></div>
+    <div class="prose"><p>(what it implies, ending in the question it raises)</p></div>
     <div class="note"><b>Illustration.</b> (a source or example note) …</div>
   </div>
   <div class="fig">

@@ -349,7 +349,7 @@ def essay_glossary(vault, md):
     return data, missing
 
 
-TEASER_RE = re.compile(r"\b(next (?:\w+ )?(?:screens?|sections?|slides?)|coming up|we['\u2019]ll see|let['\u2019]s|in this section|stay tuned)\b", re.I)
+TEASER_RE = re.compile(r"\b(next (?:\w+ )?(?:screens?|sections?|slides?)|coming up|in this section|stay tuned)\b", re.I)
 
 
 def essay_warnings(md):
