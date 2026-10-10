@@ -1,0 +1,11 @@
+{
+  "name": "grimoires",
+  "owner": { "name": "Nikilesh Anusha Natesan" },
+  "plugins": [
+    {
+      "name": "command-center",
+      "source": "./command-center",
+      "description": "A calm, wide command center for Claude Code: mission and ETA, limits with reset times, activity, helper agents, notes, and every session on the machine."
+    }
+  ]
+}
