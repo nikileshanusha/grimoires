@@ -5,7 +5,7 @@ import type { AgentRow, CustomAction, FeedItem, Layout, LiveSession, Note, PastS
 import { Glance, makeKit } from './cards'
 import { EMPTY_AUTO, MISSION_SYSTEM, missionPrompt, parseMission, purposeFrom } from './mission'
 import type { Data } from './cards'
-import { encodePs, moveScript, olderThan, removeScript } from './cleanup'
+import { encodePs, moveFailure, moveScript, olderThan, removeScript } from './cleanup'
 import type { Script } from './cleanup'
 import { blendMedian, eta, fmtDuration, mergeTodos } from './eta'
 import { Pane } from './layouts'
@@ -63,15 +63,16 @@ async function isWindows($: EngineInterface): Promise<boolean> {
   return (await $.env.get('OS')) === 'Windows_NT'
 }
 
-async function runScript($: EngineInterface, script: Script): Promise<boolean> {
+// Runs a move or remove script; `error` says why one failed.
+async function runScript($: EngineInterface, script: Script): Promise<{ ok: boolean; error: string }> {
   try {
     const run = (await isWindows($))
       ? await $.process.run(['powershell', '-NoProfile', '-NonInteractive', '-EncodedCommand', encodePs(script.ps)], { timeoutMs: 30_000 })
       : await $.process.run(script.sh, { timeoutMs: 30_000 })
 
-    return run.exitCode === 0
-  } catch {
-    return false
+    return { ok: run.exitCode === 0, error: run.stderr.trim() || run.stdout.trim() }
+  } catch (err) {
+    return { ok: false, error: String(err) }
   }
 }
 
@@ -112,9 +113,15 @@ async function refreshLive($: EngineInterface): Promise<LiveSession[]> {
     }
   }
   const home = await homeDir($)
+  let dirs: string[] = []
+  try {
+    dirs = (await $.fs.list(`${home}/.claude/projects`)).filter(d => d.kind === 'dir').map(d => d.name)
+  } catch {
+    // No projects yet.
+  }
   for (const row of rows) {
     if (!row.sessionId || !row.cwd) continue
-    const path = transcriptPath(home, row.cwd, row.sessionId)
+    const path = transcriptPath(home, row.cwd, row.sessionId, dirs)
     try {
       const stat = await $.fs.stat(path)
       row.lastAt = stat.mtimeMs
@@ -230,13 +237,15 @@ async function trashRoot($: EngineInterface): Promise<string> {
 // one) into the trash. The trash path stays short (date and session id
 // only): project folder names run long, and Windows refuses paths past 260
 // characters. Where it came from is kept on the item, so it can go back.
-async function moveToTrash($: EngineInterface, session: PastSession, now: number): Promise<TrashItem | undefined> {
-  if (session.isLive) return undefined
+// A trash entry, or why the session could not be moved.
+async function moveToTrash($: EngineInterface, session: PastSession, now: number): Promise<TrashItem | string> {
+  if (session.isLive) return 'it is still running'
   const day = new Date(now).toISOString().slice(0, 10)
   const toDir = `${await trashRoot($)}/${day}`
-  if (!(await runScript($, moveScript(session.path, toDir)))) return undefined
+  const moved = await runScript($, moveScript(session.path, toDir))
+  if (!moved.ok) return moveFailure(moved.error)
   // Trust the disk, not the exit code: the file must really have left.
-  if (await $.fs.exists(session.path)) return undefined
+  if (await $.fs.exists(session.path)) return 'its file is still there after the move'
   const sideDir = `${parentOf(session.path)}/${session.sessionId}`
   if (await $.fs.exists(sideDir)) await runScript($, moveScript(sideDir, toDir))
 
@@ -257,15 +266,22 @@ async function saveTrash($: EngineInterface, fn: (list: TrashItem[]) => TrashIte
 
 async function deleteSession($: EngineInterface, path: string) {
   await setView($, { confirm: undefined })
-  const target = (await read($, past)).find(s => s.path === path)
-  if (!target) return
+  const found = (await read($, past)).find(s => s.path === path)
+  if (!found) return
+  // Ask the machine again: a session may have started since the list was read.
+  const liveNow = new Set((await refreshLive($)).map(s => s.sessionId))
+  const target = { ...found, isLive: liveNow.has(found.sessionId) }
   const item = await moveToTrash($, target, await $.clock.now())
-  if (!item) {
-    $.ui.toast(target.isLive ? 'That session is running, so it stays.' : "Couldn't move that session to trash.")
+  if (typeof item === 'string') {
+    $.ui.toast(`Couldn't move "${target.title.slice(0, 40)}" to trash: ${item}.`, { timeoutMs: 6000 })
+    await refreshPast($)
 
     return
   }
+  // Gone from the list at once, before the folders are read again.
+  await update($, past, l => l.filter(s => s.path !== path))
   await saveTrash($, l => [item, ...l])
+  $.ui.toast('Moved to trash. Restore it from the Trash tab.', { timeoutMs: 3000 })
   await refreshPast($)
 }
 
@@ -275,7 +291,7 @@ async function cleanupOld($: EngineInterface, days: number) {
   const moved: TrashItem[] = []
   for (const session of olderThan(await read($, past), days, now)) {
     const item = await moveToTrash($, session, now)
-    if (item) moved.push(item)
+    if (typeof item !== 'string') moved.push(item)
   }
   await saveTrash($, l => [...moved, ...l])
   await refreshPast($)
@@ -286,8 +302,9 @@ async function restoreFromTrash($: EngineInterface, trashedPath: string) {
   const item = (await read($, trash)).find(t => t.trashedPath === trashedPath)
   if (!item) return
   const home = parentOf(item.originalPath)
-  if (!(await runScript($, moveScript(item.trashedPath, home)))) {
-    $.ui.toast("Couldn't restore that session.")
+  const back = await runScript($, moveScript(item.trashedPath, home))
+  if (!back.ok) {
+    $.ui.toast(`Couldn't restore that session: ${moveFailure(back.error)}.`, { timeoutMs: 6000 })
 
     return
   }
@@ -301,7 +318,7 @@ async function restoreFromTrash($: EngineInterface, trashedPath: string) {
 async function emptyTrash($: EngineInterface) {
   await setView($, { confirm: undefined })
   const root = await trashRoot($)
-  if ((await $.fs.exists(root)) && !(await runScript($, removeScript(root)))) {
+  if ((await $.fs.exists(root)) && !(await runScript($, removeScript(root))).ok) {
     $.ui.toast("Couldn't empty the trash.")
 
     return

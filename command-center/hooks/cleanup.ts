@@ -34,18 +34,46 @@ const psLiteral = (s: string) => `'${s.replace(/'/g, "''")}'`
 
 export type Script = { ps: string; sh: string[] }
 
+// Windows PowerShell 5.1's Move-Item fails past 260 characters, which
+// transcripts in deep project folders pass; .NET with the \\?\ prefix does
+// not. Nothing is overwritten: a file already at the destination stops it.
+const longPath = (p: string) => `\\\\?\\${p.replace(/\//g, '\\')}`
+
 export function moveScript(from: string, toDir: string): Script {
+  const name = from.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? ''
+  const dest = `${toDir.replace(/[\\/]+$/, '')}/${name}`
+
   return {
     ps:
-      `$ErrorActionPreference='Stop'; New-Item -ItemType Directory -Force -Path ${psLiteral(toDir)} | Out-Null; ` +
-      `Move-Item -LiteralPath ${psLiteral(from)} -Destination ${psLiteral(toDir)} -Force`,
-    sh: ['sh', '-c', 'mkdir -p "$1" && mv -f "$2" "$1"/', 'sh', toDir, from],
+      `$ErrorActionPreference='Stop'; ` +
+      `$from=${psLiteral(longPath(from))}; $dest=${psLiteral(longPath(dest))}; ` +
+      `[IO.Directory]::CreateDirectory(${psLiteral(longPath(toDir))}) | Out-Null; ` +
+      `if ([IO.File]::Exists($dest) -or [IO.Directory]::Exists($dest)) { throw 'already exists at the destination' }; ` +
+      `if ([IO.Directory]::Exists($from)) { [IO.Directory]::Move($from, $dest) } else { [IO.File]::Move($from, $dest) }`,
+    sh: ['sh', '-c', 'mkdir -p "$1" && [ ! -e "$1/$(basename "$2")" ] && mv "$2" "$1"/', 'sh', toDir, from],
   }
+}
+
+// A failed move's error, in words a person can act on.
+export function moveFailure(raw: string): string {
+  // PowerShell run with -EncodedCommand reports errors as CLIXML.
+  const error = raw
+    .replace('#< CLIXML', '')
+    .replace(/_x000D__x000A_/g, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (/used by another process|being used|sharing violation/i.test(error)) return 'it is open in another window or app; close it there first'
+  if (/already exists/i.test(error)) return 'a file with that name is already there'
+  if (/could not find|does not exist|cannot find/i.test(error)) return 'its file is no longer where it was'
+  if (/denied/i.test(error)) return 'Windows denied access to it'
+
+  return error.split('\n')[0]?.slice(0, 120) || 'the move failed'
 }
 
 export function removeScript(dir: string): Script {
   return {
-    ps: `$ErrorActionPreference='Stop'; Remove-Item -LiteralPath ${psLiteral(dir)} -Recurse -Force`,
+    ps: `$ErrorActionPreference='Stop'; [IO.Directory]::Delete(${psLiteral(longPath(dir))}, $true)`,
     sh: ['sh', '-c', 'rm -rf "$1"', 'sh', dir],
   }
 }

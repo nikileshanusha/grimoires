@@ -1,13 +1,13 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
-import { encodePs, moveScript, olderThan } from '../hooks/cleanup'
+import { encodePs, moveFailure, moveScript, olderThan } from '../hooks/cleanup'
 import { eta, median, mergeTodos } from '../hooks/eta'
 import { fitLayout } from '../hooks/layouts'
 import { groupFeed, resetText } from '../hooks/cards'
 import { flowWindow, nextLine, parseMission, purposeFrom, stepsFor } from '../hooks/mission'
 import { EMPTY_AUTO } from '../hooks/mission'
-import { CACHE_1H, CACHE_5M, cacheLeft, cacheTtlOf, describeTranscript, parseCard, parsePids, transcriptPath } from '../hooks/sessions'
+import { CACHE_1H, CACHE_5M, cacheLeft, cacheTtlOf, describeTranscript, parseCard, parsePids, projectDirFor, transcriptPath } from '../hooks/sessions'
 
 const PANE_PROPS = (bodyColumns: number) => ({
   title: 'Command center',
@@ -98,8 +98,29 @@ describe('sessions', () => {
       { path: 'c', sessionId: 'c', project: '', title: '', mtimeMs: now, size: 1, isLive: false },
     ]
     expect(olderThan(list, 30, now).map(s => s.path)).toEqual(['a'])
-    expect(moveScript("C:/it's here/x.jsonl", 'C:/t').ps).toContain("'C:/it''s here/x.jsonl'")
+    // Long-path safe, quoted, and never overwriting what is already there.
+    const ps = moveScript("C:/it's here/x.jsonl", 'C:/t').ps
+    expect(ps).toContain("'\\\\?\\C:\\it''s here\\x.jsonl'")
+    expect(ps).toContain("'\\\\?\\C:\\t\\x.jsonl'")
+    expect(ps).toContain('already exists')
+    expect(ps).not.toContain('Move-Item')
     expect(encodePs('A')).toBe('QQA=')
+  })
+
+  test('a failed move says why in plain words', async () => {
+    const clixml = '#< CLIXML <Objs><S S="Error">The process cannot access the file because it is being used by another process._x000D__x000A_</S></Objs>'
+    expect(moveFailure(clixml)).toBe('it is open in another window or app; close it there first')
+    expect(moveFailure("Exception calling Move: 'already exists at the destination'")).toBe('a file with that name is already there')
+    expect(moveFailure('#< CLIXML <S S="Error">Something odd</S>')).toBe('Something odd')
+  })
+
+  test('a long project folder name is found by its 200-character prefix', async () => {
+    const cwd = `C:\\${'deep\\'.repeat(50)}app`
+    const name = cwd.replace(/[^A-Za-z0-9]/g, '-')
+    const real = `${name.slice(0, 200)}-1x2y3z`
+    expect(projectDirFor(cwd, ['other', real])).toBe(real)
+    expect(projectDirFor('C:\\short', [])).toBe('C--short')
+    expect(transcriptPath('H', cwd, 'id', [real])).toBe(`H/.claude/projects/${real}/id.jsonl`)
   })
 })
 
