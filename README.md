@@ -9,6 +9,7 @@ A skill is a folder of instructions, references and small scripts. Claude reads 
 | Skill | What it does | Use it when |
 |---|---|---|
 | [**cognia**](cognia/) | A Claude Code plugin (private, one machine) that turns a paper, slide deck or notes into a learning vault that grows over time: linked concept pages, a prerequisite map, interactive HTML explainers with decoded math, essays to read on the go, spaced recall and explain-back. Built for ADHD. | "Teach me this", "explain the math", "quiz me", "where was I" |
+| [**command-center**](command-center/) | A Claude Code plugin that adds a calm, wide command center to every session: the mission and its steps with ETAs, the 5h limit and its reset time above the prompt, a clickable activity feed, cheaper helper agents, notes, and every Claude Code session on the machine with its cache warmth. Built for ADHD. | You want to see where a session stands at a glance |
 | [**survey-sleuth**](survey-sleuth/) | Audits survey instruments (Word, XLSForm, PDF, pasted text) for measurement error and instrument-integrity problems before fieldwork. It flags issues against explicit criteria and leaves every judgment call to the researcher. | Reviewing a questionnaire or XLSForm before it goes to the field |
 
 Each skill's own README covers how it works, its inputs and its outputs. Cognia is a plugin of ten skills (`/cognia:ingest`, `/cognia:learn` and so on) and is not packaged for others yet.
@@ -26,7 +27,15 @@ cp -r grimoires/survey-sleuth ~/.claude/skills/survey-sleuth
 
 To make it available in one project only, copy it into that project's `.claude/skills/` instead. Start a new session, or reload VS Code, so Claude sees the new skill.
 
-**Claude Code (plugin):** cognia is a plugin, not a single skill, so it is loaded from its folder as a plugin rather than copied into `skills/`. It is a private working copy for now; see [`cognia/README.md`](cognia/README.md).
+**Claude Code (plugin, command-center):** in a Claude Code terminal session run
+
+```
+/plugin install command-center --marketplace nikileshanusha/grimoires
+```
+
+then answer `y` and pick the user scope. See [`command-center/README.md`](command-center/README.md).
+
+**Claude Code (plugin, cognia):** cognia is a plugin, not a single skill, so it is loaded from its folder as a plugin rather than copied into `skills/`. It is a private working copy for now; see [`cognia/README.md`](cognia/README.md).
 
 The skill then runs when a task matches its description. You can also ask for it by name.
 
@@ -34,6 +43,11 @@ The skill then runs when a task matches its description. You can also ask for it
 
 ```
 grimoires/
+├── .claude-plugin/        marketplace.json (lists command-center)
+├── command-center/        Claude Code plugin (function hooks)
+│   ├── .claude-plugin/    plugin manifest
+│   ├── hooks/  types/  tests/
+│   └── README.md
 ├── cognia/                Claude Code plugin
 │   ├── .claude-plugin/    plugin manifest
 │   ├── skills/            one folder per command (ingest, learn, review, ...)
