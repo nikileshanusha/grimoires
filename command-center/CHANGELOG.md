@@ -1,0 +1,38 @@
+# Changelog
+
+Versions follow `MAJOR.MINOR.PATCH`: a patch fixes something, a minor
+version adds or changes something you can see, a major version changes how
+you use it. Raise the version in `.claude-plugin/plugin.json` with every
+change that should reach installed copies; `claude plugin update` installs a
+new version only when this number changes.
+
+## 0.2.0 — 2026-10-11
+
+**Fixes**
+- Deleting a session works on long Windows paths (past 260 characters) and
+  says why when it can't; the row leaves the list at once.
+- Live sessions in folders whose names Claude Code shortened are found.
+- The Agents card no longer takes the whole pane down once a helper is
+  listed.
+- A prompt or helper that fails to start says so instead of failing silently.
+- Two notes saved in the same millisecond no longer share an id.
+- Background work no longer leaves an unhandled error when a session closes
+  mid-way.
+- The mission's Earlier / Later controls can't be covered by the diagram.
+
+**Added**
+- Refresh button that reads everything again at once.
+- Reset times on every limit, and weekly pacing (`pace −32%`) instead of the
+  weekly reset day.
+- Pressable icons and limit rings.
+- Status line as a calm, slow ticker with a fixed-width slot.
+- Layouts that size the limits to the room they get: rows in narrow cards,
+  rings when there is space; polished Strip, Focus and Columns.
+- Tests: a sweep of every layout at four widths on both surfaces pressing
+  every control, and end-to-end tests of every feature.
+
+## 0.1.0 — 2026-10-10
+
+First version: mission and step diagram with ETAs, glance above the prompt,
+status line, activity feed, helper agents, notes, quick actions, and every
+Claude Code session on the machine with trash and restore.
