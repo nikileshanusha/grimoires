@@ -5,7 +5,7 @@ import type { AgentRow, CustomAction, FeedItem, Layout, Limit, LiveSession, Note
 import { Glance, makeKit } from './cards'
 import { EMPTY_AUTO, MISSION_SYSTEM, missionPrompt, parseMission, purposeFrom } from './mission'
 import type { Data } from './cards'
-import { encodePs, moveFailure, moveScript, olderThan, removeScript } from './cleanup'
+import { encodePs, moveFailure, moveScript, olderThan, openScript, removeScript } from './cleanup'
 import type { Script } from './cleanup'
 import { blendMedian, eta, fmtDuration, mergeLimits, mergeTodos, statusLine, toResetIso } from './eta'
 import { Pane } from './layouts'
@@ -373,25 +373,21 @@ async function addNote($: EngineInterface, text: string, isToasted = true) {
   if (isToasted) $.ui.toast(`Note saved · ${list.length} in your notes`, { timeoutMs: 2500 })
 }
 
-// Shows a folder in Explorer (or Finder / the file manager elsewhere).
+// Shows a folder in Explorer (or Finder / the file manager elsewhere), or a
+// file in its default app; says so when it can't.
+async function openPath($: EngineInterface, path: string, what: string) {
+  const opened = await runScript($, openScript(path))
+  if (!opened.ok) $.ui.toast(`Couldn't open ${what}: ${moveFailure(opened.error)}. It is at ${path}`, { timeoutMs: 8000 })
+}
+
 async function openFolder($: EngineInterface, path: string) {
-  try {
-    if (await isWindows($)) await $.process.run(['explorer', path.replace(/\//g, '\\')], { timeoutMs: 10_000 })
-    else await $.process.run(['sh', '-c', 'open "$1" 2>/dev/null || xdg-open "$1"', 'sh', path], { timeoutMs: 10_000 })
-  } catch {
-    $.ui.toast(`That folder is ${path}`)
-  }
+  await openPath($, path, 'that folder')
 }
 
 async function openNotes($: EngineInterface) {
   const path = await notesFile($)
   if (!(await $.fs.exists(path))) await writeNotesFile($, await read($, notes))
-  try {
-    if (await isWindows($)) await $.process.run(['explorer', path.replace(/\//g, '\\')], { timeoutMs: 10_000 })
-    else await $.process.run(['sh', '-c', 'open "$1" 2>/dev/null || xdg-open "$1"', 'sh', path], { timeoutMs: 10_000 })
-  } catch {
-    $.ui.toast(`Notes are in ${path}`)
-  }
+  await openPath($, path, 'the notes file')
 }
 
 async function setGlance($: EngineInterface, isOn: boolean) {
@@ -603,6 +599,7 @@ function actsFor($: EngineInterface): Act {
     },
     openNotes: () => later(openNotes($)),
     openFolder: path => later(openFolder($, path)),
+    notify: text => $.ui.toast(text, { timeoutMs: 5000 }),
     setGlance: isOn => later(setGlance($, isOn)),
     openFull: () => later(openPane($)),
     copy: text => {

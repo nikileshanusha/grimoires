@@ -18,6 +18,8 @@ export type Act = {
   openNotes: () => void
   // Shows a folder in the file manager.
   openFolder: (path: string) => void
+  // A short message, for a control that cannot act.
+  notify: (text: string) => void
   setGlance: (isOn: boolean) => void
   pinMission: (text: string) => void
   unpinMission: () => void

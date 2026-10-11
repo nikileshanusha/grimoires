@@ -1111,8 +1111,15 @@ describe('sessions card', () => {
     expect(await ui.find({ text: /^Runs in {2}a terminal · process 222$/ })).toBeDefined()
     await ui.press({ key: 'session-copy-s-other' })
     expect(of(log, 'ui.copy').at(-1)).toMatchObject({ text: 'cd "C:\\proj\\app"; claude --resume s-other' })
+    // Open folder asks the Windows shell to show it (a hidden process's own
+    // explorer.exe opened invisibly), with the path quoted for PowerShell.
     await ui.press({ key: 'session-folder-s-other' })
-    expect(of(log, 'process.run').some(c => JSON.stringify(c).includes('explorer') && JSON.stringify(c).includes('C:\\\\proj\\\\app'))).toBe(true)
+    expect(of(log, 'script').some(c => String(c.script).includes('Shell.Application') && String(c.script).includes("Explore('C:\\proj\\app')"))).toBe(true)
+    expect(of(log, 'process.run').some(c => JSON.stringify(c).includes('"explorer"'))).toBe(false)
+    // A running session's trash button explains instead of moving a file in use.
+    await ui.press({ key: 'live-del-s-other' })
+    expect(of(log, 'ui.toast').at(-1)).toMatchObject({ text: 'other work is still open in a terminal. Close it there, then trash it from Past.' })
+    expect(of(log, 'script').filter(c => String(c.script).includes('Move('))).toHaveLength(0)
     // The icon opens and closes it too.
     await ui.press({ key: 'session-icon-s-other' })
     expect(await ui.find({ key: 'session-copy-s-other' })).toBeUndefined()

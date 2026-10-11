@@ -956,7 +956,7 @@ export function SessionsTabs(k: Kit, d: Data): RenderNode {
 }
 
 // Fixed columns so every row lines up: only the title stretches.
-const COL = { project: 12, when: 5, size: 8, cache: 9, status: 11, action: 8 } as const
+const COL = { project: 12, when: 5, size: 8, cache: 9, status: 11, action: 8, trash: 3 } as const
 // Under this many columns a card drops the project and size columns.
 const WIDE_SESSIONS = 70
 
@@ -1083,6 +1083,7 @@ export function SessionsBody(k: Kit, d: Data, max = 4, room = k.cols): RenderNod
         Stretch(k, head('Session')),
         Cell(k, COL.cache, head('Cache'), 'flex-end'),
         Cell(k, COL.status, head('Status'), 'flex-end'),
+        Cell(k, COL.trash, <Text> </Text>),
       ]),
     )
     const shown = d.view.sessionsAll ? list : list.slice(0, max)
@@ -1101,6 +1102,16 @@ export function SessionsBody(k: Kit, d: Data, max = 4, room = k.cols): RenderNod
           Stretch(k, RowButton(k, `session-${id}`, s.isHere ? 'This session' : s.name, isOpen, toggle)),
           Cell(k, COL.cache, cache(s.lastAt, s.cacheTtlMs, s.isBusy), 'flex-end'),
           Cell(k, COL.status, status, 'flex-end'),
+          Cell(
+            k,
+            COL.trash,
+            s.isHere
+              ? <Text> </Text>
+              : k.tap(`live-del-${id}`, k.icon('trash', C.muted, 13), () =>
+                  k.act.notify(`${s.name} is still open in ${ENTRY_LABEL[s.entry]}. Close it there, then trash it from Past.`),
+                ),
+            'flex-end',
+          ),
         ]),
       )
       if (isOpen) {
@@ -1151,7 +1162,7 @@ export function SessionsBody(k: Kit, d: Data, max = 4, room = k.cols): RenderNod
           Cell(
             k,
             COL.action,
-            s.isLive ? k.chip('running', 'coral') : Link(k, `del-${s.sessionId}`, 'Delete', () => k.act.askConfirm(`delete:${s.path}`), C.redDeep),
+            s.isLive ? k.chip('running', 'coral') : k.tap(`del-${s.sessionId}`, k.icon('trash', C.red, 14), () => k.act.askConfirm(`delete:${s.path}`)),
             'flex-end',
           ),
         ]),
