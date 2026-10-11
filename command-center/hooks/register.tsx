@@ -793,7 +793,7 @@ export const register: Register = on => {
     await update($, trash, () => inTrash)
     if (inTrash.length !== savedTrash.length) await $.store.set(STORE.trash, inTrash)
 
-    await $.command.register({ name: 'cc', description: 'Open the command center' })
+    await $.command.register({ name: 'cc', description: 'Open the command center, or close it (off)', argumentHint: 'off' })
     await $.command.register({ name: 'cc-layout', description: 'Switch the command center layout', argumentHint: 'rows | columns | strip | focus' })
     await $.command.register({ name: 'cc-glance', description: 'Show or hide the glance above the prompt', argumentHint: 'on | off' })
     await $.command.register({ name: 'mission', description: 'Pin your mission to the command center (empty clears it)', argumentHint: '<what you are working toward>' })
@@ -830,7 +830,9 @@ export const register: Register = on => {
 
     // The glance sits above the prompt; on the desktop the full command
     // center opens beside the transcript as well, as it always has.
-    if (e.surface === 'desktop' || e.surface === 'vscode') later(openPane($))
+    // Unless it was closed with /cc off, which holds until /cc opens it again.
+    const isOff = await stored<boolean>($, STORE.paneOff, false)
+    if (!isOff && (e.surface === 'desktop' || e.surface === 'vscode')) later(openPane($))
 
     return next(e)
   })
@@ -921,7 +923,20 @@ export const register: Register = on => {
     return next(e)
   })
 
-  on('command.run', { command: 'cc' }, async $ => {
+  on('command.run', { command: 'cc' }, async ($, e) => {
+    const arg = e.args.trim().toLowerCase()
+    if (arg === 'off' || arg === 'close') {
+      await $.store.set(STORE.paneOff, true)
+      try {
+        await $.ui.close({ id: PANE })
+      } catch {
+        // Already closed.
+      }
+
+      return { text: 'Command center closed. It stays closed in new sessions until you run /cc.' }
+    }
+    if (arg !== '') return { text: 'Usage: /cc to open the command center, /cc off to close it.' }
+    await $.store.set(STORE.paneOff, false)
     later(refreshLive($).then(() => refreshPast($)))
     const opened = await openPane($)
 

@@ -729,8 +729,8 @@ function machine(on: On, log: Call[] = []) {
     return next(e as never)
   })
   on('ui.copy', (_$, e) => (record('ui.copy', e), ok({ isCopied: true })))
-  on('ui.open', () => ok({ isPlaced: true }))
-  on('ui.close', () => ok(undefined))
+  on('ui.open', (_$, e) => (record('ui.open', e), ok({ isPlaced: true })))
+  on('ui.close', (_$, e) => (record('ui.close', e), ok(undefined)))
   on('ui.toast', (_$, e) => (record('ui.toast', e), ok(undefined)))
   on('ui.status', () => ok(undefined))
   on('ui.notify', (_$, e) => (record('ui.notify', e), ok({ isSent: true, channel: 'test' })))
@@ -779,7 +779,8 @@ const WIDTHS = [45, 80, 110, 160]
 describe('sweep', () => {
   for (const surface of ['desktop', 'terminal'] as const) {
     for (const width of WIDTHS) {
-      test(`${surface} at ${width} columns: every layout draws and every control presses`, async ($, on) => {
+      // About 200 presses each: more than the default 5 seconds.
+      test(`${surface} at ${width} columns: every layout draws and every control presses`, { timeoutMs: 30_000 }, async ($, on) => {
         machine(on)
         on('tool.call', (_$, e) => ((e as { tool: string }).tool === 'Bash' ? { isError: true, result: 'lint failed' } : { result: {} }) as never)
         on('session.measure', (_$, e) => ({ changed: e.changed }))
@@ -901,6 +902,12 @@ describe('features end to end', () => {
 
   test('every slash command does what it says', async ($, on) => {
     const log = await setup($, on)
+    // /cc off closes the pane; /cc opens it again; anything else explains.
+    expect((await run($, 'cc', 'off')).text).toMatch(/^Command center closed/)
+    expect(of(log, 'ui.close').at(-1)).toMatchObject({ id: 'command-center' })
+    expect((await run($, 'cc', 'sideways')).text).toBe('Usage: /cc to open the command center, /cc off to close it.')
+    expect((await run($, 'cc')).text).toBe('Command center opened.')
+    expect(of(log, 'ui.open').at(-1)).toMatchObject({ id: 'command-center' })
     expect((await run($, 'cc-layout', 'columns')).text).toMatch(/columns/i)
     expect((await run($, 'cc-layout', 'sideways')).text).toBe('Layouts: rows, columns, strip, focus.')
     expect((await run($, 'cc-glance', 'banana')).text).toBe('Usage: /cc-glance on | off')

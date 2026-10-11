@@ -44,6 +44,7 @@ On the desktop it draws icons and an SVG step diagram; in a terminal the same ca
 | Command | Does |
 |---|---|
 | `/cc` | Open the command center |
+| `/cc off` | Close it, and keep it closed in new sessions until you run `/cc` again (the × at its top right closes it for now) |
 | `/cc-layout strip \| rows \| columns \| focus` | Switch layout |
 | `/cc-glance on \| off` | Show or hide the glance |
 | `/mission <goal>` | Pin a mission; empty clears it and goes back to the derived one |

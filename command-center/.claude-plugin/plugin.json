@@ -1,6 +1,6 @@
 {
   "name": "command-center",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A calm, wide command center: mission and ETA, limits, activity, helper agents, and every Claude session on this machine.",
   "author": {
     "name": "Nikilesh Anusha Natesan"

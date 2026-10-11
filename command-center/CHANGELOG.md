@@ -6,6 +6,15 @@ you use it. Raise the version in `.claude-plugin/plugin.json` with every
 change that should reach installed copies; `claude plugin update` installs a
 new version only when this number changes.
 
+## 0.3.0 — 2026-10-11
+
+**Added**
+- `/cc off` closes the command center and keeps it from opening by itself
+  in new sessions; `/cc` opens it again and turns that back on.
+
+**Tests**
+- The control sweep gets 30 seconds per run (about 200 presses each).
+
 ## 0.2.0 — 2026-10-11
 
 **Fixes**
