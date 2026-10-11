@@ -157,9 +157,9 @@ describe('sessions', () => {
     const now = Date.parse('2026-10-11T12:00:00Z')
     const resetsIn = (days: number) => new Date(now + days * 86_400_000).toISOString()
     // 3.5 days left: half the week gone.
-    expect(paceOf(50, resetsIn(3.5), now)).toEqual({ diff: 0, text: 'on pace' })
-    expect(paceOf(63, resetsIn(3.5), now)).toEqual({ diff: 13, text: '13% over pace' })
-    expect(paceOf(30, resetsIn(3.5), now)).toEqual({ diff: -20, text: '20% under pace' })
+    expect(paceOf(50, resetsIn(3.5), now)).toEqual({ diff: 0, text: 'on pace', short: 'on pace' })
+    expect(paceOf(63, resetsIn(3.5), now)).toEqual({ diff: 13, text: '13% over pace', short: 'pace +13%' })
+    expect(paceOf(30, resetsIn(3.5), now)).toEqual({ diff: -20, text: '20% under pace', short: 'pace −20%' })
     expect(paceOf(54, resetsIn(3.5), now)?.text).toBe('on pace')
     expect(paceOf(50, undefined, now)).toBe(undefined)
     expect(paceOf(50, resetsIn(-1), now)).toBe(undefined)
@@ -247,7 +247,9 @@ describe('hooks', () => {
     await $.tool.call({ tool: 'Bash', command: 'npm test', description: 'run tests' })
     const ui = await $.ui.mount({ ...mount(160), surface: 'terminal' })
     expect(await ui.find({ text: /run tests/ })).toBeDefined()
-    expect(await ui.find({ text: /0 edits · 1 run · 1 error/ })).toBeDefined()
+    // The Work tile shows the counts as figures.
+    expect(await ui.find({ text: /^1 run$/ })).toBeDefined()
+    expect(await ui.find({ text: /^1 error$/ })).toBeDefined()
     await ui.unmount()
   })
 
@@ -264,7 +266,7 @@ describe('hooks', () => {
     const ui = await $.ui.mount({ ...mount(160), surface: 'desktop' })
     await ui.press({ key: 'refresh-all' })
     expect(usageReads).toBeGreaterThan(0)
-    expect(await ui.find({ text: /5h · resets \d/ })).toBeDefined()
+    expect(await ui.find({ text: /^5h {2}resets \d/ })).toBeDefined()
     expect(await ui.find({ text: /↻/ })).toBeUndefined()
     await ui.unmount()
   })
@@ -286,10 +288,10 @@ describe('hooks', () => {
     await ui.press({ key: 'layout-columns-icon' })
     expect(await ui.find({ key: 'layout-columns-icon' })).toBeDefined()
     await ui.press({ key: 'layout-rows-icon' })
-    expect(await ui.find({ key: 'gauge-ring-5h' })).toBeDefined()
+    expect(await ui.find({ key: 'gauge-name-5h' })).toBeDefined()
 
-    // The ring, with its figure inside, says what it means.
-    await ui.press({ key: 'gauge-ring-5h' })
+    // The name under the ring says what the ring means.
+    await ui.press({ key: 'gauge-name-5h' })
     expect(toasts.some(t => /^5h limit: 6% used\. Resets .+\(in 2h 0m\)\.$/.test(t))).toBe(true)
 
     const line = statuses.filter(Boolean).pop() ?? ''
@@ -311,9 +313,9 @@ describe('hooks', () => {
     const resetsAt = new Date(clock.now() + 2 * 3_600_000).toISOString()
     await $.session.measure({ context: { window: 200_000, percent: 27 }, rateLimits: [{ kind: 'five_hour', percentUsed: 12, resetsAt }, { kind: 'seven_day', percentUsed: 60, resetsAt }], changed: ['rateLimits'] } as never)
     const ui = await $.ui.mount({ ...mount(45), surface: 'desktop' })
-    expect(await ui.find({ text: /^5h · resets \d/ })).toBeDefined()
-    // The weekly row shows pacing, not its reset day: 60% used, 99% gone.
-    expect(await ui.find({ text: /^Weekly · 39% under pace$/ })).toBeDefined()
+    expect(await ui.find({ text: /^5h {2}resets \d/ })).toBeDefined()
+    // The weekly row shows pacing, short, not its reset day: 60% used, 99% gone.
+    expect(await ui.find({ text: /^Weekly {2}pace −39%$/ })).toBeDefined()
     expect(await ui.find({ text: /↻/ })).toBeUndefined()
     expect(await ui.find({ text: '60%' })).toBeDefined()
     expect(await ui.find({ text: /│/ })).toBeUndefined()
@@ -559,6 +561,242 @@ describe('activity purpose and the flow', () => {
         expect(drawn).toContain(surface === 'desktop' ? '"type":"Svg"' : '│')
       }
       await ui.unmount()
+    }
+  })
+})
+
+// A sweep over the whole command center: every layout, at narrow to wide
+// widths, on the desktop and the terminal, with every card holding real
+// content; then every button and icon it draws is pressed. Any tree the
+// surface refuses, any press that throws, or any rejection left unhandled
+// fails it.
+
+const HOME = 'C:/home'
+const NOW = Date.parse('2026-10-11T14:00:00Z')
+const card = (pid: number, sessionId: string, cwd: string, status: string) =>
+  JSON.stringify({ pid, sessionId, cwd, entrypoint: 'cli', status, updatedAt: NOW - 60_000, statusUpdatedAt: NOW - 30_000, name: 'other work' })
+const transcript = (prompt: string) =>
+  [
+    JSON.stringify({ type: 'user', cwd: 'C:\\proj\\app', message: { role: 'user', content: prompt } }),
+    JSON.stringify({ type: 'assistant', message: { usage: { cache_creation: { ephemeral_1h_input_tokens: 900, ephemeral_5m_input_tokens: 0 } } } }),
+  ].join('\n')
+
+// A small machine: this session, one other busy one, two past transcripts.
+const FILES: Record<string, string> = {
+  [`${HOME}/.claude/sessions/111.json`]: card(111, 's-here', 'C:\\proj\\app', 'idle'),
+  [`${HOME}/.claude/sessions/222.json`]: card(222, 's-other', 'C:\\proj\\app', 'busy'),
+  [`${HOME}/.claude/projects/C--proj-app/s-here.jsonl`]: transcript('Build the command center'),
+  [`${HOME}/.claude/projects/C--proj-app/s-other.jsonl`]: transcript('Fix the exporter'),
+  [`${HOME}/.claude/projects/C--proj-app/s-old.jsonl`]: transcript('An old experiment with charts'),
+}
+const DIRS: Record<string, { kind: 'file' | 'dir'; name: string; mtimeMs: number; size: number }[]> = {
+  [`${HOME}/.claude/sessions`]: [
+    { kind: 'file', name: '111.json', mtimeMs: NOW, size: 200 },
+    { kind: 'file', name: '222.json', mtimeMs: NOW, size: 200 },
+  ],
+  [`${HOME}/.claude/projects`]: [{ kind: 'dir', name: 'C--proj-app', mtimeMs: NOW, size: 0 }],
+  [`${HOME}/.claude/projects/C--proj-app`]: [
+    { kind: 'file', name: 's-here.jsonl', mtimeMs: NOW - 2 * 60_000, size: 4000 },
+    { kind: 'file', name: 's-other.jsonl', mtimeMs: NOW - 60_000, size: 9000 },
+    { kind: 'file', name: 's-old.jsonl', mtimeMs: NOW - 40 * 86_400_000, size: 2000 },
+  ],
+}
+const norm = (p: string) => p.replace(/\\/g, '/')
+
+function machine(on: On, unhandled: string[]) {
+  const clock = mock.clock(on, { now: NOW } as never)
+  mock.store(on)
+  mock.env(on, { USERPROFILE: HOME, OS: 'Windows_NT' })
+  const ok = (value: unknown) => ({ value }) as never
+  // Only the fake home answers; anything else (the harness's own reads)
+  // goes on to the layers beneath.
+  const mine = (e: unknown) => norm(String((e as { path?: string }).path ?? '')).startsWith(HOME)
+  on('fs.list', (_$, e, next) => {
+    if (!mine(e)) return next(e as never)
+    const list = DIRS[norm((e as { path: string }).path)]
+    if (!list) throw new Error(`no such folder: ${(e as { path: string }).path}`)
+    return ok(list)
+  })
+  on('fs.read', (_$, e, next) => {
+    if (!mine(e)) return next(e as never)
+    const text = FILES[norm((e as { path: string }).path)]
+    if (text === undefined) throw new Error(`no such file: ${(e as { path: string }).path}`)
+    return ok(text)
+  })
+  on('fs.stat', (_$, e, next) => {
+    if (!mine(e)) return next(e as never)
+    const path = norm((e as { path: string }).path)
+    if (FILES[path] === undefined) throw new Error(`no such file: ${path}`)
+    return ok({ kind: 'file', size: FILES[path]?.length ?? 0, mtimeMs: NOW - 2 * 60_000, isLink: false })
+  })
+  on('fs.exists', (_$, e, next) => (mine(e) ? ok(false) : next(e as never)))
+  on('fs.write', (_$, e, next) => (mine(e) ? ok(undefined) : next(e as never)))
+  on('process.run', (_$, e) => {
+    const argv = (e as { argv?: string[]; command?: string[] }).argv ?? (e as { command?: string[] }).command ?? []
+    if (JSON.stringify(e).includes('tasklist')) return ok({ exitCode: 0, stdout: '"claude.exe","111","Console","1","1 K"\n"claude.exe","222","Console","1","1 K"\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false })
+    return ok({ exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false, argv })
+  })
+  on('session.id', () => ok('s-here'))
+  on('session.messages', () => ok([{ role: 'user', text: 'Build the command center', toolUses: [] }]))
+  on('session.usage', () =>
+    ok({ startedAt: NOW - 3_600_000, context: { percent: 37 }, rateLimits: [{ kind: 'five_hour', percentUsed: 20, resetsAt: new Date(NOW + 2 * 3_600_000).toISOString() }, { kind: 'seven_day', percentUsed: 63, resetsAt: new Date(NOW + 3 * 86_400_000).toISOString() }] }),
+  )
+  on('model.complete', () => ok({ text: JSON.stringify({ mission: 'Ship the command center', steps: ['Draw it', 'Test it', 'Share it'] }) }))
+  on('agent.list', () => ok([{ id: 'a1', description: 'Scout the notes', type: 'command-center:scout', status: 'running' }]))
+  on('agent.spawn', () => ok({ id: 'a2' }))
+  // A prompt sent from the pane goes no further than this test.
+  on('prompt.submit', () => ({ drop: 'test' }) as never)
+  on('command.run', () => ok({ text: '' }))
+  on('ui.copy', () => ok({ isCopied: true }))
+  on('ui.open', () => ok({ isPlaced: true }))
+  on('ui.close', () => ok(undefined))
+  on('ui.toast', () => ok(undefined))
+  on('ui.status', () => ok(undefined))
+  on('ui.notify', () => ok({ isSent: true, channel: 'test' }))
+  void unhandled
+
+  return clock
+}
+
+// The engine interface a test body gets; only tool.call and session.measure are used.
+async function seed($: { tool: { call: (args: never) => Promise<unknown> }; session: { measure: (args: never) => Promise<unknown> } }) {
+  await $.tool.call({
+    tool: 'TodoWrite',
+    todos: ['Sketch', 'Draw it', 'Test it', 'Share it', 'Polish', 'Ship'].map((c, i) => ({ content: c, activeForm: `${c}…`, status: i < 3 ? 'completed' : i === 3 ? 'in_progress' : 'pending' })),
+  } as never)
+  await $.tool.call({ tool: 'Bash', command: 'npm test\nnpm run lint', description: 'Run the tests' } as never)
+  await $.tool.call({ tool: 'Read', file_path: 'C:/proj/app/src/cards.tsx' } as never)
+  await $.session.measure({
+    context: { window: 200_000, percent: 37 },
+    rateLimits: [
+      { kind: 'five_hour', percentUsed: 82, resetsAt: new Date(NOW + 2 * 3_600_000).toISOString() },
+      { kind: 'seven_day', percentUsed: 63, resetsAt: new Date(NOW + 3 * 86_400_000).toISOString() },
+    ],
+    changed: ['context', 'rateLimits'],
+  } as never)
+}
+
+type El = { type?: string; props?: Record<string, unknown>; children?: unknown[] }
+function buttonKeys(node: unknown, out: string[] = []): string[] {
+  if (!node || typeof node !== 'object') return out
+  const el = node as El
+  if (el.type === 'Button' && typeof el.props?.key === 'string') out.push(el.props.key)
+  for (const child of el.children ?? []) buttonKeys(child, out)
+
+  return out
+}
+
+const PANE = (bodyColumns: number) => ({
+  plugin: 'command-center',
+  component: 'Pane' as const,
+  requestId: 'command-center',
+  props: { title: 'Command center', isFocused: false, bodyColumns, placement: 'dock' as const, scroll: { offset: 0, bodyRows: 60 }, view: {} },
+})
+
+const LAYOUTS = ['rows', 'columns', 'strip', 'focus'] as const
+const WIDTHS = [45, 80, 110, 160]
+
+describe('sweep', () => {
+  for (const surface of ['desktop', 'terminal'] as const) {
+    for (const width of WIDTHS) {
+      test(`${surface} at ${width} columns: every layout draws and every control presses`, async ($, on) => {
+        const unhandled: string[] = []
+        machine(on, unhandled)
+        on('tool.call', (_$, e) => ((e as { tool: string }).tool === 'Bash' ? { isError: true, result: 'lint failed' } : { result: {} }) as never)
+        on('session.measure', (_$, e) => ({ changed: e.changed }))
+        await seed($)
+        const ui = await $.ui.mount({ ...PANE(width), surface } as never)
+        // Fill the sessions lists and helpers the way Refresh does.
+        await ui.press({ key: 'refresh-all' })
+
+        const problems: string[] = []
+        for (const layout of LAYOUTS) {
+          await ui.press({ key: `layout-${layout}` })
+          let tree
+          try {
+            tree = await ui.drawn()
+          } catch (err) {
+            problems.push(`${layout}: refused: ${String(err)}`)
+            continue
+          }
+          const keys = [...new Set(buttonKeys(tree))]
+          expect(keys.length).toBeGreaterThan(5)
+          for (const key of keys) {
+            // Keys can leave as others are pressed (a tab switches, a row folds).
+            if (!(await ui.find({ key }))) continue
+            try {
+              await ui.press({ key })
+              await ui.drawn()
+            } catch (err) {
+              problems.push(`${layout} › ${key}: ${String(err).split('\n')[0]}`)
+            }
+          }
+          // Back to this layout's start for the next one.
+          await ui.press({ key: `layout-${layout}` })
+        }
+        expect(problems).toEqual([])
+        await ui.unmount()
+      })
+    }
+  }
+})
+
+
+
+describe('polish', () => {
+  // Every Box laid over a drawing to make it pressable holds one row only.
+  const overlays = (node: unknown, out: number[] = []): number[] => {
+    if (!node || typeof node !== 'object') return out
+    const el = node as El
+    if (el.type === 'Box' && el.props?.position === 'absolute') out.push((el.children ?? []).filter(c => (c as El)?.type === 'Button').length)
+    for (const child of el.children ?? []) overlays(child, out)
+
+    return out
+  }
+
+  test('strip lists the limits as rows and focus frames them as rings, at 150 columns', async ($, on) => {
+    machine(on, [])
+    on('tool.call', () => ({ result: {} }) as never)
+    on('session.measure', (_$, e) => ({ changed: e.changed }))
+    await seed($)
+    const ui = await $.ui.mount({ ...PANE(150), surface: 'desktop' } as never)
+
+    await ui.press({ key: 'layout-strip' })
+    // Rows: the 5h name and its reset sit together; the weekly row is short.
+    expect(await ui.find({ text: /^5h {2}resets \d/ })).toBeDefined()
+    expect(await ui.find({ text: /^Weekly {2}(on pace|pace [+\u2212]\d+%)$/ })).toBeDefined()
+    // The counts are figures, and the actions share a framed bar with the note.
+    expect(await ui.find({ text: /^\d+ runs?$/ })).toBeDefined()
+    expect(await ui.find({ key: 'note-send-draft' })).toBeDefined()
+    expect(Math.max(0, ...overlays(await ui.drawn()))).toBeLessThanOrEqual(1)
+
+    await ui.press({ key: 'layout-focus' })
+    // Rings, each name pressable, inside a Limits card with the actions.
+    expect(await ui.find({ key: 'gauge-name-Weekly' })).toBeDefined()
+    expect(await ui.find({ key: 'gauge-note-Weekly' })).toBeDefined()
+    expect(await ui.find({ key: 'act-recap' })).toBeDefined()
+    expect(Math.max(0, ...overlays(await ui.drawn()))).toBeLessThanOrEqual(1)
+    await ui.unmount()
+  })
+
+  test('the glance above the prompt draws and every control presses, closed and open', async ($, on) => {
+    machine(on, [])
+    on('tool.call', () => ({ result: {} }) as never)
+    on('session.measure', (_$, e) => ({ changed: e.changed }))
+    await seed($)
+    for (const surface of ['desktop', 'terminal'] as const) {
+      for (const bodyColumns of [60, 120, 180]) {
+        const ui = await $.ui.mount({ plugin: 'command-center', component: 'AbovePrompt', surface, props: { hasSurvey: false, isWorking: true, maxRows: 30, bodyColumns, scroll: { offset: 0, bodyRows: 30 } } } as never)
+        await ui.press({ key: 'glance-more' })
+        const keys = [...new Set(buttonKeys(await ui.drawn()))].filter(k => k !== 'glance-hide')
+        expect(keys.length).toBeGreaterThan(3)
+        for (const key of keys) {
+          if (!(await ui.find({ key }))) continue
+          await ui.press({ key })
+          await ui.drawn()
+        }
+        await ui.unmount()
+      }
     }
   })
 })

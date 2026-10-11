@@ -554,14 +554,16 @@ export function gaugeNote(g: { label: string; percent: number; resetsAt?: string
     const pace = paceOf(g.percent, g.resetsAt, now)
     if (!pace) return undefined
 
-    return { text: pace.text, color: pace.diff >= 10 ? C.amber : undefined }
+    return { text: pace.short, color: pace.diff >= 10 ? C.amber : undefined }
   }
   const resets = resetShort(g.resetsAt, now)
 
   return resets ? { text: `resets ${resets}` } : undefined
 }
 
-export function GaugesBody(k: Kit, d: Data, compact = false): RenderNode[] {
+// The limits, sized to the room they are given (not the whole pane): under
+// GAUGE_TILES_FROM columns a list of rows, else one row of three rings.
+export function GaugesBody(k: Kit, d: Data, room = k.cols): RenderNode[] {
   const { Box, Button, Text, Svg } = k.el
   const gauges = gaugesOf(d.measure)
   if (gauges.length === 0) return [<Text dimColor>Limits show after the first reply.</Text>]
@@ -571,62 +573,69 @@ export function GaugesBody(k: Kit, d: Data, compact = false): RenderNode[] {
       const note = gaugeNote(g, d.now)
       const about = () => k.act.aboutLimit(limitDetail(g, d.now))
 
-      return Row(k, k.tap(`gauge-icon-${g.label}`, k.icon(g.icon, levelColor(g.percent, g.calm)), about), <Text>{note ? `${g.label} · ${note.text}` : g.label}</Text>, (
+      return Row(
+        k,
+        k.tap(`gauge-icon-${g.label}`, k.icon(g.icon, levelColor(g.percent, g.calm)), about),
+        <Text wrap="truncate-end">
+          {g.label}
+          {note ? <Text dimColor>{` · ${note.text}`}</Text> : ''}
+        </Text>,
         <Button key={`gauge-figure-${g.label}`} plain onPress={about}>
-          <Text color={levelColor(g.percent, g.calm)}>{`${bar(g.percent, 10)} ${Math.round(g.percent)}%`}</Text>
-        </Button>
-      ))
+          <Text color={levelColor(g.percent, g.calm)}>{`${bar(g.percent, 6)} ${Math.round(g.percent)}%`}</Text>
+        </Button>,
+        11,
+      )
     })
   }
 
-  // A narrow card lists the gauges, one per row on the shared grid: a small
-  // ring, the name and when it resets, then the figure.
-  if (k.cols < GAUGE_TILES_FROM) {
+  // Rows: a small ring, the name with its note, the figure at the end.
+  if (room < GAUGE_TILES_FROM) {
     return gauges.map(g => {
       const color = levelColor(g.percent, g.calm)
       const note = gaugeNote(g, d.now)
       const about = () => k.act.aboutLimit(limitDetail(g, d.now))
 
-      // Too small for a figure inside: the figure stands at the row's end.
       return Row(
         k,
         k.tap(`gauge-ring-${g.label}`, <Svg source={ringSvg(g.percent, color, 18, false)} alt={`${g.label} ${Math.round(g.percent)} percent`} width={18} height={18} />, about),
         <Button key={`gauge-name-${g.label}`} plain onPress={about}>
           <Text wrap="truncate-end">
             {g.label}
-            {note ? <Text dimColor={!note.color} color={note.color}>{` · ${note.text}`}</Text> : ''}
+            {note ? <Text dimColor={!note.color} color={note.color}>{`  ${note.text}`}</Text> : ''}
           </Text>
         </Button>,
         <Button key={`gauge-figure-${g.label}`} plain onPress={about}>
-          <Text color={color}>{`${Math.round(g.percent)}%`}</Text>
+          <Text color={color} bold>{`${Math.round(g.percent)}%`}</Text>
         </Button>,
         5,
       )
     })
   }
 
-  // Wider: tiles of one fixed width that wrap to a new line, never overlap.
-  // Large enough that the figure inside reads at a glance.
-  const size = compact ? 44 : 56
+  // One row of three rings, evenly spread, never wrapping: each tile has a
+  // third of the room. The name and note under a ring press as one.
+  const tile = Math.max(GAUGE_TILE, Math.min(22, Math.floor((room - 4) / gauges.length)))
+  const size = 48
 
   return [
-    <Box flexDirection="row" flexWrap="wrap" justifyContent="space-around" columnGap={2} rowGap={1}>
+    <Box flexDirection="row" justifyContent="space-around" alignItems="flex-start">
       {gauges.map(g => {
         const note = gaugeNote(g, d.now)
         const about = () => k.act.aboutLimit(limitDetail(g, d.now))
-        // The ring and the figure inside it: about 8 pixels a cell, 16 a row.
-        const ring = <Svg source={ringSvg(g.percent, levelColor(g.percent, g.calm), size)} alt={`${g.label} ${Math.round(g.percent)} percent`} width={size} height={size} />
 
         return (
-          <Box flexDirection="column" alignItems="center" width={GAUGE_TILE} flexShrink={0}>
-            {k.tap(`gauge-ring-${g.label}`, ring, about, Math.ceil(size / 8), Math.ceil(size / 16))}
-            <Box flexDirection="row" gap={1} alignItems="center" width={GAUGE_TILE} justifyContent="center" overflow="hidden">
-              {k.tap(`gauge-icon-${g.label}`, k.icon(g.icon, g.calm, 12), about)}
-              <Button key={`gauge-name-${g.label}`} plain onPress={about}>
-                <Text dimColor wrap="truncate-end">{g.label}</Text>
+          <Box flexDirection="column" alignItems="center" width={tile} flexShrink={0} overflow="hidden">
+            <Svg source={ringSvg(g.percent, levelColor(g.percent, g.calm), size)} alt={`${g.label} ${Math.round(g.percent)} percent`} width={size} height={size} />
+            <Button key={`gauge-name-${g.label}`} plain onPress={about}>
+              <Text>{g.label}</Text>
+            </Button>
+            {note ? (
+              <Button key={`gauge-note-${g.label}`} plain onPress={about}>
+                <Text dimColor={!note.color} color={note.color} wrap="truncate-end">
+                  {note.text}
+                </Text>
               </Button>
-            </Box>
-            {note ? <Text dimColor={!note.color} color={note.color} wrap="truncate-end">{note.text}</Text> : null}
+            ) : null}
           </Box>
         )
       })}
@@ -634,9 +643,31 @@ export function GaugesBody(k: Kit, d: Data, compact = false): RenderNode[] {
   ]
 }
 
-// Under this many columns the gauges list as rows; a tile is this wide.
-const GAUGE_TILES_FROM = 64
+// Under this many columns of room the gauges list as rows; a tile is at
+// least this wide.
+const GAUGE_TILES_FROM = 52
 const GAUGE_TILE = 14
+
+// The session's work counts as three small figures, each in its own color,
+// wrapping rather than cutting a sentence short.
+export function CountsLine(k: Kit, d: Data): RenderNode {
+  const { Box, Text } = k.el
+  const c = d.counts
+  const stat = (n: number, word: string, color: string) => (
+    <Text>
+      <Text bold color={color}>{`${n}`}</Text>
+      <Text dimColor>{` ${word}`}</Text>
+    </Text>
+  )
+
+  return (
+    <Box flexDirection="row" flexWrap="wrap" columnGap={2}>
+      {stat(c.edits, c.edits === 1 ? 'edit' : 'edits', C.indigo)}
+      {stat(c.runs, c.runs === 1 ? 'run' : 'runs', C.amber)}
+      {c.errors > 0 ? stat(c.errors, c.errors === 1 ? 'error' : 'errors', C.red) : <Text dimColor>no errors</Text>}
+    </Box>
+  )
+}
 
 // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -844,14 +875,16 @@ export function agentsRunning(d: Data): number {
 export function AgentsBody(k: Kit, d: Data, max = 4): RenderNode[] {
   const { Box, Text, Input, Select } = k.el
   const rows: RenderNode[] = d.agents.slice(0, max).map(a => {
-    const h = helperOf(a.type)
+    // Never `h`: JSX compiles to calls of the global `h`, which a local of
+    // that name would hide.
+    const helper = helperOf(a.type)
     const isDone = a.endedAt !== undefined
     const isFailed = a.status === 'failed' || a.status === 'killed'
 
     return Row(
       k,
-      k.icon(h.icon, h.color),
-      <Text wrap="truncate-end" dimColor={isDone}>{a.description || h.label}</Text>,
+      k.icon(helper.icon, helper.color),
+      <Text wrap="truncate-end" dimColor={isDone}>{a.description || helper.label}</Text>,
       isDone ? (
         isFailed ? k.icon('x', C.red, 13) : k.icon('check', C.teal, 13)
       ) : (
@@ -868,7 +901,7 @@ export function AgentsBody(k: Kit, d: Data, max = 4): RenderNode[] {
         <Select
           key="spawn-helper"
           value={d.view.helper}
-          options={Object.entries(HELPERS).map(([value, h]) => ({ value, label: h.label }))}
+          options={Object.entries(HELPERS).map(([value, spec]) => ({ value, label: spec.label }))}
           onSelect={(v: string) => k.act.setView({ helper: v })}
         />
         <Box flexGrow={1} minWidth={0} overflow="hidden">
@@ -1110,27 +1143,7 @@ export function SessionsBody(k: Kit, d: Data, max = 4, room = k.cols): RenderNod
 // ── Compact gauges (for tight tiles) ───────────────────────────────────────
 
 export function GaugeLines(k: Kit, d: Data): RenderNode[] {
-  const { Button, Text } = k.el
-  const gauges = gaugesOf(d.measure)
-  if (gauges.length === 0) return [<Text dimColor>After the first reply</Text>]
-
-  return gauges.map(g => {
-    const color = levelColor(g.percent, g.calm)
-
-    const note = gaugeNote(g, d.now)
-    const about = () => k.act.aboutLimit(limitDetail(g, d.now))
-
-    return Row(
-      k,
-      k.tap(`line-icon-${g.label}`, k.icon(g.icon, g.calm, 12), about),
-      <Button key={`line-name-${g.label}`} plain onPress={about}>
-        <Text dimColor wrap="truncate-end">{note ? `${g.label} · ${note.text}` : g.label}</Text>
-      </Button>,
-      <Button key={`line-figure-${g.label}`} plain onPress={about}>
-        <Text color={color}>{`${bar(g.percent, 6)} ${Math.round(g.percent)}%`}</Text>
-      </Button>,
-    )
-  })
+  return GaugesBody(k, d, 0)
 }
 
 // ── Glance: the band above the prompt ──────────────────────────────────────

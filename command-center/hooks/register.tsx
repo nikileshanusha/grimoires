@@ -380,13 +380,19 @@ async function removeNote($: EngineInterface, id: string) {
   await writeNotesFile($, list)
 }
 
+// Sends a prompt (or /compact) for the person; a send that fails says so
+// rather than failing silently.
 async function submit($: EngineInterface, text: string) {
-  if (text.trim() === '/compact') {
-    await $.command.run({ command: 'compact', args: '' })
+  try {
+    if (text.trim() === '/compact') {
+      await $.command.run({ command: 'compact', args: '' })
 
-    return
+      return
+    }
+    await $.prompt.submit({ text, asUser: true })
+  } catch (err) {
+    $.ui.toast(`Couldn't send that: ${String(err).split('\n')[0]?.slice(0, 120)}`, { timeoutMs: 5000 })
   }
-  await $.prompt.submit({ text, asUser: true })
 }
 
 async function setActions($: EngineInterface, fn: (list: CustomAction[]) => CustomAction[]) {
@@ -778,9 +784,9 @@ export const register: Register = on => {
       description: 'Add, remove or list your own quick actions',
       argumentHint: 'add <label> | <prompt>  ·  remove <label>  ·  list',
     })
-    for (const [name, h] of Object.entries(HELPERS)) {
+    for (const [name, spec] of Object.entries(HELPERS)) {
       try {
-        await $.agent.register({ name, description: h.description, prompt: h.prompt, tools: h.tools, model: h.model })
+        await $.agent.register({ name, description: spec.description, prompt: spec.prompt, tools: spec.tools, model: spec.model })
       } catch {
         // A helper the engine refuses is simply not offered.
       }

@@ -20,7 +20,7 @@ import {
   IconCell,
   MetaCell,
   NowNextNode,
-  GaugeLines,
+  CountsLine,
   agentsRunning,
   countsText,
   etaText,
@@ -130,7 +130,8 @@ function Rows(k: Kit, d: Data): RenderNode {
       <Box flexDirection="row" gap={1}>
         {MissionCard(k, d, 5, '62%')}
         <Box flexDirection="column" borderStyle="round" borderColor="subtle" paddingX={1} paddingY={k.isRich ? 1 : 0} flexGrow={38} flexShrink={1} width={0} minWidth={0}>
-          {GaugesBody(k, d)}
+          {Header(k, 'gauge', C.teal, 'Limits')}
+          {GaugesBody(k, d, Math.floor(k.cols * 0.38) - 4)}
           {Gap(k)}
           {ActionsBody(k, d)}
           {Gap(k)}
@@ -153,12 +154,9 @@ function Columns(k: Kit, d: Data): RenderNode {
 
   return (
     <Box flexDirection="column" gap={1}>
-      <Box flexDirection="row" gap={2} alignItems="center" borderStyle="round" borderColor="subtle" paddingX={1}>
-        <Box flexDirection="row" gap={2}>
-          {GaugesBody(k, d, true)}
-        </Box>
-        <Box flexGrow={1} />
-        {ActionsBody(k, d)}
+      <Box flexDirection="row" gap={1}>
+        {Card(k, { icon: 'gauge', color: C.teal, title: 'Limits', width: '55%' }, GaugesBody(k, d, Math.floor(k.cols * 0.55) - 4))}
+        {Card(k, { icon: 'bolt', color: C.amber, title: 'Quick actions', width: '45%' }, ActionsBody(k, d))}
       </Box>
       <Box flexDirection="row" gap={1}>
         {MissionCard(k, d, 8, '40%')}
@@ -195,7 +193,7 @@ function Strip(k: Kit, d: Data): RenderNode {
             color: C.mission,
             title: 'Mission',
             accent: true,
-            width: '36%',
+            width: '32%',
             right: right ? (
               <Box flexDirection="row" gap={1} alignItems="center">
                 {k.icon('hourglass', C.mission, 12)}
@@ -208,9 +206,9 @@ function Strip(k: Kit, d: Data): RenderNode {
             ...(NowNextNode(k, d).length > 0 ? NowNextNode(k, d) : [<Text dimColor>{current ? current.activeForm : 'No tasks yet'}</Text>]),
           ],
         )}
-        {Card(k, { icon: 'gauge', color: C.teal, title: 'Limits', width: '20%' }, GaugeLines(k, d))}
-        {Card(k, { icon: 'activity', color: C.teal, title: 'Work', width: '22%', right: <Text dimColor>{`${agentsRunning(d)} agents`}</Text> }, [
-          <Text dimColor wrap="truncate-end">{countsText(d.counts)}</Text>,
+        {Card(k, { icon: 'gauge', color: C.teal, title: 'Limits', width: '28%' }, GaugesBody(k, d, 0))}
+        {Card(k, { icon: 'activity', color: C.teal, title: 'Work', width: '20%', right: <Text dimColor>{`${agentsRunning(d)} agents`}</Text> }, [
+          CountsLine(k, d),
           <Box flexDirection="row" gap={1} alignItems="center">
             {k.icon('robot', C.blue, 12)}
             <Text wrap="truncate-end" dimColor={!latestAgent || latestAgent.endedAt !== undefined}>
@@ -218,7 +216,7 @@ function Strip(k: Kit, d: Data): RenderNode {
             </Text>
           </Box>,
         ])}
-        {Card(k, { icon: 'world', color: C.coral, title: 'Elsewhere', width: '22%', right: <Text dimColor>{`${others.length} live`}</Text> }, [
+        {Card(k, { icon: 'world', color: C.coral, title: 'Elsewhere', width: '20%', right: <Text dimColor>{`${others.length} live`}</Text> }, [
           ...(busy.length > 0 ? busy : others).slice(0, 2).map(s => (
             <Box flexDirection="row" gap={1} alignItems="center">
               {IconCell(
@@ -234,8 +232,12 @@ function Strip(k: Kit, d: Data): RenderNode {
           ...(others.length === 0 ? [<Text dimColor>No other sessions</Text>] : []),
         ])}
       </Box>
-      {ActionsBody(k, d)}
-      {NoteComposer(k, d)}
+      <Box flexDirection="row" alignItems="center" columnGap={3} borderStyle="round" borderColor="subtle" paddingX={1}>
+        <Box flexShrink={0}>{ActionsBody(k, d)}</Box>
+        <Box flexGrow={1} flexShrink={1} minWidth={0}>
+          {NoteComposer(k, d)}
+        </Box>
+      </Box>
     </Box>
   )
 }
@@ -272,12 +274,12 @@ function Focus(k: Kit, d: Data): RenderNode {
     <Box flexDirection="row" gap={1}>
       <Box flexDirection="column" flexGrow={63} flexShrink={1} width={0} minWidth={0}>
         {MissionCard(k, d, 9)}
-        <Box flexDirection="row" gap={2} alignItems="center" paddingX={1} marginTop={k.isRich ? 1 : 0}>
-          <Box flexDirection="row" gap={2}>
-            {GaugesBody(k, d, true)}
-          </Box>
-          <Box flexGrow={1} />
-          {ActionsBody(k, d)}
+        <Box marginTop={1} flexDirection="row">
+          {Card(k, { icon: 'gauge', color: C.teal, title: 'Limits' }, [
+            ...GaugesBody(k, d, Math.floor(k.cols * 0.63) - 4),
+            Gap(k),
+            ...ActionsBody(k, d),
+          ])}
         </Box>
       </Box>
       <Box flexDirection="column" borderStyle="round" borderColor="subtle" paddingX={1} paddingY={k.isRich ? 1 : 0} flexGrow={37} flexShrink={1} width={0} minWidth={0}>
@@ -311,7 +313,7 @@ function Stacked(k: Kit, d: Data): RenderNode {
     <Box flexDirection="column" gap={1}>
       {MissionCard(k, d, 5)}
       <Box flexDirection="column" borderStyle="round" borderColor="subtle" paddingX={1}>
-        {GaugesBody(k, d, true)}
+        {GaugesBody(k, d, k.cols - 4)}
         {Gap(k)}
         {ActionsBody(k, d)}
       </Box>
