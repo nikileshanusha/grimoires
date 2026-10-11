@@ -63,6 +63,23 @@ Answer `y` to add the marketplace and pick the user scope. It then loads in ever
 
 To run it from a clone instead, copy the folder to `~/.claude/skills/command-center/`, or start Claude Code with `claude --plugin-dir ./command-center`.
 
+## Updating
+
+Releasing a change:
+
+1. Make the change and raise `version` in `.claude-plugin/plugin.json` (see [CHANGELOG.md](CHANGELOG.md) for which number to raise). Without a new number, installed copies won't take the change.
+2. Add a line for it to the CHANGELOG.
+3. Merge it into `main`.
+
+Then, on each machine that has it installed:
+
+```sh
+claude plugin marketplace update grimoires
+claude plugin update command-center@grimoires
+```
+
+and start a new session. `claude plugin list` shows the installed version.
+
 ## Good to know
 
 - **Cache warmth** is estimated from when each session's transcript last changed, against that session's own cache lifetime (5 minutes or 1 hour, read from the transcript).
