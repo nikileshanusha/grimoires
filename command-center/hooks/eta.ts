@@ -194,8 +194,9 @@ export function tickerItems(f: StatusFacts): string[] {
   const out: string[] = []
   const at5 = f.fiveHour?.resetsAt ? Date.parse(f.fiveHour.resetsAt) : NaN
   if (f.fiveHour && Math.round(f.fiveHour.percent) < 70 && Number.isFinite(at5) && at5 > f.now) out.push(`5h resets ${whenShort(at5, f.now)}`)
-  const at7 = f.week?.resetsAt ? Date.parse(f.week.resetsAt) : NaN
-  if (Number.isFinite(at7) && at7 > f.now) out.push(`7d resets ${whenShort(at7, f.now)}`)
+  // The weekly window's reset day is known; how the pace is going is not.
+  const pace = f.week ? paceOf(f.week.percent, f.week.resetsAt, f.now) : undefined
+  if (pace) out.push(`7d ${pace.short}`)
   if (f.cacheLeftMs !== undefined && f.cacheLeftMs >= 10 * 60_000) out.push(`cache warm ${fmtDuration(f.cacheLeftMs)}`)
   if (f.current) out.push(`now: ${f.current.length > TICKER_CURRENT_CHARS ? `${f.current.slice(0, TICKER_CURRENT_CHARS - 1)}…` : f.current}`)
   if (f.otherBusy) out.push(`${f.otherBusy} other session${f.otherBusy === 1 ? '' : 's'} busy`)
@@ -232,4 +233,23 @@ export function statusLine(f: StatusFacts): string {
   const items = slot !== undefined ? [...head, fitSlot(slot)] : head
 
   return items.length > 0 ? items.join(' | ') : 'command center'
+}
+
+export const WEEK_MS = 7 * 86_400_000
+
+// How usage compares with how much of the window has gone: 63% used with
+// 55% of the week gone is 8 points over pace. Within 5 points is on pace.
+// `text` in words for a sentence, `short` for a gauge: "pace −32%".
+export function paceOf(percent: number, resetsAt: string | undefined, now: number, windowMs = WEEK_MS): { diff: number; text: string; short: string } | undefined {
+  const at = resetsAt ? Date.parse(resetsAt) : NaN
+  if (!Number.isFinite(at) || at <= now) return undefined
+  const gone = Math.min(1, Math.max(0, 1 - (at - now) / windowMs)) * 100
+  const diff = Math.round(percent - gone)
+  if (Math.abs(diff) < 5) return { diff, text: 'on pace', short: 'on pace' }
+
+  return {
+    diff,
+    text: diff > 0 ? `${diff}% over pace` : `${-diff}% under pace`,
+    short: `pace ${diff > 0 ? '+' : '−'}${Math.abs(diff)}%`,
+  }
 }

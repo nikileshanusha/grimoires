@@ -44,7 +44,9 @@ export function iconSvg(name: IconName, color: string, size = 14): string {
   )
 }
 
-export function ringSvg(percent: number, color: string, size = 52): string {
+// A gauge ring; `withFigure` false leaves the middle empty for rings too
+// small to read a number in.
+export function ringSvg(percent: number, color: string, size = 52, withFigure = true): string {
   const r = 22
   const circumference = 2 * Math.PI * r
   const shown = Math.min(100, Math.max(0, percent))
@@ -55,8 +57,11 @@ export function ringSvg(percent: number, color: string, size = 52): string {
     `<circle cx="28" cy="28" r="${r}" fill="none" stroke="${C.track}" stroke-width="5"/>` +
     `<circle cx="28" cy="28" r="${r}" fill="none" stroke="${color}" stroke-width="5" stroke-linecap="round" ` +
     `stroke-dasharray="${circumference.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}" transform="rotate(-90 28 28)"/>` +
-    `<text x="28" y="32.5" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="${color}">` +
-    `${Math.round(percent)}%</text></svg>`
+    (withFigure
+      ? `<text x="28" y="34" text-anchor="middle" font-family="system-ui, sans-serif" font-size="17" font-weight="700" fill="${color}">` +
+        `${Math.round(percent)}</text>`
+      : '') +
+    `</svg>`
   )
 }
 
