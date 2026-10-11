@@ -225,6 +225,37 @@ describe('hooks', () => {
     await ui.unmount()
   })
 
+  test('icons press like their labels, a ring explains its limit, and the status line uses pipes', async ($, on) => {
+    const clock = mock.clock(on)
+    mock.store(on)
+    mock.env(on, { USERPROFILE: 'C:/home', OS: 'Windows_NT' })
+    const toasts: string[] = []
+    const statuses: (string | undefined)[] = []
+    on('ui.toast', (_$, e) => (toasts.push(e.text), { value: undefined }) as never)
+    on('ui.status', (_$, e) => (statuses.push(e.text), { value: undefined }) as never)
+    on('session.measure', (_$, e) => ({ changed: e.changed }))
+    const resetsAt = new Date(clock.now() + 2 * 3_600_000).toISOString()
+    await $.session.measure({ context: { window: 200_000, percent: 28 }, rateLimits: [{ kind: 'five_hour', percentUsed: 6, resetsAt }, { kind: 'seven_day', percentUsed: 61, resetsAt }], changed: ['rateLimits'] } as never)
+    const ui = await $.ui.mount({ ...mount(160), surface: 'desktop' })
+
+    // The Columns icon switches the layout, as the word beside it does.
+    await ui.press({ key: 'layout-columns-icon' })
+    expect(await ui.find({ key: 'layout-columns-icon' })).toBeDefined()
+    await ui.press({ key: 'layout-rows-icon' })
+    expect(await ui.find({ key: 'gauge-ring-5h' })).toBeDefined()
+
+    // The ring, with its figure inside, says what it means.
+    await ui.press({ key: 'gauge-ring-5h' })
+    expect(toasts.some(t => /^5h limit: 6% used\. Resets .+\(in 2h 0m\)\.$/.test(t))).toBe(true)
+
+    const line = statuses.filter(Boolean).pop() ?? ''
+    expect(line).toContain(' | ')
+    expect(line).toMatch(/5h 6% resets \d/)
+    expect(line).not.toContain('↻')
+    expect(line).not.toContain('·')
+    await ui.unmount()
+  })
+
   test('a narrow pane lists the limits as rows, each with its reset time', async ($, on) => {
     const clock = mock.clock(on)
     mock.store(on)

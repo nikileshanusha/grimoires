@@ -26,6 +26,8 @@ export type Act = {
   spawn: (helper: string, task: string) => void
   refreshPast: () => void
   refreshAll: () => void
+  // Shows a limit's details and reads the figures again.
+  aboutLimit: (text: string) => void
   deleteSession: (path: string) => void
   cleanupOld: (days: number) => void
   restore: (trashedPath: string) => void

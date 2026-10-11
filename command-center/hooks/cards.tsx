@@ -59,6 +59,35 @@ export type Kit = {
   // Columns the pane has to draw in; layouts set it, cards size to it.
   cols: number
   chip: (text: string, tone: ChipTone | 'quiet') => RenderNode
+  // Makes any icon or drawing pressable: `cols` x `rows` cells over it.
+  tap: (key: string, node: RenderNode, onPress: () => void, cols?: number, rows?: number) => RenderNode
+}
+
+// Buttons hold only text, so a drawing is made pressable by laying blank,
+// keyed buttons over it; on the terminal the glyph itself goes in the button.
+const BLANK = '\u00A0'
+function tapOver(el: any, isRich: boolean, key: string, node: RenderNode, onPress: () => void, cols = 2, rows = 1): RenderNode {
+  const { Box, Button } = el
+  if (!isRich) {
+    return (
+      <Button key={key} plain onPress={onPress}>
+        {node}
+      </Button>
+    )
+  }
+
+  return (
+    <Box position="relative" flexShrink={0}>
+      {node}
+      <Box position="absolute" top={0} left={0} flexDirection="column">
+        {Array.from({ length: rows }, (_, i) => (
+          <Button key={i === 0 ? key : `${key}-${i}`} plain onPress={onPress}>
+            {BLANK.repeat(cols)}
+          </Button>
+        ))}
+      </Box>
+    </Box>
+  )
 }
 
 export function makeKit(act: Act, surface: RenderSurface, el: any): Kit {
@@ -78,6 +107,7 @@ export function makeKit(act: Act, surface: RenderSurface, el: any): Kit {
       ) : (
         <Text color={color}>{GLYPH[name] ?? '·'}</Text>
       ),
+    tap: (key, node, onPress, cols, rows) => tapOver(el, isRich, key, node, onPress, cols, rows),
     chip: (text, tone) =>
       tone === 'quiet' ? (
         <Text dimColor>{` ${text} `}</Text>
@@ -180,7 +210,7 @@ function Pill(k: Kit, key: string, icon: IconName, color: string, label: string,
 
   return (
     <Box flexDirection="row" gap={1} alignItems="center" flexShrink={0}>
-      {k.icon(icon, color, 13)}
+      {k.tap(`${key}-icon`, k.icon(icon, color, 13), onPress)}
       <Button key={key} plain onPress={onPress}>
         <Text color={tone}>{label}</Text>
       </Button>
@@ -499,8 +529,17 @@ export function resetShort(resetsAt: string | undefined, now: number): string | 
   return sameDay ? fmtTimeOfDay(at) : `${new Date(at).toLocaleDateString('en-US', { weekday: 'short' })} ${fmtTimeOfDay(at)}`
 }
 
+// What pressing a gauge says: the figure in words, and when it resets.
+export function limitDetail(g: { label: string; percent: number; resetsAt?: string }, now: number): string {
+  const pct = Math.round(g.percent)
+  if (g.label === 'Context') return `Context window ${pct}% full.${pct >= 70 ? ' A /compact soon keeps things sharp.' : ''}`
+  const resets = g.resetsAt ? ` Resets ${resetText(g.resetsAt, now)}.` : ' No reset time reported yet.'
+
+  return `${g.label === 'Weekly' ? 'Weekly limit' : `${g.label} limit`}: ${pct}% used.${resets}`
+}
+
 export function GaugesBody(k: Kit, d: Data, compact = false): RenderNode[] {
-  const { Box, Text, Svg } = k.el
+  const { Box, Button, Text, Svg } = k.el
   const gauges = gaugesOf(d.measure)
   if (gauges.length === 0) return [<Text dimColor>Limits show after the first reply.</Text>]
 
@@ -508,8 +547,12 @@ export function GaugesBody(k: Kit, d: Data, compact = false): RenderNode[] {
     return gauges.map(g => {
       const resets = resetShort(g.resetsAt, d.now)
 
-      return Row(k, k.icon(g.icon, levelColor(g.percent, g.calm)), <Text>{resets ? `${g.label} · resets ${resets}` : g.label}</Text>, (
-        <Text color={levelColor(g.percent, g.calm)}>{`${bar(g.percent, 10)} ${Math.round(g.percent)}%`}</Text>
+      const about = () => k.act.aboutLimit(limitDetail(g, d.now))
+
+      return Row(k, k.tap(`gauge-icon-${g.label}`, k.icon(g.icon, levelColor(g.percent, g.calm)), about), <Text>{resets ? `${g.label} · resets ${resets}` : g.label}</Text>, (
+        <Button key={`gauge-figure-${g.label}`} plain onPress={about}>
+          <Text color={levelColor(g.percent, g.calm)}>{`${bar(g.percent, 10)} ${Math.round(g.percent)}%`}</Text>
+        </Button>
       ))
     })
   }
@@ -520,15 +563,20 @@ export function GaugesBody(k: Kit, d: Data, compact = false): RenderNode[] {
     return gauges.map(g => {
       const color = levelColor(g.percent, g.calm)
       const resets = resetShort(g.resetsAt, d.now)
+      const about = () => k.act.aboutLimit(limitDetail(g, d.now))
 
       return Row(
         k,
-        <Svg source={ringSvg(g.percent, color, 16)} alt={`${g.label} ${Math.round(g.percent)} percent`} width={16} height={16} />,
-        <Text wrap="truncate-end">
-          {g.label}
-          {resets ? <Text dimColor>{`  ↻ ${resets}`}</Text> : ''}
-        </Text>,
-        <Text color={color}>{`${Math.round(g.percent)}%`}</Text>,
+        k.tap(`gauge-ring-${g.label}`, <Svg source={ringSvg(g.percent, color, 16)} alt={`${g.label} ${Math.round(g.percent)} percent`} width={16} height={16} />, about),
+        <Button key={`gauge-name-${g.label}`} plain onPress={about}>
+          <Text wrap="truncate-end">
+            {g.label}
+            {resets ? <Text dimColor>{`  ↻ ${resets}`}</Text> : ''}
+          </Text>
+        </Button>,
+        <Button key={`gauge-figure-${g.label}`} plain onPress={about}>
+          <Text color={color}>{`${Math.round(g.percent)}%`}</Text>
+        </Button>,
         5,
       )
     })
@@ -541,13 +589,18 @@ export function GaugesBody(k: Kit, d: Data, compact = false): RenderNode[] {
     <Box flexDirection="row" flexWrap="wrap" justifyContent="space-around" columnGap={2} rowGap={1}>
       {gauges.map(g => {
         const resets = resetShort(g.resetsAt, d.now)
+        const about = () => k.act.aboutLimit(limitDetail(g, d.now))
+        // The ring and the figure inside it: about 8 pixels a cell, 16 a row.
+        const ring = <Svg source={ringSvg(g.percent, levelColor(g.percent, g.calm), size)} alt={`${g.label} ${Math.round(g.percent)} percent`} width={size} height={size} />
 
         return (
           <Box flexDirection="column" alignItems="center" width={GAUGE_TILE} flexShrink={0}>
-            <Svg source={ringSvg(g.percent, levelColor(g.percent, g.calm), size)} alt={`${g.label} ${Math.round(g.percent)} percent`} width={size} height={size} />
-            <Box flexDirection="row" gap={1} alignItems="center" maxWidth={GAUGE_TILE}>
-              {k.icon(g.icon, g.calm, 12)}
-              <Text dimColor wrap="truncate-end">{g.label}</Text>
+            {k.tap(`gauge-ring-${g.label}`, ring, about, Math.ceil(size / 8), Math.ceil(size / 16))}
+            <Box flexDirection="row" gap={1} alignItems="center" width={GAUGE_TILE} justifyContent="center" overflow="hidden">
+              {k.tap(`gauge-icon-${g.label}`, k.icon(g.icon, g.calm, 12), about)}
+              <Button key={`gauge-name-${g.label}`} plain onPress={about}>
+                <Text dimColor wrap="truncate-end">{g.label}</Text>
+              </Button>
             </Box>
             {resets ? <Text dimColor wrap="truncate-end">{`↻ ${resets}`}</Text> : null}
           </Box>
@@ -622,7 +675,7 @@ export function NotesBody(k: Kit, d: Data, max = 3): RenderNode[] {
   if (d.notes.length > max) footer.push(<Text dimColor>{`+ ${d.notes.length - max} more`}</Text>)
   if (d.notes.length > 0) {
     footer.push(<Box flexGrow={1} />)
-    footer.push(k.icon('file-text', C.pink, 12))
+    footer.push(k.tap('notes-open-icon', k.icon('file-text', C.pink, 12), () => k.act.openNotes()))
     footer.push(Link(k, 'notes-open', 'Open notes file', () => k.act.openNotes()))
   }
   if (footer.length > 0) {
@@ -707,7 +760,7 @@ export function ActivityBody(k: Kit, d: Data, max = 5): RenderNode[] {
 
     const head = (
       <Box flexDirection="row" gap={1} alignItems={isOpen ? 'flex-start' : 'center'}>
-        {IconCell(k, item.isError ? k.icon('alert-triangle', C.red) : k.icon(kind.icon, kind.color))}
+        {IconCell(k, k.tap(`feed-icon-${id}`, item.isError ? k.icon('alert-triangle', C.red) : k.icon(kind.icon, kind.color), toggle))}
         <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
           {/* Folded: one line, cut with an ellipsis. Open: the whole sentence. */}
           <Button key={`feed-${id}`} plain onPress={toggle}>
@@ -986,7 +1039,7 @@ export function SessionsBody(k: Kit, d: Data, max = 4, room = k.cols): RenderNod
       <Box flexDirection="row" gap={2} marginTop={k.isRich ? 1 : 0} alignItems="center">
         {old > 0 ? (
           <Box flexDirection="row" gap={1} alignItems="center">
-            {k.icon('calendar-x', C.redDeep, 13)}
+            {k.tap('cleanup-old-icon', k.icon('calendar-x', C.redDeep, 13), () => k.act.askConfirm('cleanup'))}
             {Link(k, 'cleanup-old', `Clean up older than 30 days · ${old}`, () => k.act.askConfirm('cleanup'))}
           </Box>
         ) : null}
@@ -1017,7 +1070,7 @@ export function SessionsBody(k: Kit, d: Data, max = 4, room = k.cols): RenderNod
     if (d.trash.length > 0) {
       rows.push(
         <Box flexDirection="row" gap={1} marginTop={k.isRich ? 1 : 0} alignItems="center">
-          {k.icon('trash', C.redDeep, 13)}
+          {k.tap('empty-trash-icon', k.icon('trash', C.redDeep, 13), () => k.act.askConfirm('empty'))}
           {Link(k, 'empty-trash', `Empty trash · ${fmtSize(d.trash.reduce((n, t) => n + t.size, 0))}`, () => k.act.askConfirm('empty'))}
         </Box>,
       )
@@ -1033,7 +1086,7 @@ export function SessionsBody(k: Kit, d: Data, max = 4, room = k.cols): RenderNod
 // ── Compact gauges (for tight tiles) ───────────────────────────────────────
 
 export function GaugeLines(k: Kit, d: Data): RenderNode[] {
-  const { Text } = k.el
+  const { Button, Text } = k.el
   const gauges = gaugesOf(d.measure)
   if (gauges.length === 0) return [<Text dimColor>After the first reply</Text>]
 
@@ -1042,7 +1095,18 @@ export function GaugeLines(k: Kit, d: Data): RenderNode[] {
 
     const resets = resetShort(g.resetsAt, d.now)
 
-    return Row(k, k.icon(g.icon, g.calm, 12), <Text dimColor wrap="truncate-end">{resets ? `${g.label} ↻ ${resets}` : g.label}</Text>, <Text color={color}>{`${bar(g.percent, 6)} ${Math.round(g.percent)}%`}</Text>)
+    const about = () => k.act.aboutLimit(limitDetail(g, d.now))
+
+    return Row(
+      k,
+      k.tap(`line-icon-${g.label}`, k.icon(g.icon, g.calm, 12), about),
+      <Button key={`line-name-${g.label}`} plain onPress={about}>
+        <Text dimColor wrap="truncate-end">{resets ? `${g.label} ↻ ${resets}` : g.label}</Text>
+      </Button>,
+      <Button key={`line-figure-${g.label}`} plain onPress={about}>
+        <Text color={color}>{`${bar(g.percent, 6)} ${Math.round(g.percent)}%`}</Text>
+      </Button>,
+    )
   })
 }
 
@@ -1121,13 +1185,13 @@ export function Glance(k: Kit, d: Data, columns: number): RenderElement {
 
   const line = (
     <Box flexDirection="row" gap={2} alignItems="center" paddingX={1}>
-      {k.icon('sparkles', C.mission, 12)}
+      {k.tap('glance-spark', k.icon('sparkles', C.mission, 12), () => k.act.openFull())}
       {shown.length === 0 ? (
         <Text dimColor>All quiet</Text>
       ) : (
         shown.map(s => (
           <Box flexDirection="row" gap={1} alignItems="center" flexShrink={s.pinned ? 0 : 1} minWidth={s.pinned ? undefined : 0}>
-            {k.icon(s.icon, s.color, 12)}
+            {k.tap(`glance-icon-${s.icon}`, k.icon(s.icon, s.color, 12), () => k.act.openFull())}
             <Box flexDirection="column" minWidth={0}>
               <Text wrap={s.pinned ? 'wrap' : 'truncate-end'} color={s.strong || s.pinned ? s.color : undefined}>
                 {s.text}

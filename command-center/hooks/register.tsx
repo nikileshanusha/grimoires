@@ -455,7 +455,7 @@ async function refreshStatus($: EngineInterface) {
   const fiveHour = m.limits.find(l => /five|5h/i.test(l.kind))
   if (fiveHour) {
     const at = fiveHour.resetsAt ? Date.parse(fiveHour.resetsAt) : NaN
-    parts.push(`5h ${Math.round(fiveHour.percent)}%${Number.isFinite(at) ? ` ↻ ${fmtTimeOfDay(at)}` : ''}`)
+    parts.push(`5h ${Math.round(fiveHour.percent)}%${Number.isFinite(at) ? ` resets ${fmtTimeOfDay(at)}` : ''}`)
   }
   const week = m.limits.find(l => /seven|week|7d/i.test(l.kind))
   if (week) parts.push(`7d ${Math.round(week.percent)}%`)
@@ -469,7 +469,7 @@ async function refreshStatus($: EngineInterface) {
   const list = await read($, todos)
   const est = eta(list, await $.clock.now(), await stored<number | undefined>($, STORE.taskMedianMs, undefined))
   if (est.leftMs !== undefined && est.done < est.total) parts.push(`~${fmtDuration(est.leftMs)} left`)
-  $.ui.status(parts.length > 0 ? parts.join(' · ') : 'command center · /cc')
+  $.ui.status(parts.length > 0 ? parts.join(' | ') : 'command center | /cc')
 }
 
 // Asks for the usage figures directly: a fresh or reloaded session has had
@@ -570,6 +570,10 @@ function actsFor($: EngineInterface): Act {
     spawn: (helper, task) => void spawnHelper($, helper, task),
     refreshPast: () => void refreshPast($),
     refreshAll: () => void refreshAll($),
+    aboutLimit: text => {
+      $.ui.toast(text, { timeoutMs: 5000 })
+      void readUsage($)
+    },
     deleteSession: path => void deleteSession($, path),
     cleanupOld: days => void cleanupOld($, days),
     restore: path => void restoreFromTrash($, path),

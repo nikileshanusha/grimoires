@@ -128,15 +128,28 @@ export type MetroStep = { label: string; status: 'done' | 'now' | 'next'; meta?:
 // haloed in violet. Narrow and fixed in width, so the surface never shrinks
 // it: its text draws at full size.
 export function metroSvg(steps: readonly MetroStep[], before: number, after: number, width = 440): string {
+  // The step being worked on gets a taller row, a larger node and label.
   const row = 34
+  const nowRow = 50
+  const heightOf = (i: number) => (steps[i]?.status === 'now' ? nowRow : row)
   const top = before > 0 ? 26 : 10
-  const height = top + steps.length * row + (after > 0 ? 22 : 0) - 6
-  const cx = 16
-  const labelX = 40
+  const rowsHeight = steps.reduce((sum, _, i) => sum + heightOf(i), 0)
+  const height = top + rowsHeight + (after > 0 ? 22 : 0) - 6
+  const cx = 18
+  const labelX = 44
   const font = 'font-family="system-ui, -apple-system, Segoe UI, sans-serif"'
-  const maxChars = Math.floor((width - labelX - 90) / 7.6)
-  const fit = (s: string) => (s.length > maxChars ? `${s.slice(0, maxChars - 1)}…` : s)
-  const y = (i: number) => top + i * row + 8
+  const fitTo = (perChar: number) => (s: string) => {
+    const maxChars = Math.floor((width - labelX - 90) / perChar)
+
+    return s.length > maxChars ? `${s.slice(0, maxChars - 1)}…` : s
+  }
+  // A row's centre: the rows above it, then half its own height.
+  const y = (i: number) => {
+    let at = top
+    for (let j = 0; j < i; j++) at += heightOf(j)
+
+    return at + (heightOf(i) === nowRow ? nowRow / 2 - 4 : 8)
+  }
   const nowAt = steps.findIndex(s => s.status === 'now')
   const doneUntil = nowAt >= 0 ? nowAt : steps.filter(s => s.status === 'done').length - 1
   const parts: string[] = []
@@ -163,16 +176,18 @@ export function metroSvg(steps: readonly MetroStep[], before: number, after: num
       parts.push(`<circle cx="${cx}" cy="${cy}" r="8" fill="${C.teal}"/>`)
       parts.push(`<path d="M${cx - 3.5} ${cy}l2.5 2.5l4.5 -5" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`)
     } else if (s.status === 'now') {
-      parts.push(`<circle cx="${cx}" cy="${cy}" r="14" fill="${C.mission}33"/>`)
-      parts.push(`<circle cx="${cx}" cy="${cy}" r="8.5" fill="none" stroke="${C.mission}" stroke-width="2.5"/>`)
-      parts.push(`<circle cx="${cx}" cy="${cy}" r="3.5" fill="${C.mission}"/>`)
+      parts.push(`<circle cx="${cx}" cy="${cy}" r="17" fill="${C.mission}33"/>`)
+      parts.push(`<circle cx="${cx}" cy="${cy}" r="11" fill="none" stroke="${C.mission}" stroke-width="3"/>`)
+      parts.push(`<circle cx="${cx}" cy="${cy}" r="4.5" fill="${C.mission}"/>`)
     } else {
       parts.push(`<circle cx="${cx}" cy="${cy}" r="6.5" fill="none" stroke="${C.muted}" stroke-width="1.5"/>`)
     }
     const color = s.status === 'done' ? C.teal : s.status === 'now' ? C.mission : C.muted
-    const weight = s.status === 'now' ? 600 : 400
-    const size = s.status === 'now' ? 15 : 14
-    parts.push(`<text x="${labelX}" y="${cy + 5}" ${font} font-size="${size}" font-weight="${weight}" fill="${color}">${escapeXml(fit(s.label))}</text>`)
+    const isNow = s.status === 'now'
+    const weight = isNow ? 700 : 400
+    const size = isNow ? 19 : 14
+    const fit = fitTo(isNow ? 10.2 : 7.6)
+    parts.push(`<text x="${labelX}" y="${cy + (isNow ? 7 : 5)}" ${font} font-size="${size}" font-weight="${weight}" fill="${color}">${escapeXml(fit(s.label))}</text>`)
     if (s.meta) parts.push(`<text x="${width - 4}" y="${cy + 4}" ${font} font-size="12" text-anchor="end" fill="${C.muted}">${escapeXml(s.meta)}</text>`)
   })
 
