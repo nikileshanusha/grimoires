@@ -71,6 +71,21 @@ export function moveFailure(raw: string): string {
   return error.split('\n')[0]?.slice(0, 120) || 'the move failed'
 }
 
+// Opens a folder in Explorer, or a file in its default app. The plugin's
+// processes run hidden, and a window they start inherits that: `explorer
+// <path>` opened Explorer invisibly (tested). Asking the Windows shell itself,
+// through Shell.Application, opens a normal visible window.
+export function openScript(path: string): Script {
+  const target = psLiteral(path.replace(/\//g, '\\'))
+
+  return {
+    ps:
+      `$ErrorActionPreference='Stop'; $shell = New-Object -ComObject Shell.Application; ` +
+      `if (Test-Path -LiteralPath ${target} -PathType Container) { $shell.Explore(${target}) } else { $shell.ShellExecute(${target}) }`,
+    sh: ['sh', '-c', 'open "$1" 2>/dev/null || xdg-open "$1"', 'sh', path],
+  }
+}
+
 export function removeScript(dir: string): Script {
   return {
     ps: `$ErrorActionPreference='Stop'; [IO.Directory]::Delete(${psLiteral(longPath(dir))}, $true)`,

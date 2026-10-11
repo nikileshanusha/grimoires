@@ -6,6 +6,19 @@ you use it. Raise the version in `.claude-plugin/plugin.json` with every
 change that should reach installed copies; `claude plugin update` installs a
 new version only when this number changes.
 
+## 0.5.0 — 2026-10-11
+
+**Fixed**
+- **Open folder** and **Open notes file** now open a visible window. The
+  plugin's processes run hidden, and `explorer <path>` started from one
+  opened Explorer invisibly (one hidden window per click). They now ask the
+  Windows shell itself (`Shell.Application`), which opens a normal window.
+
+**Added**
+- A trash button on every session row. In Past it moves the session to the
+  trash (after asking). A running session's trash button says to close it
+  first, since its transcript is still in use.
+
 ## 0.4.0 — 2026-10-11
 
 **Added**
