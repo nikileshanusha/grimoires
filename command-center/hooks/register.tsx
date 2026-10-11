@@ -1,13 +1,13 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { AgentRow, CustomAction, FeedItem, Layout, LiveSession, Note, PastSession, ToolKind, TrashItem, View } from '../types'
+import type { AgentRow, CustomAction, FeedItem, Layout, Limit, LiveSession, Note, PastSession, ToolKind, TrashItem, View } from '../types'
 import { Glance, makeKit } from './cards'
 import { EMPTY_AUTO, MISSION_SYSTEM, missionPrompt, parseMission, purposeFrom } from './mission'
 import type { Data } from './cards'
-import { encodePs, moveScript, olderThan, removeScript } from './cleanup'
+import { encodePs, moveFailure, moveScript, olderThan, removeScript } from './cleanup'
 import type { Script } from './cleanup'
-import { blendMedian, eta, fmtDuration, mergeTodos } from './eta'
+import { blendMedian, eta, fmtDuration, mergeLimits, mergeTodos, statusLine, toResetIso } from './eta'
 import { Pane } from './layouts'
 import { BUILT_IN_ACTIONS, HELPERS, PANE, TITLE } from './ops'
 import type { Act, Helper } from './ops'
@@ -63,15 +63,16 @@ async function isWindows($: EngineInterface): Promise<boolean> {
   return (await $.env.get('OS')) === 'Windows_NT'
 }
 
-async function runScript($: EngineInterface, script: Script): Promise<boolean> {
+// Runs a move or remove script; `error` says why one failed.
+async function runScript($: EngineInterface, script: Script): Promise<{ ok: boolean; error: string }> {
   try {
     const run = (await isWindows($))
       ? await $.process.run(['powershell', '-NoProfile', '-NonInteractive', '-EncodedCommand', encodePs(script.ps)], { timeoutMs: 30_000 })
       : await $.process.run(script.sh, { timeoutMs: 30_000 })
 
-    return run.exitCode === 0
-  } catch {
-    return false
+    return { ok: run.exitCode === 0, error: run.stderr.trim() || run.stdout.trim() }
+  } catch (err) {
+    return { ok: false, error: String(err) }
   }
 }
 
@@ -112,9 +113,15 @@ async function refreshLive($: EngineInterface): Promise<LiveSession[]> {
     }
   }
   const home = await homeDir($)
+  let dirs: string[] = []
+  try {
+    dirs = (await $.fs.list(`${home}/.claude/projects`)).filter(d => d.kind === 'dir').map(d => d.name)
+  } catch {
+    // No projects yet.
+  }
   for (const row of rows) {
     if (!row.sessionId || !row.cwd) continue
-    const path = transcriptPath(home, row.cwd, row.sessionId)
+    const path = transcriptPath(home, row.cwd, row.sessionId, dirs)
     try {
       const stat = await $.fs.stat(path)
       row.lastAt = stat.mtimeMs
@@ -230,13 +237,15 @@ async function trashRoot($: EngineInterface): Promise<string> {
 // one) into the trash. The trash path stays short (date and session id
 // only): project folder names run long, and Windows refuses paths past 260
 // characters. Where it came from is kept on the item, so it can go back.
-async function moveToTrash($: EngineInterface, session: PastSession, now: number): Promise<TrashItem | undefined> {
-  if (session.isLive) return undefined
+// A trash entry, or why the session could not be moved.
+async function moveToTrash($: EngineInterface, session: PastSession, now: number): Promise<TrashItem | string> {
+  if (session.isLive) return 'it is still running'
   const day = new Date(now).toISOString().slice(0, 10)
   const toDir = `${await trashRoot($)}/${day}`
-  if (!(await runScript($, moveScript(session.path, toDir)))) return undefined
+  const moved = await runScript($, moveScript(session.path, toDir))
+  if (!moved.ok) return moveFailure(moved.error)
   // Trust the disk, not the exit code: the file must really have left.
-  if (await $.fs.exists(session.path)) return undefined
+  if (await $.fs.exists(session.path)) return 'its file is still there after the move'
   const sideDir = `${parentOf(session.path)}/${session.sessionId}`
   if (await $.fs.exists(sideDir)) await runScript($, moveScript(sideDir, toDir))
 
@@ -257,15 +266,22 @@ async function saveTrash($: EngineInterface, fn: (list: TrashItem[]) => TrashIte
 
 async function deleteSession($: EngineInterface, path: string) {
   await setView($, { confirm: undefined })
-  const target = (await read($, past)).find(s => s.path === path)
-  if (!target) return
+  const found = (await read($, past)).find(s => s.path === path)
+  if (!found) return
+  // Ask the machine again: a session may have started since the list was read.
+  const liveNow = new Set((await refreshLive($)).map(s => s.sessionId))
+  const target = { ...found, isLive: liveNow.has(found.sessionId) }
   const item = await moveToTrash($, target, await $.clock.now())
-  if (!item) {
-    $.ui.toast(target.isLive ? 'That session is running, so it stays.' : "Couldn't move that session to trash.")
+  if (typeof item === 'string') {
+    $.ui.toast(`Couldn't move "${target.title.slice(0, 40)}" to trash: ${item}.`, { timeoutMs: 6000 })
+    await refreshPast($)
 
     return
   }
+  // Gone from the list at once, before the folders are read again.
+  await update($, past, l => l.filter(s => s.path !== path))
   await saveTrash($, l => [item, ...l])
+  $.ui.toast('Moved to trash. Restore it from the Trash tab.', { timeoutMs: 3000 })
   await refreshPast($)
 }
 
@@ -275,7 +291,7 @@ async function cleanupOld($: EngineInterface, days: number) {
   const moved: TrashItem[] = []
   for (const session of olderThan(await read($, past), days, now)) {
     const item = await moveToTrash($, session, now)
-    if (item) moved.push(item)
+    if (typeof item !== 'string') moved.push(item)
   }
   await saveTrash($, l => [...moved, ...l])
   await refreshPast($)
@@ -286,8 +302,9 @@ async function restoreFromTrash($: EngineInterface, trashedPath: string) {
   const item = (await read($, trash)).find(t => t.trashedPath === trashedPath)
   if (!item) return
   const home = parentOf(item.originalPath)
-  if (!(await runScript($, moveScript(item.trashedPath, home)))) {
-    $.ui.toast("Couldn't restore that session.")
+  const back = await runScript($, moveScript(item.trashedPath, home))
+  if (!back.ok) {
+    $.ui.toast(`Couldn't restore that session: ${moveFailure(back.error)}.`, { timeoutMs: 6000 })
 
     return
   }
@@ -301,7 +318,7 @@ async function restoreFromTrash($: EngineInterface, trashedPath: string) {
 async function emptyTrash($: EngineInterface) {
   await setView($, { confirm: undefined })
   const root = await trashRoot($)
-  if ((await $.fs.exists(root)) && !(await runScript($, removeScript(root)))) {
+  if ((await $.fs.exists(root)) && !(await runScript($, removeScript(root))).ok) {
     $.ui.toast("Couldn't empty the trash.")
 
     return
@@ -430,39 +447,75 @@ async function spawnHelper($: EngineInterface, helper: string, task: string) {
 
 // ── Status line and alerts ─────────────────────────────────────────────────
 
+// The status line's ticker slot moves on by one item every few seconds.
+const TICKER_MS = 6_000
+let tickerAt = 0
+
 async function refreshStatus($: EngineInterface) {
   const m = await read($, measure)
   const running = (await read($, agents)).filter(a => a.endedAt === undefined).length
-  const parts: string[] = []
-  if (m.context !== undefined) parts.push(`ctx ${Math.round(m.context)}%`)
+  const now = await $.clock.now()
   const fiveHour = m.limits.find(l => /five|5h/i.test(l.kind))
-  if (fiveHour) parts.push(`5h ${Math.round(fiveHour.percent)}%`)
   const week = m.limits.find(l => /seven|week|7d/i.test(l.kind))
-  if (week) parts.push(`7d ${Math.round(week.percent)}%`)
-  const here = (await read($, live)).find(s => s.isHere)
-  if (here?.isBusy) parts.push('cache warm')
-  else if (here?.lastAt !== undefined) {
-    const left = cacheLeft(here.lastAt, await $.clock.now(), here.cacheTtlMs ?? defaultTtl)
-    parts.push(left > 0 ? `cache warm ${fmtDuration(left)}` : 'cache cold')
-  }
-  if (running > 0) parts.push(`${running} agent${running === 1 ? '' : 's'}`)
+  const sessions = await read($, live)
+  const here = sessions.find(s => s.isHere)
+  const cacheLeftMs = here?.isBusy ? undefined : here?.lastAt !== undefined ? cacheLeft(here.lastAt, now, here.cacheTtlMs ?? defaultTtl) : undefined
   const list = await read($, todos)
-  const est = eta(list, await $.clock.now(), await stored<number | undefined>($, STORE.taskMedianMs, undefined))
-  if (est.leftMs !== undefined && est.done < est.total) parts.push(`~${fmtDuration(est.leftMs)} left`)
-  $.ui.status(parts.length > 0 ? parts.join(' · ') : 'command center · /cc')
+  const est = eta(list, now, await stored<number | undefined>($, STORE.taskMedianMs, undefined))
+  const current = list.find(t => t.status === 'in_progress')?.activeForm
+  $.ui.status(
+    statusLine({
+      context: m.context,
+      fiveHour: fiveHour ? { percent: fiveHour.percent, resetsAt: fiveHour.resetsAt } : undefined,
+      week: week ? { percent: week.percent, resetsAt: week.resetsAt } : undefined,
+      cacheLeftMs,
+      helpers: running,
+      etaLeftMs: est.leftMs !== undefined && est.done < est.total ? est.leftMs : undefined,
+      otherBusy: sessions.filter(s => !s.isHere && s.isBusy).length,
+      current,
+      tick: tickerAt,
+      now,
+    }),
+  )
 }
 
 // Asks for the usage figures directly: a fresh or reloaded session has had
 // no measurement yet, which would leave the gauges and status line blank.
+// The engine's rate-limit readings as the command center keeps them.
+async function takeLimits($: EngineInterface, raw: readonly { kind: string; percentUsed: number; resetsAt?: unknown }[]) {
+  const limits = raw.map(r => ({ kind: r.kind, percent: r.percentUsed, resetsAt: toResetIso(r.resetsAt) }))
+  if (raw.length > 0) void $.store.set(STORE.limitsSeen, raw.map(r => ({ kind: r.kind, percentUsed: r.percentUsed, resetsAt: r.resetsAt ?? null })))
+  const now = await $.clock.now()
+
+  return (prev: Limit[]) => mergeLimits(prev, limits, now)
+}
+
 async function readUsage($: EngineInterface) {
   try {
     const usage = await $.session.usage()
-    const limits = usage.rateLimits.map(r => ({ kind: r.kind, percent: r.percentUsed, resetsAt: r.resetsAt }))
-    await update($, measure, prev => ({ context: usage.context.percent ?? prev.context, limits: limits.length > 0 ? limits : prev.limits }))
+    const merge = await takeLimits($, usage.rateLimits)
+    await update($, measure, prev => ({ context: usage.context.percent ?? prev.context, limits: merge(prev.limits) }))
   } catch {
     // Figures arrive with the next measurement instead.
   }
   await refreshStatus($)
+}
+
+// Everything read again at once: sessions here and elsewhere, helpers,
+// limits, and the mission, even inside its usual 45-second pause.
+async function refreshAll($: EngineInterface) {
+  $.ui.toast('Refreshing…', { timeoutMs: 1500 })
+  // One part failing never stops the others.
+  const results = await Promise.allSettled([
+    refreshLive($).then(() => refreshPast($)),
+    refreshAgents($),
+    readUsage($),
+    deriveMission($, true),
+  ])
+  await update($, tick, n => n + 1)
+  await refreshStatus($).catch(() => undefined)
+  const failed = results.filter(r => r.status === 'rejected').length
+  $.ui.toast(failed === 0 ? 'Everything is up to date.' : `Refreshed, but ${failed} part${failed === 1 ? '' : 's'} could not be read.`, { timeoutMs: 2500 })
 }
 
 // Each threshold speaks once as it is crossed, and again only after the
@@ -523,6 +576,11 @@ function actsFor($: EngineInterface): Act {
     submit: text => void submit($, text),
     spawn: (helper, task) => void spawnHelper($, helper, task),
     refreshPast: () => void refreshPast($),
+    refreshAll: () => void refreshAll($),
+    aboutLimit: text => {
+      $.ui.toast(text, { timeoutMs: 5000 })
+      void readUsage($)
+    },
     deleteSession: path => void deleteSession($, path),
     cleanupOld: days => void cleanupOld($, days),
     restore: path => void restoreFromTrash($, path),
@@ -659,7 +717,7 @@ let narration: string | undefined
 // After a turn, a small model reads the recent asks and names the mission
 // and the steps toward it. Runs only when something new was asked, at most
 // every 45s, and never while the mission is pinned.
-async function deriveMission($: EngineInterface) {
+async function deriveMission($: EngineInterface, isForced = false) {
   if (isDeriving || (await read($, goal))) return
   const msgs = await $.session.messages()
   const asks = msgs
@@ -669,7 +727,7 @@ async function deriveMission($: EngineInterface) {
   if (asks.length === 0) return
   const prev = await read($, auto)
   const now = await $.clock.now()
-  if (prev.mission && (asks.length === prev.prompts || now - prev.at < 45_000)) return
+  if (!isForced && prev.mission && (asks.length === prev.prompts || now - prev.at < 45_000)) return
   isDeriving = true
   try {
     const lastAnswer = [...msgs].reverse().find(m => m.role === 'assistant' && m.text.trim())?.text ?? ''
@@ -734,7 +792,11 @@ export const register: Register = on => {
       void readUsage($)
     })
     $.clock.every(10_000, () => void refreshLive($))
-    $.clock.every(5_000, () => void refreshAgents($).then(() => refreshStatus($)))
+    $.clock.every(5_000, () => void refreshAgents($))
+    $.clock.every(TICKER_MS, () => {
+      tickerAt++
+      void refreshStatus($)
+    })
     void refreshLive($).then(() => refreshPast($))
     void deriveMission($)
     // The status line and gauges fill at once, not only after the next reply.
@@ -822,8 +884,8 @@ export const register: Register = on => {
   })
 
   on('session.measure', async ($, e, next) => {
-    const limits = e.rateLimits.map(r => ({ kind: r.kind, percent: r.percentUsed, resetsAt: r.resetsAt }))
-    await update($, measure, () => ({ context: e.context.percent, limits }))
+    const merge = await takeLimits($, e.rateLimits)
+    await update($, measure, prev => ({ context: e.context.percent ?? prev.context, limits: merge(prev.limits) }))
     if (e.context.percent !== undefined) {
       crossing($, 'context', e.context.percent, 80, `Context is ${Math.round(e.context.percent)}% full. A /compact soon keeps things sharp.`)
     }

@@ -1,13 +1,13 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
-import { encodePs, moveScript, olderThan } from '../hooks/cleanup'
-import { eta, median, mergeTodos } from '../hooks/eta'
+import { encodePs, moveFailure, moveScript, olderThan } from '../hooks/cleanup'
+import { TICKER_SLOT, eta, fitSlot, median, mergeLimits, mergeTodos, statusLine, toResetIso } from '../hooks/eta'
 import { fitLayout } from '../hooks/layouts'
 import { groupFeed, resetText } from '../hooks/cards'
 import { flowWindow, nextLine, parseMission, purposeFrom, stepsFor } from '../hooks/mission'
 import { EMPTY_AUTO } from '../hooks/mission'
-import { CACHE_1H, CACHE_5M, cacheLeft, cacheTtlOf, describeTranscript, parseCard, parsePids, transcriptPath } from '../hooks/sessions'
+import { CACHE_1H, CACHE_5M, cacheLeft, cacheTtlOf, describeTranscript, parseCard, parsePids, projectDirFor, transcriptPath } from '../hooks/sessions'
 
 const PANE_PROPS = (bodyColumns: number) => ({
   title: 'Command center',
@@ -98,8 +98,74 @@ describe('sessions', () => {
       { path: 'c', sessionId: 'c', project: '', title: '', mtimeMs: now, size: 1, isLive: false },
     ]
     expect(olderThan(list, 30, now).map(s => s.path)).toEqual(['a'])
-    expect(moveScript("C:/it's here/x.jsonl", 'C:/t').ps).toContain("'C:/it''s here/x.jsonl'")
+    // Long-path safe, quoted, and never overwriting what is already there.
+    const ps = moveScript("C:/it's here/x.jsonl", 'C:/t').ps
+    expect(ps).toContain("'\\\\?\\C:\\it''s here\\x.jsonl'")
+    expect(ps).toContain("'\\\\?\\C:\\t\\x.jsonl'")
+    expect(ps).toContain('already exists')
+    expect(ps).not.toContain('Move-Item')
     expect(encodePs('A')).toBe('QQA=')
+  })
+
+  test('a reset time is read in any shape and kept when a reading drops it', async () => {
+    const iso = '2026-10-11T16:30:00.000Z'
+    const ms = Date.parse(iso)
+    expect(toResetIso(iso)).toBe(iso)
+    expect(toResetIso(ms)).toBe(iso)
+    expect(toResetIso(ms / 1000)).toBe(iso)
+    expect(toResetIso(String(ms / 1000))).toBe(iso)
+    expect(toResetIso(undefined)).toBe(undefined)
+    expect(toResetIso('soon')).toBe(undefined)
+    const before: { kind: string; percent: number; resetsAt?: string }[] = [{ kind: 'five_hour', percent: 40, resetsAt: iso }]
+    expect(mergeLimits(before, [{ kind: 'five_hour', percent: 41 }], ms - 60_000)).toEqual([{ kind: 'five_hour', percent: 41, resetsAt: iso }])
+    expect(mergeLimits(before, [{ kind: 'five_hour', percent: 41 }], ms + 60_000)).toEqual([{ kind: 'five_hour', percent: 41 }])
+    expect(mergeLimits(before, [], ms)).toEqual(before)
+  })
+
+  test('the status line is calm, and adds only what needs attention', async () => {
+    const now = Date.parse('2026-10-11T14:00:00')
+    const resetsAt = new Date(now + 2.5 * 3_600_000).toISOString()
+    const calm = { context: 32, fiveHour: { percent: 11, resetsAt }, week: { percent: 61 }, cacheLeftMs: 50 * 60_000, helpers: 0, now }
+    // The slot is padded with figure spaces to one width; trim them to compare.
+    const plain = (s: string) => s.replace(/\u2007+$/, '')
+    expect(plain(statusLine(calm))).toBe('ctx 32% | 5h 11% | 7d 61% | 5h resets 4:30p')
+    expect(plain(statusLine({ ...calm, fiveHour: { percent: 82, resetsAt } }))).toBe('ctx 32% | 5h 82% until 4:30p | 7d 61% | cache warm 50m')
+    expect(plain(statusLine({ ...calm, cacheLeftMs: 4 * 60_000 }))).toBe('ctx 32% | 5h 11% | 7d 61% | cache 4m left')
+    expect(plain(statusLine({ ...calm, cacheLeftMs: 0 }))).toBe('ctx 32% | 5h 11% | 7d 61% | cache cold')
+    // A slow ticker: the last slot cycles through calm facts.
+    const weekAt = new Date(now + 3 * 86_400_000).toISOString()
+    const facts = { ...calm, week: { percent: 61, resetsAt: weekAt }, current: 'Building the ticker', otherBusy: 1 }
+    const lines = [0, 1, 2, 3, 4, 5].map(tick => statusLine({ ...facts, tick }))
+    // One length every turn: the anchored limits never move.
+    expect(new Set(lines.map(l => l.length)).size).toBe(1)
+    const slots = lines.map(l => plain(l.split(' | ')[3] ?? ''))
+    expect(slots.slice(0, 5)).toEqual(['5h resets 4:30p', `7d resets ${new Date(weekAt).toLocaleDateString('en-US', { weekday: 'short' })} 2p`, 'cache warm 50m', 'now: Building the tic…', '1 other session busy'])
+    expect(slots[5]).toBe(slots[0])
+    // Urgent items stay pinned: no slot is left for the ticker.
+    expect(plain(statusLine({ ...facts, cacheLeftMs: 0, helpers: 1, tick: 3 }))).toBe('ctx 32% | 5h 11% | 7d 61% | cache cold')
+    expect(statusLine({ ...facts, cacheLeftMs: 0, tick: 3 }).length).toBe(lines[0]?.length)
+    // A long item is trimmed to the slot, never widening the line.
+    expect(fitSlot('now: a task with a very long description')).toBe('now: a task with a ve…')
+    expect(fitSlot('ok').length).toBe(TICKER_SLOT)
+    // Never more than four items, whatever is going on.
+    expect(statusLine({ ...calm, cacheLeftMs: 0, helpers: 2, etaLeftMs: 6 * 60_000 }).split(' | ')).toHaveLength(4)
+    expect(statusLine({ helpers: 0, now })).toBe('command center')
+  })
+
+  test('a failed move says why in plain words', async () => {
+    const clixml = '#< CLIXML <Objs><S S="Error">The process cannot access the file because it is being used by another process._x000D__x000A_</S></Objs>'
+    expect(moveFailure(clixml)).toBe('it is open in another window or app; close it there first')
+    expect(moveFailure("Exception calling Move: 'already exists at the destination'")).toBe('a file with that name is already there')
+    expect(moveFailure('#< CLIXML <S S="Error">Something odd</S>')).toBe('Something odd')
+  })
+
+  test('a long project folder name is found by its 200-character prefix', async () => {
+    const cwd = `C:\\${'deep\\'.repeat(50)}app`
+    const name = cwd.replace(/[^A-Za-z0-9]/g, '-')
+    const real = `${name.slice(0, 200)}-1x2y3z`
+    expect(projectDirFor(cwd, ['other', real])).toBe(real)
+    expect(projectDirFor('C:\\short', [])).toBe('C--short')
+    expect(transcriptPath('H', cwd, 'id', [real])).toBe(`H/.claude/projects/${real}/id.jsonl`)
   })
 })
 
@@ -169,6 +235,72 @@ describe('hooks', () => {
     const ui = await $.ui.mount({ ...mount(160), surface: 'terminal' })
     expect(await ui.find({ text: /run tests/ })).toBeDefined()
     expect(await ui.find({ text: /0 edits · 1 run · 1 error/ })).toBeDefined()
+    await ui.unmount()
+  })
+
+  test('Refresh reads everything again and shows the 5h reset time', async ($, on) => {
+    const clock = mock.clock(on)
+    mock.store(on)
+    mock.env(on, { USERPROFILE: 'C:/home', OS: 'Windows_NT' })
+    const resetsAt = Math.round((clock.now() + 2 * 3_600_000) / 1000)
+    let usageReads = 0
+    on('session.usage', () => {
+      usageReads++
+      return { value: { startedAt: 0, context: { percent: 10 }, rateLimits: [{ kind: 'five_hour', percentUsed: 40, resetsAt }] } } as never
+    })
+    const ui = await $.ui.mount({ ...mount(160), surface: 'desktop' })
+    await ui.press({ key: 'refresh-all' })
+    expect(usageReads).toBeGreaterThan(0)
+    expect(await ui.find({ text: /5h ↻ \d/ })).toBeDefined()
+    await ui.unmount()
+  })
+
+  test('icons press like their labels, a ring explains its limit, and the status line uses pipes', async ($, on) => {
+    const clock = mock.clock(on)
+    mock.store(on)
+    mock.env(on, { USERPROFILE: 'C:/home', OS: 'Windows_NT' })
+    const toasts: string[] = []
+    const statuses: (string | undefined)[] = []
+    on('ui.toast', (_$, e) => (toasts.push(e.text), { value: undefined }) as never)
+    on('ui.status', (_$, e) => (statuses.push(e.text), { value: undefined }) as never)
+    on('session.measure', (_$, e) => ({ changed: e.changed }))
+    const resetsAt = new Date(clock.now() + 2 * 3_600_000).toISOString()
+    await $.session.measure({ context: { window: 200_000, percent: 28 }, rateLimits: [{ kind: 'five_hour', percentUsed: 6, resetsAt }, { kind: 'seven_day', percentUsed: 61, resetsAt }], changed: ['rateLimits'] } as never)
+    const ui = await $.ui.mount({ ...mount(160), surface: 'desktop' })
+
+    // The Columns icon switches the layout, as the word beside it does.
+    await ui.press({ key: 'layout-columns-icon' })
+    expect(await ui.find({ key: 'layout-columns-icon' })).toBeDefined()
+    await ui.press({ key: 'layout-rows-icon' })
+    expect(await ui.find({ key: 'gauge-ring-5h' })).toBeDefined()
+
+    // The ring, with its figure inside, says what it means.
+    await ui.press({ key: 'gauge-ring-5h' })
+    expect(toasts.some(t => /^5h limit: 6% used\. Resets .+\(in 2h 0m\)\.$/.test(t))).toBe(true)
+
+    const line = statuses.filter(Boolean).pop() ?? ''
+    expect(line).toContain('|')
+    // One lean line: the reset as a short clock time, no line breaks.
+    expect(line).toMatch(/^ctx 28% \| 5h 6% \| 7d 61% \| 5h resets \d/)
+    expect(line).not.toContain('\n')
+    expect(line.length).toBeLessThan(50)
+    expect(line).not.toContain('↻')
+    expect(line).not.toContain('·')
+    await ui.unmount()
+  })
+
+  test('a narrow pane lists the limits as rows, each with its reset time', async ($, on) => {
+    const clock = mock.clock(on)
+    mock.store(on)
+    mock.env(on, { USERPROFILE: 'C:/home', OS: 'Windows_NT' })
+    on('session.measure', (_$, e) => ({ changed: e.changed }))
+    const resetsAt = new Date(clock.now() + 2 * 3_600_000).toISOString()
+    await $.session.measure({ context: { window: 200_000, percent: 27 }, rateLimits: [{ kind: 'five_hour', percentUsed: 12, resetsAt }, { kind: 'seven_day', percentUsed: 60, resetsAt }], changed: ['rateLimits'] } as never)
+    const ui = await $.ui.mount({ ...mount(45), surface: 'desktop' })
+    expect(await ui.find({ text: /^5h {2}↻ \d/ })).toBeDefined()
+    expect(await ui.find({ text: /^Weekly {2}↻ \d/ })).toBeDefined()
+    expect(await ui.find({ text: '60%' })).toBeDefined()
+    expect(await ui.find({ text: /│/ })).toBeUndefined()
     await ui.unmount()
   })
 

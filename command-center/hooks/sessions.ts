@@ -115,8 +115,18 @@ export function cacheLeft(lastAt: number | undefined, now: number, ttlMs: number
   return Math.max(0, lastAt + ttlMs - now)
 }
 
-// Where Claude Code keeps a session's transcript: the cwd with every
-// character but letters and digits turned into a dash.
-export function transcriptPath(home: string, cwd: string, sessionId: string): string {
-  return `${home}/.claude/projects/${cwd.replace(/[^A-Za-z0-9]/g, '-')}/${sessionId}.jsonl`
+// The project folder Claude Code keeps a session's transcript in: the cwd
+// with every character but letters and digits turned into a dash. A name
+// past 200 characters is cut to 200 and given `-<hash>`, so it is matched
+// against the folders there by that prefix.
+export function projectDirFor(cwd: string, dirs: readonly string[] = []): string {
+  const name = cwd.replace(/[^A-Za-z0-9]/g, '-')
+  if (name.length <= 200) return name
+  const prefix = `${name.slice(0, 200)}-`
+
+  return dirs.find(d => d.startsWith(prefix)) ?? name
+}
+
+export function transcriptPath(home: string, cwd: string, sessionId: string, dirs?: readonly string[]): string {
+  return `${home}/.claude/projects/${projectDirFor(cwd, dirs)}/${sessionId}.jsonl`
 }
