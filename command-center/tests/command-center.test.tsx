@@ -249,11 +249,11 @@ describe('hooks', () => {
     expect(toasts.some(t => /^5h limit: 6% used\. Resets .+\(in 2h 0m\)\.$/.test(t))).toBe(true)
 
     const line = statuses.filter(Boolean).pop() ?? ''
-    expect(line).toContain(' | ')
+    expect(line).toContain('|')
     // One lean line: the reset as a short clock time, no line breaks.
-    expect(line).toMatch(/^ctx 28% \| 5h 6% \(\d{1,2}(:\d\d)?[ap]\) \| 7d 61%/)
+    expect(line).toMatch(/^ctx 28%\|5h 6% \d{1,2}(:\d\d)?[ap]\|7d 61%/)
     expect(line).not.toContain('\n')
-    expect(line.length).toBeLessThan(60)
+    expect(line.length).toBeLessThan(45)
     expect(line).not.toContain('↻')
     expect(line).not.toContain('·')
     await ui.unmount()

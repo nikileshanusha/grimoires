@@ -451,14 +451,14 @@ async function refreshStatus($: EngineInterface) {
   const m = await read($, measure)
   const running = (await read($, agents)).filter(a => a.endedAt === undefined).length
   // One lean line, so it fits beside the model picker:
-  // "ctx 32% | 5h 11% (10:40p) | 7d 61% | warm 52m". Helpers and the ETA
+  // "ctx 32%|5h 11% 10:40p|7d 61%|warm 52m". Helpers and the ETA
   // join only while there are any.
   const parts: string[] = []
   if (m.context !== undefined) parts.push(`ctx ${Math.round(m.context)}%`)
   const fiveHour = m.limits.find(l => /five|5h/i.test(l.kind))
   if (fiveHour) {
     const at = fiveHour.resetsAt ? Date.parse(fiveHour.resetsAt) : NaN
-    parts.push(`5h ${Math.round(fiveHour.percent)}%${Number.isFinite(at) ? ` (${fmtClockShort(at)})` : ''}`)
+    parts.push(`5h ${Math.round(fiveHour.percent)}%${Number.isFinite(at) ? ` ${fmtClockShort(at)}` : ''}`)
   }
   const week = m.limits.find(l => /seven|week|7d/i.test(l.kind))
   if (week) parts.push(`7d ${Math.round(week.percent)}%`)
@@ -472,7 +472,7 @@ async function refreshStatus($: EngineInterface) {
   const list = await read($, todos)
   const est = eta(list, await $.clock.now(), await stored<number | undefined>($, STORE.taskMedianMs, undefined))
   if (est.leftMs !== undefined && est.done < est.total) parts.push(`~${fmtDuration(est.leftMs)}`)
-  $.ui.status(parts.length > 0 ? parts.join(' | ') : '/cc')
+  $.ui.status(parts.length > 0 ? parts.join('|') : '/cc')
 }
 
 // Asks for the usage figures directly: a fresh or reloaded session has had
