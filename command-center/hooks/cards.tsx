@@ -571,7 +571,7 @@ export function GaugesBody(k: Kit, d: Data, compact = false): RenderNode[] {
         <Button key={`gauge-name-${g.label}`} plain onPress={about}>
           <Text wrap="truncate-end">
             {g.label}
-            {resets ? <Text dimColor>{`  ↻ ${resets}`}</Text> : ''}
+            {resets ? <Text dimColor>{` · resets ${resets}`}</Text> : ''}
           </Text>
         </Button>,
         <Button key={`gauge-figure-${g.label}`} plain onPress={about}>
@@ -602,7 +602,7 @@ export function GaugesBody(k: Kit, d: Data, compact = false): RenderNode[] {
                 <Text dimColor wrap="truncate-end">{g.label}</Text>
               </Button>
             </Box>
-            {resets ? <Text dimColor wrap="truncate-end">{`↻ ${resets}`}</Text> : null}
+            {resets ? <Text dimColor wrap="truncate-end">{`resets ${resets}`}</Text> : null}
           </Box>
         )
       })}
@@ -1101,7 +1101,7 @@ export function GaugeLines(k: Kit, d: Data): RenderNode[] {
       k,
       k.tap(`line-icon-${g.label}`, k.icon(g.icon, g.calm, 12), about),
       <Button key={`line-name-${g.label}`} plain onPress={about}>
-        <Text dimColor wrap="truncate-end">{resets ? `${g.label} ↻ ${resets}` : g.label}</Text>
+        <Text dimColor wrap="truncate-end">{resets ? `${g.label} · resets ${resets}` : g.label}</Text>
       </Button>,
       <Button key={`line-figure-${g.label}`} plain onPress={about}>
         <Text color={color}>{`${bar(g.percent, 6)} ${Math.round(g.percent)}%`}</Text>
