@@ -141,3 +141,12 @@ export function mergeLimits<L extends { kind: string; resetsAt?: string }>(prev:
     return old && Date.parse(old) > now ? { ...l, resetsAt: old } : l
   })
 }
+
+// A clock time at its shortest, for the status line: "10:40p", "9a".
+export function fmtClockShort(at: number): string {
+  const d = new Date(at)
+  const h = d.getHours() % 12 === 0 ? 12 : d.getHours() % 12
+  const m = d.getMinutes()
+
+  return `${h}${m === 0 ? '' : `:${String(m).padStart(2, '0')}`}${d.getHours() < 12 ? 'a' : 'p'}`
+}
