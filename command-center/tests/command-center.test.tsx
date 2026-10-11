@@ -125,11 +125,19 @@ describe('sessions', () => {
   test('the status line is calm, and adds only what needs attention', async () => {
     const now = Date.parse('2026-10-11T14:00:00')
     const resetsAt = new Date(now + 2.5 * 3_600_000).toISOString()
-    const calm = { context: 32, fiveHour: { percent: 11, resetsAt }, week: 61, cacheLeftMs: 50 * 60_000, helpers: 0, now }
-    expect(statusLine(calm)).toBe('ctx 32% | 5h 11% | 7d 61%')
-    expect(statusLine({ ...calm, fiveHour: { percent: 82, resetsAt } })).toBe('ctx 32% | 5h 82% until 4:30p | 7d 61%')
+    const calm = { context: 32, fiveHour: { percent: 11, resetsAt }, week: { percent: 61 }, cacheLeftMs: 50 * 60_000, helpers: 0, now }
+    expect(statusLine(calm)).toBe('ctx 32% | 5h 11% | 7d 61% | 5h resets 4:30p')
+    expect(statusLine({ ...calm, fiveHour: { percent: 82, resetsAt } })).toBe('ctx 32% | 5h 82% until 4:30p | 7d 61% | cache warm 50m')
     expect(statusLine({ ...calm, cacheLeftMs: 4 * 60_000 })).toBe('ctx 32% | 5h 11% | 7d 61% | cache 4m left')
     expect(statusLine({ ...calm, cacheLeftMs: 0 })).toBe('ctx 32% | 5h 11% | 7d 61% | cache cold')
+    // A slow ticker: the last slot cycles through calm facts.
+    const weekAt = new Date(now + 3 * 86_400_000).toISOString()
+    const facts = { ...calm, week: { percent: 61, resetsAt: weekAt }, current: 'Building the ticker', otherBusy: 1 }
+    const slots = [0, 1, 2, 3, 4, 5].map(tick => statusLine({ ...facts, tick }).split(' | ')[3])
+    expect(slots.slice(0, 5)).toEqual(['5h resets 4:30p', `7d resets ${new Date(weekAt).toLocaleDateString('en-US', { weekday: 'short' })} 2p`, 'cache warm 50m', 'now: Building the ticker', '1 other session busy'])
+    expect(slots[5]).toBe(slots[0])
+    // Urgent items stay pinned: no slot is left for the ticker.
+    expect(statusLine({ ...facts, cacheLeftMs: 0, helpers: 1, tick: 3 })).toBe('ctx 32% | 5h 11% | 7d 61% | cache cold')
     // Never more than four items, whatever is going on.
     expect(statusLine({ ...calm, cacheLeftMs: 0, helpers: 2, etaLeftMs: 6 * 60_000 }).split(' | ')).toHaveLength(4)
     expect(statusLine({ helpers: 0, now })).toBe('command center')
@@ -264,7 +272,7 @@ describe('hooks', () => {
     const line = statuses.filter(Boolean).pop() ?? ''
     expect(line).toContain('|')
     // One lean line: the reset as a short clock time, no line breaks.
-    expect(line).toBe('ctx 28% | 5h 6% | 7d 61%')
+    expect(line).toMatch(/^ctx 28% \| 5h 6% \| 7d 61% \| 5h resets \d/)
     expect(line).not.toContain('\n')
     expect(line.length).toBeLessThan(50)
     expect(line).not.toContain('↻')

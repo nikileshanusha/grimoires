@@ -447,23 +447,33 @@ async function spawnHelper($: EngineInterface, helper: string, task: string) {
 
 // ── Status line and alerts ─────────────────────────────────────────────────
 
+// The status line's ticker slot moves on by one item every few seconds.
+const TICKER_MS = 6_000
+let tickerAt = 0
+
 async function refreshStatus($: EngineInterface) {
   const m = await read($, measure)
   const running = (await read($, agents)).filter(a => a.endedAt === undefined).length
   const now = await $.clock.now()
   const fiveHour = m.limits.find(l => /five|5h/i.test(l.kind))
   const week = m.limits.find(l => /seven|week|7d/i.test(l.kind))
-  const here = (await read($, live)).find(s => s.isHere)
+  const sessions = await read($, live)
+  const here = sessions.find(s => s.isHere)
   const cacheLeftMs = here?.isBusy ? undefined : here?.lastAt !== undefined ? cacheLeft(here.lastAt, now, here.cacheTtlMs ?? defaultTtl) : undefined
-  const est = eta(await read($, todos), now, await stored<number | undefined>($, STORE.taskMedianMs, undefined))
+  const list = await read($, todos)
+  const est = eta(list, now, await stored<number | undefined>($, STORE.taskMedianMs, undefined))
+  const current = list.find(t => t.status === 'in_progress')?.activeForm
   $.ui.status(
     statusLine({
       context: m.context,
       fiveHour: fiveHour ? { percent: fiveHour.percent, resetsAt: fiveHour.resetsAt } : undefined,
-      week: week?.percent,
+      week: week ? { percent: week.percent, resetsAt: week.resetsAt } : undefined,
       cacheLeftMs,
       helpers: running,
       etaLeftMs: est.leftMs !== undefined && est.done < est.total ? est.leftMs : undefined,
+      otherBusy: sessions.filter(s => !s.isHere && s.isBusy).length,
+      current,
+      tick: tickerAt,
       now,
     }),
   )
@@ -782,7 +792,11 @@ export const register: Register = on => {
       void readUsage($)
     })
     $.clock.every(10_000, () => void refreshLive($))
-    $.clock.every(5_000, () => void refreshAgents($).then(() => refreshStatus($)))
+    $.clock.every(5_000, () => void refreshAgents($))
+    $.clock.every(TICKER_MS, () => {
+      tickerAt++
+      void refreshStatus($)
+    })
     void refreshLive($).then(() => refreshPast($))
     void deriveMission($)
     // The status line and gauges fill at once, not only after the next reply.

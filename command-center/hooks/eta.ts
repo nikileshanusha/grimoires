@@ -154,17 +154,47 @@ export function fmtClockShort(at: number): string {
 export type StatusFacts = {
   context?: number
   fiveHour?: { percent: number; resetsAt?: string }
-  week?: number
+  week?: { percent: number; resetsAt?: string }
   // Cache time left in ms; 0 when cold; undefined before the first reply.
   cacheLeftMs?: number
   helpers: number
   etaLeftMs?: number
+  // Other sessions on the machine working right now.
+  otherBusy?: number
+  // What is being worked on, in a few words.
+  current?: string
+  // Which ticker item shows: it moves on by one every few seconds.
+  tick?: number
   now: number
 }
 
-// The status line under the prompt: calm by default, the three limits with
-// room between them; an extra joins only while it needs attention, and the
-// line never holds more than four items.
+const TICKER_CURRENT_CHARS = 28
+
+// "Mon 1:30a" a day or more out, "10:40p" the same day.
+function whenShort(at: number, now: number): string {
+  const sameDay = new Date(at).toDateString() === new Date(now).toDateString()
+
+  return sameDay ? fmtClockShort(at) : `${new Date(at).toLocaleDateString('en-US', { weekday: 'short' })} ${fmtClockShort(at)}`
+}
+
+// What the ticker slot cycles through, calm facts only; the urgent ones
+// are pinned instead and never rotate away.
+export function tickerItems(f: StatusFacts): string[] {
+  const out: string[] = []
+  const at5 = f.fiveHour?.resetsAt ? Date.parse(f.fiveHour.resetsAt) : NaN
+  if (f.fiveHour && Math.round(f.fiveHour.percent) < 70 && Number.isFinite(at5) && at5 > f.now) out.push(`5h resets ${whenShort(at5, f.now)}`)
+  const at7 = f.week?.resetsAt ? Date.parse(f.week.resetsAt) : NaN
+  if (Number.isFinite(at7) && at7 > f.now) out.push(`7d resets ${whenShort(at7, f.now)}`)
+  if (f.cacheLeftMs !== undefined && f.cacheLeftMs >= 10 * 60_000) out.push(`cache warm ${fmtDuration(f.cacheLeftMs)}`)
+  if (f.current) out.push(`now: ${f.current.length > TICKER_CURRENT_CHARS ? `${f.current.slice(0, TICKER_CURRENT_CHARS - 1)}…` : f.current}`)
+  if (f.otherBusy) out.push(`${f.otherBusy} other session${f.otherBusy === 1 ? '' : 's'} busy`)
+
+  return out
+}
+
+// The status line under the prompt, a slow ticker: the three limits stay
+// put, anything that needs attention is pinned after them, and one last slot
+// cycles through calm facts. Never more than four items.
 export function statusLine(f: StatusFacts): string {
   const base: string[] = []
   if (f.context !== undefined) base.push(`ctx ${Math.round(f.context)}%`)
@@ -174,16 +204,18 @@ export function statusLine(f: StatusFacts): string {
     // The reset time matters once the window is running out.
     base.push(pct >= 70 && Number.isFinite(at) ? `5h ${pct}% until ${fmtClockShort(at)}` : `5h ${pct}%`)
   }
-  if (f.week !== undefined) base.push(`7d ${Math.round(f.week)}%`)
+  if (f.week) base.push(`7d ${Math.round(f.week.percent)}%`)
 
-  const extras: string[] = []
+  const pinned: string[] = []
   if (f.cacheLeftMs !== undefined && f.cacheLeftMs < 10 * 60_000) {
-    extras.push(f.cacheLeftMs > 0 ? `cache ${fmtDuration(f.cacheLeftMs)} left` : 'cache cold')
+    pinned.push(f.cacheLeftMs > 0 ? `cache ${fmtDuration(f.cacheLeftMs)} left` : 'cache cold')
   }
-  if (f.helpers > 0) extras.push(`${f.helpers} helper${f.helpers === 1 ? '' : 's'}`)
-  if (f.etaLeftMs !== undefined) extras.push(`~${fmtDuration(f.etaLeftMs)} left`)
+  if (f.helpers > 0) pinned.push(`${f.helpers} helper${f.helpers === 1 ? '' : 's'}`)
+  if (f.etaLeftMs !== undefined) pinned.push(`~${fmtDuration(f.etaLeftMs)} left`)
 
-  const items = [...base, ...extras].slice(0, 4)
+  const items = [...base, ...pinned].slice(0, 4)
+  const ticker = tickerItems(f)
+  if (items.length < 4 && ticker.length > 0) items.push(ticker[(f.tick ?? 0) % ticker.length] ?? '')
 
   return items.length > 0 ? items.join(' | ') : 'command center'
 }
