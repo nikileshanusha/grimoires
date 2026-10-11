@@ -58,25 +58,33 @@ function TopBar(k: Kit, d: Data): RenderNode {
     others.length > 0 ? `${others.length} other session${others.length === 1 ? '' : 's'}${busy > 0 ? `, ${busy} busy` : ''}` : undefined,
   ].filter(Boolean)
 
-  return (
-    <Box flexDirection="row" flexWrap="wrap" alignItems="center" columnGap={2} paddingX={1}>
+  // Two rows that never tangle: what is going on and Refresh, then the
+  // switches. Each row wraps on its own, with no dividers left dangling.
+  const status = (
+    <Box flexDirection="row" alignItems="center" gap={1}>
       {k.icon('sparkles', C.mission, 13)}
-      <Text dimColor>{summary.length > 0 ? summary.join(' · ') : 'All quiet'}</Text>
-      <Box flexGrow={1} />
-      <Box flexDirection="row" gap={1} alignItems="center">
+      <Box flexGrow={1} flexShrink={1} minWidth={0}>
+        <Text dimColor wrap="truncate-end">{summary.length > 0 ? summary.join(' · ') : 'All quiet'}</Text>
+      </Box>
+      <Box flexDirection="row" gap={1} alignItems="center" flexShrink={0}>
         {k.icon('refresh', C.teal, 13)}
         <Button key="refresh-all" plain onPress={() => k.act.refreshAll()}>
           <Text color={C.teal}>Refresh</Text>
         </Button>
       </Box>
-      <Text dimColor>│</Text>
+    </Box>
+  )
+
+  return (
+    <Box flexDirection="column" paddingX={1} rowGap={k.isRich ? 1 : 0}>
+      {status}
+      <Box flexDirection="row" flexWrap="wrap" alignItems="center" columnGap={2}>
       <Box flexDirection="row" gap={1} alignItems="center">
         {k.icon('sparkles', d.view.glance ? C.mission : C.muted, 13)}
         <Button key="glance-toggle" plain onPress={() => k.act.setGlance(!d.view.glance)}>
-          <Text dimColor>{d.view.glance ? 'Glance above prompt: on' : 'Glance above prompt: off'}</Text>
+          <Text dimColor>{d.view.glance ? 'Glance: on' : 'Glance: off'}</Text>
         </Button>
       </Box>
-      <Text dimColor>│</Text>
       {LAYOUTS.map(l => {
         const isOn = d.view.layout === l.id
 
@@ -91,6 +99,7 @@ function TopBar(k: Kit, d: Data): RenderNode {
           </Box>
         )
       })}
+      </Box>
     </Box>
   )
 }

@@ -225,6 +225,21 @@ describe('hooks', () => {
     await ui.unmount()
   })
 
+  test('a narrow pane lists the limits as rows, each with its reset time', async ($, on) => {
+    const clock = mock.clock(on)
+    mock.store(on)
+    mock.env(on, { USERPROFILE: 'C:/home', OS: 'Windows_NT' })
+    on('session.measure', (_$, e) => ({ changed: e.changed }))
+    const resetsAt = new Date(clock.now() + 2 * 3_600_000).toISOString()
+    await $.session.measure({ context: { window: 200_000, percent: 27 }, rateLimits: [{ kind: 'five_hour', percentUsed: 12, resetsAt }, { kind: 'seven_day', percentUsed: 60, resetsAt }], changed: ['rateLimits'] } as never)
+    const ui = await $.ui.mount({ ...mount(45), surface: 'desktop' })
+    expect(await ui.find({ text: /^5h {2}↻ \d/ })).toBeDefined()
+    expect(await ui.find({ text: /^Weekly {2}↻ \d/ })).toBeDefined()
+    expect(await ui.find({ text: '60%' })).toBeDefined()
+    expect(await ui.find({ text: /│/ })).toBeUndefined()
+    await ui.unmount()
+  })
+
   test('the sessions tabs switch between live and trash', async ($, on) => {
     engine(on)
     const ui = await $.ui.mount({ ...mount(120), surface: 'terminal' })

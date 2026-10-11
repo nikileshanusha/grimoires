@@ -514,23 +514,52 @@ export function GaugesBody(k: Kit, d: Data, compact = false): RenderNode[] {
     })
   }
 
+  // A narrow card lists the gauges, one per row on the shared grid: a small
+  // ring, the name and when it resets, then the figure.
+  if (k.cols < GAUGE_TILES_FROM) {
+    return gauges.map(g => {
+      const color = levelColor(g.percent, g.calm)
+      const resets = resetShort(g.resetsAt, d.now)
+
+      return Row(
+        k,
+        <Svg source={ringSvg(g.percent, color, 16)} alt={`${g.label} ${Math.round(g.percent)} percent`} width={16} height={16} />,
+        <Text wrap="truncate-end">
+          {g.label}
+          {resets ? <Text dimColor>{`  ↻ ${resets}`}</Text> : ''}
+        </Text>,
+        <Text color={color}>{`${Math.round(g.percent)}%`}</Text>,
+        5,
+      )
+    })
+  }
+
+  // Wider: tiles of one fixed width that wrap to a new line, never overlap.
   const size = compact ? 30 : 42
 
   return [
-    <Box flexDirection="row" justifyContent="space-around" alignItems="center" gap={2}>
-      {gauges.map(g => (
-        <Box flexDirection={compact ? 'row' : 'column'} alignItems="center" gap={compact ? 1 : 0}>
-          <Svg source={ringSvg(g.percent, levelColor(g.percent, g.calm), size)} alt={`${g.label} ${Math.round(g.percent)} percent`} width={size} height={size} />
-          <Box flexDirection="row" gap={1} alignItems="center">
-            {k.icon(g.icon, g.calm, 12)}
-            <Text dimColor>{g.label}</Text>
+    <Box flexDirection="row" flexWrap="wrap" justifyContent="space-around" columnGap={2} rowGap={1}>
+      {gauges.map(g => {
+        const resets = resetShort(g.resetsAt, d.now)
+
+        return (
+          <Box flexDirection="column" alignItems="center" width={GAUGE_TILE} flexShrink={0}>
+            <Svg source={ringSvg(g.percent, levelColor(g.percent, g.calm), size)} alt={`${g.label} ${Math.round(g.percent)} percent`} width={size} height={size} />
+            <Box flexDirection="row" gap={1} alignItems="center" maxWidth={GAUGE_TILE}>
+              {k.icon(g.icon, g.calm, 12)}
+              <Text dimColor wrap="truncate-end">{g.label}</Text>
+            </Box>
+            {resets ? <Text dimColor wrap="truncate-end">{`↻ ${resets}`}</Text> : null}
           </Box>
-          {resetShort(g.resetsAt, d.now) ? <Text dimColor>{`resets ${resetShort(g.resetsAt, d.now)}`}</Text> : null}
-        </Box>
-      ))}
+        )
+      })}
     </Box>,
   ]
 }
+
+// Under this many columns the gauges list as rows; a tile is this wide.
+const GAUGE_TILES_FROM = 64
+const GAUGE_TILE = 14
 
 // ── Actions ────────────────────────────────────────────────────────────────
 
