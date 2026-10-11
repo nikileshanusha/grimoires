@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 import { encodePs, moveFailure, moveScript, olderThan } from '../hooks/cleanup'
-import { TICKER_SLOT, eta, fitSlot, median, mergeLimits, mergeTodos, statusLine, toResetIso } from '../hooks/eta'
+import { TICKER_SLOT, eta, fitSlot, median, mergeLimits, mergeTodos, paceOf, statusLine, toResetIso } from '../hooks/eta'
 import { fitLayout } from '../hooks/layouts'
 import { groupFeed, resetText } from '../hooks/cards'
 import { flowWindow, nextLine, parseMission, purposeFrom, stepsFor } from '../hooks/mission'
@@ -139,7 +139,8 @@ describe('sessions', () => {
     // One length every turn: the anchored limits never move.
     expect(new Set(lines.map(l => l.length)).size).toBe(1)
     const slots = lines.map(l => plain(l.split(' | ')[3] ?? ''))
-    expect(slots.slice(0, 5)).toEqual(['5h resets 4:30p', `7d resets ${new Date(weekAt).toLocaleDateString('en-US', { weekday: 'short' })} 2p`, 'cache warm 50m', 'now: Building the tic…', '1 other session busy'])
+    // 61% used with 57% of the week gone: within 5 points, on pace.
+    expect(slots.slice(0, 5)).toEqual(['5h resets 4:30p', '7d on pace', 'cache warm 50m', 'now: Building the tic…', '1 other session busy'])
     expect(slots[5]).toBe(slots[0])
     // Urgent items stay pinned: no slot is left for the ticker.
     expect(plain(statusLine({ ...facts, cacheLeftMs: 0, helpers: 1, tick: 3 }))).toBe('ctx 32% | 5h 11% | 7d 61% | cache cold')
@@ -150,6 +151,18 @@ describe('sessions', () => {
     // Never more than four items, whatever is going on.
     expect(statusLine({ ...calm, cacheLeftMs: 0, helpers: 2, etaLeftMs: 6 * 60_000 }).split(' | ')).toHaveLength(4)
     expect(statusLine({ helpers: 0, now })).toBe('command center')
+  })
+
+  test('weekly pacing compares usage with how much of the week has gone', async () => {
+    const now = Date.parse('2026-10-11T12:00:00Z')
+    const resetsIn = (days: number) => new Date(now + days * 86_400_000).toISOString()
+    // 3.5 days left: half the week gone.
+    expect(paceOf(50, resetsIn(3.5), now)).toEqual({ diff: 0, text: 'on pace' })
+    expect(paceOf(63, resetsIn(3.5), now)).toEqual({ diff: 13, text: '13% over pace' })
+    expect(paceOf(30, resetsIn(3.5), now)).toEqual({ diff: -20, text: '20% under pace' })
+    expect(paceOf(54, resetsIn(3.5), now)?.text).toBe('on pace')
+    expect(paceOf(50, undefined, now)).toBe(undefined)
+    expect(paceOf(50, resetsIn(-1), now)).toBe(undefined)
   })
 
   test('a failed move says why in plain words', async () => {
@@ -299,7 +312,8 @@ describe('hooks', () => {
     await $.session.measure({ context: { window: 200_000, percent: 27 }, rateLimits: [{ kind: 'five_hour', percentUsed: 12, resetsAt }, { kind: 'seven_day', percentUsed: 60, resetsAt }], changed: ['rateLimits'] } as never)
     const ui = await $.ui.mount({ ...mount(45), surface: 'desktop' })
     expect(await ui.find({ text: /^5h · resets \d/ })).toBeDefined()
-    expect(await ui.find({ text: /^Weekly · resets \w/ })).toBeDefined()
+    // The weekly row shows pacing, not its reset day: 60% used, 99% gone.
+    expect(await ui.find({ text: /^Weekly · 39% under pace$/ })).toBeDefined()
     expect(await ui.find({ text: /↻/ })).toBeUndefined()
     expect(await ui.find({ text: '60%' })).toBeDefined()
     expect(await ui.find({ text: /│/ })).toBeUndefined()

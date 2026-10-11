@@ -14,7 +14,7 @@ import type {
   TrashItem,
   View,
 } from '../types'
-import { eta, fmtAgo, fmtDuration, fmtSize, fmtTimeOfDay } from './eta'
+import { eta, fmtAgo, fmtDuration, fmtSize, fmtTimeOfDay, paceOf } from './eta'
 import type { IconName } from './icons'
 import { BUILT_IN_ACTIONS, HELPERS, helperOf } from './ops'
 import type { Act } from './ops'
@@ -316,10 +316,12 @@ export function BarNode(k: Kit, d: Data, max = 5): RenderNode | null {
     )
   })()
 
+  // The controls sit above the picture: earlier steps are above, and a
+  // picture taller than its box can never cover them there.
   return (
     <Box flexDirection="column" marginY={k.isRich ? 1 : 0}>
-      {body}
       {FlowScroll(k, back, before, after)}
+      {body}
     </Box>
   )
 }
@@ -533,9 +535,30 @@ export function resetShort(resetsAt: string | undefined, now: number): string | 
 export function limitDetail(g: { label: string; percent: number; resetsAt?: string }, now: number): string {
   const pct = Math.round(g.percent)
   if (g.label === 'Context') return `Context window ${pct}% full.${pct >= 70 ? ' A /compact soon keeps things sharp.' : ''}`
+  if (g.label === 'Weekly') {
+    const pace = paceOf(g.percent, g.resetsAt, now)
+    const at = g.resetsAt ? Date.parse(g.resetsAt) : NaN
+    const gone = Number.isFinite(at) ? Math.round(Math.min(100, Math.max(0, (1 - (at - now) / (7 * 86_400_000)) * 100))) : undefined
+
+    return gone !== undefined && pace ? `Weekly limit: ${pct}% used with ${gone}% of the week gone: ${pace.text}.` : `Weekly limit: ${pct}% used.`
+  }
   const resets = g.resetsAt ? ` Resets ${resetText(g.resetsAt, now)}.` : ' No reset time reported yet.'
 
-  return `${g.label === 'Weekly' ? 'Weekly limit' : `${g.label} limit`}: ${pct}% used.${resets}`
+  return `${g.label} limit: ${pct}% used.${resets}`
+}
+
+// The small note beside a gauge: the weekly window says how the pace is
+// going (its reset day is known), the others when they reset.
+export function gaugeNote(g: { label: string; percent: number; resetsAt?: string }, now: number): { text: string; color?: string } | undefined {
+  if (g.label === 'Weekly') {
+    const pace = paceOf(g.percent, g.resetsAt, now)
+    if (!pace) return undefined
+
+    return { text: pace.text, color: pace.diff >= 10 ? C.amber : undefined }
+  }
+  const resets = resetShort(g.resetsAt, now)
+
+  return resets ? { text: `resets ${resets}` } : undefined
 }
 
 export function GaugesBody(k: Kit, d: Data, compact = false): RenderNode[] {
@@ -545,11 +568,10 @@ export function GaugesBody(k: Kit, d: Data, compact = false): RenderNode[] {
 
   if (!k.isRich) {
     return gauges.map(g => {
-      const resets = resetShort(g.resetsAt, d.now)
-
+      const note = gaugeNote(g, d.now)
       const about = () => k.act.aboutLimit(limitDetail(g, d.now))
 
-      return Row(k, k.tap(`gauge-icon-${g.label}`, k.icon(g.icon, levelColor(g.percent, g.calm)), about), <Text>{resets ? `${g.label} · resets ${resets}` : g.label}</Text>, (
+      return Row(k, k.tap(`gauge-icon-${g.label}`, k.icon(g.icon, levelColor(g.percent, g.calm)), about), <Text>{note ? `${g.label} · ${note.text}` : g.label}</Text>, (
         <Button key={`gauge-figure-${g.label}`} plain onPress={about}>
           <Text color={levelColor(g.percent, g.calm)}>{`${bar(g.percent, 10)} ${Math.round(g.percent)}%`}</Text>
         </Button>
@@ -562,16 +584,17 @@ export function GaugesBody(k: Kit, d: Data, compact = false): RenderNode[] {
   if (k.cols < GAUGE_TILES_FROM) {
     return gauges.map(g => {
       const color = levelColor(g.percent, g.calm)
-      const resets = resetShort(g.resetsAt, d.now)
+      const note = gaugeNote(g, d.now)
       const about = () => k.act.aboutLimit(limitDetail(g, d.now))
 
+      // Too small for a figure inside: the figure stands at the row's end.
       return Row(
         k,
-        k.tap(`gauge-ring-${g.label}`, <Svg source={ringSvg(g.percent, color, 16)} alt={`${g.label} ${Math.round(g.percent)} percent`} width={16} height={16} />, about),
+        k.tap(`gauge-ring-${g.label}`, <Svg source={ringSvg(g.percent, color, 18, false)} alt={`${g.label} ${Math.round(g.percent)} percent`} width={18} height={18} />, about),
         <Button key={`gauge-name-${g.label}`} plain onPress={about}>
           <Text wrap="truncate-end">
             {g.label}
-            {resets ? <Text dimColor>{` · resets ${resets}`}</Text> : ''}
+            {note ? <Text dimColor={!note.color} color={note.color}>{` · ${note.text}`}</Text> : ''}
           </Text>
         </Button>,
         <Button key={`gauge-figure-${g.label}`} plain onPress={about}>
@@ -583,12 +606,13 @@ export function GaugesBody(k: Kit, d: Data, compact = false): RenderNode[] {
   }
 
   // Wider: tiles of one fixed width that wrap to a new line, never overlap.
-  const size = compact ? 30 : 42
+  // Large enough that the figure inside reads at a glance.
+  const size = compact ? 44 : 56
 
   return [
     <Box flexDirection="row" flexWrap="wrap" justifyContent="space-around" columnGap={2} rowGap={1}>
       {gauges.map(g => {
-        const resets = resetShort(g.resetsAt, d.now)
+        const note = gaugeNote(g, d.now)
         const about = () => k.act.aboutLimit(limitDetail(g, d.now))
         // The ring and the figure inside it: about 8 pixels a cell, 16 a row.
         const ring = <Svg source={ringSvg(g.percent, levelColor(g.percent, g.calm), size)} alt={`${g.label} ${Math.round(g.percent)} percent`} width={size} height={size} />
@@ -602,7 +626,7 @@ export function GaugesBody(k: Kit, d: Data, compact = false): RenderNode[] {
                 <Text dimColor wrap="truncate-end">{g.label}</Text>
               </Button>
             </Box>
-            {resets ? <Text dimColor wrap="truncate-end">{`resets ${resets}`}</Text> : null}
+            {note ? <Text dimColor={!note.color} color={note.color} wrap="truncate-end">{note.text}</Text> : null}
           </Box>
         )
       })}
@@ -1093,15 +1117,14 @@ export function GaugeLines(k: Kit, d: Data): RenderNode[] {
   return gauges.map(g => {
     const color = levelColor(g.percent, g.calm)
 
-    const resets = resetShort(g.resetsAt, d.now)
-
+    const note = gaugeNote(g, d.now)
     const about = () => k.act.aboutLimit(limitDetail(g, d.now))
 
     return Row(
       k,
       k.tap(`line-icon-${g.label}`, k.icon(g.icon, g.calm, 12), about),
       <Button key={`line-name-${g.label}`} plain onPress={about}>
-        <Text dimColor wrap="truncate-end">{resets ? `${g.label} · resets ${resets}` : g.label}</Text>
+        <Text dimColor wrap="truncate-end">{note ? `${g.label} · ${note.text}` : g.label}</Text>
       </Button>,
       <Button key={`line-figure-${g.label}`} plain onPress={about}>
         <Text color={color}>{`${bar(g.percent, 6)} ${Math.round(g.percent)}%`}</Text>
