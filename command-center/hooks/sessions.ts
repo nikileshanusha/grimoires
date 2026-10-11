@@ -68,9 +68,10 @@ function textOf(content: unknown): string | undefined {
 }
 
 // The first real prompt names a transcript; its cwd names the project.
-export function describeTranscript(text: string): { title: string; project: string } {
+export function describeTranscript(text: string): { title: string; project: string; cwd: string } {
   let title = ''
   let project = ''
+  let cwd = ''
   for (const line of text.split('\n', 400)) {
     if (!line.trim()) continue
     let row: Record<string, unknown>
@@ -79,7 +80,10 @@ export function describeTranscript(text: string): { title: string; project: stri
     } catch {
       continue
     }
-    if (!project && typeof row.cwd === 'string') project = basename(row.cwd)
+    if (!project && typeof row.cwd === 'string') {
+      project = basename(row.cwd)
+      cwd = row.cwd
+    }
     if (!title && row.type === 'user' && !row.isMeta) {
       const said = textOf((row.message as { content?: unknown } | undefined)?.content)?.trim()
       if (said && !said.startsWith('<')) title = said.replace(/\s+/g, ' ').slice(0, 80)
@@ -87,7 +91,7 @@ export function describeTranscript(text: string): { title: string; project: stri
     if (title && project) break
   }
 
-  return { title: title || 'Untitled session', project }
+  return { title: title || 'Untitled session', project, cwd }
 }
 
 export function projectFromDir(dir: string): string {

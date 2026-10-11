@@ -75,7 +75,7 @@ describe('sessions', () => {
       JSON.stringify({ type: 'user', isMeta: true, cwd: '/home/me/margins', message: { content: '<command-name>' } }),
       JSON.stringify({ type: 'user', cwd: '/home/me/margins', message: { content: [{ type: 'text', text: 'Fix the  login\nflow' }] } }),
     ].join('\n')
-    expect(describeTranscript(lines)).toEqual({ title: 'Fix the login flow', project: 'margins' })
+    expect(describeTranscript(lines)).toEqual({ title: 'Fix the login flow', project: 'margins', cwd: '/home/me/margins' })
   })
 
   test('the prompt cache reads its lifetime from the transcript and counts down', async () => {
@@ -692,6 +692,7 @@ function machine(on: On, log: Call[] = []) {
     const argv = ((e as { argv?: string[] }).argv ?? (e as { command?: string[] }).command ?? []) as string[]
     const encoded = argv[argv.indexOf('-EncodedCommand') + 1]
     const script = encoded ? decodePs(encoded) : ''
+    record('process.run', { argv })
     record('script', { script })
     try {
       const from = fromScript(script, 'from')
@@ -1073,5 +1074,68 @@ describe('features end to end', () => {
     expect(of(log, 'ui.notify')).toHaveLength(0)
     await $.turn.complete({ answer: 'ok', durationMs: 125_000, isAborted: false, turnId: 't2', reason: 'answer' } as never)
     expect(of(log, 'ui.notify').at(-1)).toMatchObject({ text: 'Done in 2m' })
+  })
+})
+
+describe('sessions card', () => {
+  const opened = async ($: Parameters<typeof seed>[0], on: On) => {
+    const log: Call[] = []
+    machine(on, log)
+    on('tool.call', () => ({ result: {} }) as never)
+    on('session.measure', (_$, e) => ({ changed: e.changed }))
+    await seed($)
+
+    return log
+  }
+  const of = (log: Call[], event: string) => log.filter(c => c.event === event).map(c => c.e)
+  const hasBackground = (node: unknown): boolean => {
+    if (!node || typeof node !== 'object') return false
+    const el = node as El
+    if (el.type === 'Text' && el.props?.backgroundColor !== undefined) return true
+
+    return (el.children ?? []).some(hasBackground)
+  }
+
+  test('a live session opens its details: folder, where it runs, resume and open folder', async ($, on) => {
+    const log = await opened($, on)
+    const ui = await $.ui.mount({ ...PANE(160), surface: 'desktop' } as never)
+    await ui.press({ key: 'layout-rows' })
+    await ui.press({ key: 'refresh-all' })
+    // No status label sits on a background box.
+    expect(hasBackground(await ui.drawn())).toBe(false)
+    // Clear has left the table for the card's own last row.
+    expect(await ui.find({ key: 'clear-here' })).toBeDefined()
+
+    await ui.press({ key: 'session-s-other' })
+    expect(await ui.find({ text: 'Folder  C:\\proj\\app' })).toBeDefined()
+    expect(await ui.find({ text: /^Runs in {2}a terminal · process 222$/ })).toBeDefined()
+    await ui.press({ key: 'session-copy-s-other' })
+    expect(of(log, 'ui.copy').at(-1)).toMatchObject({ text: 'cd "C:\\proj\\app"; claude --resume s-other' })
+    await ui.press({ key: 'session-folder-s-other' })
+    expect(of(log, 'process.run').some(c => JSON.stringify(c).includes('explorer') && JSON.stringify(c).includes('C:\\\\proj\\\\app'))).toBe(true)
+    // The icon opens and closes it too.
+    await ui.press({ key: 'session-icon-s-other' })
+    expect(await ui.find({ key: 'session-copy-s-other' })).toBeUndefined()
+
+    // This session's details offer Clear, not a resume of itself.
+    await ui.press({ key: 'session-here' })
+    expect(await ui.find({ key: 'clear-here-details' })).toBeDefined()
+    expect(await ui.find({ key: 'session-copy-here' })).toBeUndefined()
+    await ui.unmount()
+  })
+
+  test('a past session opens its details with its own folder in the resume command', async ($, on) => {
+    const log = await opened($, on)
+    const ui = await $.ui.mount({ ...PANE(160), surface: 'desktop' } as never)
+    await ui.press({ key: 'layout-rows' })
+    await ui.press({ key: 'refresh-all' })
+    await ui.press({ key: 'tab-past' })
+    await ui.press({ key: 'past-s-old' })
+    expect(await ui.find({ text: 'An old experiment with charts' })).toBeDefined()
+    await ui.press({ key: 'past-copy-s-old' })
+    expect(of(log, 'ui.copy').at(-1)).toMatchObject({ text: 'cd "C:\\proj\\app"; claude --resume s-old' })
+    await ui.press({ key: 'session-close-past-s-old' })
+    expect(await ui.find({ key: 'past-copy-s-old' })).toBeUndefined()
+    await ui.unmount()
   })
 })

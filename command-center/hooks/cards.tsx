@@ -90,6 +90,15 @@ function tapOver(el: any, isRich: boolean, key: string, node: RenderNode, onPres
   )
 }
 
+const CHIP_TEXT: Record<ChipTone, string> = {
+  violet: C.mission,
+  coral: C.coral,
+  teal: C.teal,
+  amber: C.amber,
+  red: C.red,
+  blue: C.blue,
+}
+
 export function makeKit(act: Act, surface: RenderSurface, el: any): Kit {
   const isRich = surface !== 'terminal'
   const { Svg, Text } = el
@@ -108,12 +117,8 @@ export function makeKit(act: Act, surface: RenderSurface, el: any): Kit {
         <Text color={color}>{GLYPH[name] ?? '·'}</Text>
       ),
     tap: (key, node, onPress, cols, rows) => tapOver(el, isRich, key, node, onPress, cols, rows),
-    chip: (text, tone) =>
-      tone === 'quiet' ? (
-        <Text dimColor>{` ${text} `}</Text>
-      ) : (
-        <Text color={CHIP[tone].fg} backgroundColor={CHIP[tone].bg}>{` ${text} `}</Text>
-      ),
+    // Colored words, no background box: a pale box glares on a dark theme.
+    chip: (text, tone) => (tone === 'quiet' ? <Text dimColor>{text}</Text> : <Text color={CHIP_TEXT[tone]}>{text}</Text>),
   }
 }
 
@@ -1000,6 +1005,45 @@ function ColumnHeads(k: Kit, withSize: boolean, isWide: boolean): RenderNode {
   ])
 }
 
+const ENTRY_LABEL: Record<LiveSession['entry'], string> = { terminal: 'a terminal', ide: 'VS Code', desktop: 'the desktop app' }
+
+// What to paste in a terminal to pick a session up where it left off.
+export function resumeCommand(sessionId: string, cwd?: string): string {
+  return cwd ? `cd "${cwd}"; claude --resume ${sessionId}` : `claude --resume ${sessionId}`
+}
+
+// A session's name as one pressable line that opens its details.
+function RowButton(k: Kit, key: string, label: string, isOpen: boolean, onPress: () => void): RenderNode {
+  const { Button, Text } = k.el
+
+  return (
+    <Button key={key} plain onPress={onPress}>
+      <Text wrap="truncate-end" bold={isOpen} color={isOpen ? C.coral : undefined}>
+        {label}
+      </Text>
+    </Button>
+  )
+}
+
+// The details under an opened session: a few facts and what can be done.
+function SessionDetails(k: Kit, id: string, lines: string[], links: (RenderNode | null)[]): RenderNode {
+  const { Box, Text } = k.el
+
+  return (
+    <Box flexDirection="column" borderStyle="round" borderColor={C.coral} paddingX={1} marginLeft={GRID.icon + 1} marginBottom={k.isRich ? 1 : 0}>
+      {lines.map(l => (
+        <Text dimColor wrap="wrap">
+          {l}
+        </Text>
+      ))}
+      <Box flexDirection="row" flexWrap="wrap" columnGap={2}>
+        {links}
+        {Link(k, `session-close-${id}`, 'Close', () => k.act.setView({ openSession: undefined }))}
+      </Box>
+    </Box>
+  )
+}
+
 // `room` is the columns this card gets; narrow cards keep only the session,
 // when, and the action, with the project folded into the title.
 export function SessionsBody(k: Kit, d: Data, max = 4, room = k.cols): RenderNode[] {
@@ -1039,32 +1083,58 @@ export function SessionsBody(k: Kit, d: Data, max = 4, room = k.cols): RenderNod
         Stretch(k, head('Session')),
         Cell(k, COL.cache, head('Cache'), 'flex-end'),
         Cell(k, COL.status, head('Status'), 'flex-end'),
-        Cell(k, COL.action, <Text> </Text>),
       ]),
     )
-    for (const s of list.slice(0, max)) {
+    const shown = d.view.sessionsAll ? list : list.slice(0, max)
+    for (const s of shown) {
       const entry = s.isHere ? { icon: 'point' as IconName, color: C.mission } : ENTRY[s.entry]
       const status = s.isHere
         ? k.chip('here', 'violet')
         : s.isBusy
           ? k.chip(`busy ${fmtAgo(d.now - s.since).replace('just now', '<1m')}`, 'coral')
           : k.chip('idle', 'quiet')
+      const id = s.isHere ? 'here' : s.sessionId || `pid-${s.pid}`
+      const isOpen = d.view.openSession === id
+      const toggle = () => k.act.setView({ openSession: isOpen ? undefined : id })
       rows.push(
-        SessionLine(k, k.icon(entry.icon, entry.color), [
-          Stretch(k, trunc(s.isHere ? 'This session' : s.name)),
+        SessionLine(k, k.tap(`session-icon-${id}`, k.icon(entry.icon, entry.color), toggle), [
+          Stretch(k, RowButton(k, `session-${id}`, s.isHere ? 'This session' : s.name, isOpen, toggle)),
           Cell(k, COL.cache, cache(s.lastAt, s.cacheTtlMs, s.isBusy), 'flex-end'),
           Cell(k, COL.status, status, 'flex-end'),
-          Cell(k, COL.action, s.isHere ? Link(k, 'clear-here', 'Clear', () => k.act.askConfirm('clear'), C.redDeep) : <Text> </Text>, 'flex-end'),
         ]),
       )
+      if (isOpen) {
+        const lines = [
+          s.cwd ? `Folder  ${s.cwd}` : undefined,
+          `Runs in  ${ENTRY_LABEL[s.entry]}${s.pid ? ` · process ${s.pid}` : ''}`,
+          s.isBusy ? `Working for ${fmtAgo(d.now - s.since).replace(' ago', '')}` : `Last active ${ago(d.now - (s.lastAt ?? s.since))}`.replace('now ago', 'just now'),
+        ].filter((l): l is string => Boolean(l))
+        rows.push(
+          SessionDetails(k, id, lines, [
+            s.sessionId && !s.isHere ? Link(k, `session-copy-${id}`, 'Copy resume command', () => k.act.copy(resumeCommand(s.sessionId, s.cwd)), C.coral) : null,
+            s.cwd ? Link(k, `session-folder-${id}`, 'Open folder', () => k.act.openFolder(s.cwd), C.blue) : null,
+            s.isHere ? Link(k, 'clear-here-details', 'Clear this chat', () => k.act.askConfirm('clear'), C.red) : null,
+          ]),
+        )
+      }
     }
-    if (list.length > max) rows.push(<Text dimColor>{`+ ${list.length - max} more`}</Text>)
+    rows.push(
+      <Box flexDirection="row" gap={2} alignItems="center" marginTop={k.isRich ? 1 : 0}>
+        {list.length > max
+          ? Link(k, 'sessions-more', d.view.sessionsAll ? 'Show fewer' : `+ ${list.length - max} more`, () => k.act.setView({ sessionsAll: !d.view.sessionsAll }), C.coral)
+          : null}
+        <Box flexGrow={1} />
+        {k.tap('clear-here-icon', k.icon('trash', C.red, 13), () => k.act.askConfirm('clear'))}
+        {Link(k, 'clear-here', 'Clear this chat', () => k.act.askConfirm('clear'), C.red)}
+      </Box>,
+    )
     if (d.view.confirm === 'clear') {
       rows.push(Confirm(k, 'confirm-clear', 'Clear this chat? Your goal, notes and helpers stay.', 'Clear', () => k.act.clearSession()))
     }
   }
 
   if (tab === 'past') {
+    const togglePast = (id: string) => () => k.act.setView({ openSession: d.view.openSession === `past-${id}` ? undefined : `past-${id}` })
     const page = d.view.pastPage
     const slice = d.past.slice(page * max, page * max + max)
     if (d.past.length === 0) rows.push(<Text dimColor>No past sessions found.</Text>)
@@ -1072,9 +1142,9 @@ export function SessionsBody(k: Kit, d: Data, max = 4, room = k.cols): RenderNod
     for (const s of slice) {
       const isAsking = d.view.confirm === `delete:${s.path}`
       rows.push(
-        SessionLine(k, k.icon('history', C.coral), [
+        SessionLine(k, k.tap(`past-icon-${s.sessionId}`, k.icon('history', C.coral), togglePast(s.sessionId)), [
           ...(isWide ? [Cell(k, COL.project, dim(s.project || '—'))] : []),
-          Stretch(k, titled(s.project, s.title)),
+          Stretch(k, RowButton(k, `past-${s.sessionId}`, !isWide && s.project ? `${s.project} · ${s.title}` : s.title, d.view.openSession === `past-${s.sessionId}`, togglePast(s.sessionId))),
           Cell(k, COL.when, dim(ago(d.now - s.mtimeMs)), 'flex-end'),
           ...(isWide ? [Cell(k, COL.size, dim(fmtSize(s.size)), 'flex-end')] : []),
           Cell(k, COL.cache, cache(s.mtimeMs, s.cacheTtlMs, false, true), 'flex-end'),
@@ -1086,6 +1156,19 @@ export function SessionsBody(k: Kit, d: Data, max = 4, room = k.cols): RenderNod
           ),
         ]),
       )
+      if (d.view.openSession === `past-${s.sessionId}`) {
+        rows.push(
+          SessionDetails(
+            k,
+            `past-${s.sessionId}`,
+            [s.title, s.cwd ? `Folder  ${s.cwd}` : `Project  ${s.project || '—'}`, `Last active ${ago(d.now - s.mtimeMs)} · ${fmtSize(s.size)}`.replace('now ago', 'just now')],
+            [
+              Link(k, `past-copy-${s.sessionId}`, 'Copy resume command', () => k.act.copy(resumeCommand(s.sessionId, s.cwd)), C.coral),
+              s.cwd ? Link(k, `past-folder-${s.sessionId}`, 'Open folder', () => k.act.openFolder(s.cwd ?? ''), C.blue) : null,
+            ],
+          ),
+        )
+      }
       if (isAsking) {
         rows.push(Confirm(k, `confirm-del-${s.sessionId}`, `Move "${s.title.slice(0, 40)}" to trash? You can restore it.`, 'Delete', () => k.act.deleteSession(s.path)))
       }
