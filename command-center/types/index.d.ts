@@ -63,6 +63,8 @@ export type PastSession = {
   size: number
   isLive: boolean
   cacheTtlMs?: number
+  // The folder it ran in, from the transcript.
+  cwd?: string
 }
 
 export type TrashItem = {
@@ -95,6 +97,10 @@ export type View = {
   confirm?: string
   openActivity?: string
   flowOffset?: number
+  // The session whose details are open in the Sessions card.
+  openSession?: string
+  // The Sessions card shows every row instead of the first few.
+  sessionsAll?: boolean
 }
 
 declare module 'claude-code' {

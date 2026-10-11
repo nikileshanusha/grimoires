@@ -16,6 +16,8 @@ export type Act = {
   saveNote: (text: string) => void
   sendNote: (text: string) => void
   openNotes: () => void
+  // Shows a folder in the file manager.
+  openFolder: (path: string) => void
   setGlance: (isOn: boolean) => void
   pinMission: (text: string) => void
   unpinMission: () => void

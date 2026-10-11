@@ -6,6 +6,21 @@ you use it. Raise the version in `.claude-plugin/plugin.json` with every
 change that should reach installed copies; `claude plugin update` installs a
 new version only when this number changes.
 
+## 0.4.0 — 2026-10-11
+
+**Added**
+- Click a session (its name or icon) to open its details: the folder it
+  runs in, where it runs, when it was last active, and **Copy resume
+  command** (`cd "<folder>"; claude --resume <id>`) and **Open folder**.
+  Past sessions open the same way.
+- **+ N more** in the live list is a button that shows every session.
+
+**Fixed**
+- Status labels (here, busy, running…) are coloured words instead of a pale
+  box that glared on a dark theme.
+- **Clear this chat** has its own row at the bottom of the live list instead
+  of an unlabeled column on one row.
+
 ## 0.3.0 — 2026-10-11
 
 **Added**

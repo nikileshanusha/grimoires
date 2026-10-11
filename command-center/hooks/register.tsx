@@ -163,7 +163,7 @@ async function ttlFor($: EngineInterface, path: string, size: number): Promise<n
   }
 }
 
-type TitleCache = Record<string, { mtimeMs: number; title: string; project: string; cacheTtlMs?: number }>
+type TitleCache = Record<string, { mtimeMs: number; title: string; project: string; cacheTtlMs?: number; cwd?: string }>
 
 async function refreshPast($: EngineInterface) {
   const root = `${await homeDir($)}/.claude/projects`
@@ -203,8 +203,9 @@ async function refreshPast($: EngineInterface) {
   const rows: PastSession[] = []
   for (const { dir, ...item } of found) {
     let known = cache[item.path]
-    if (!known || known.mtimeMs !== item.mtimeMs) {
-      let described = { title: 'Long session', project: '' }
+    // An entry saved before folders were kept has no `cwd` key: read it once more.
+    if (!known || known.mtimeMs !== item.mtimeMs || !('cwd' in known)) {
+      let described = { title: 'Long session', project: '', cwd: '' }
       let cacheTtlMs: number | undefined
       if (item.size <= 4 * 1024 * 1024) {
         try {
@@ -212,10 +213,10 @@ async function refreshPast($: EngineInterface) {
           described = describeTranscript(text)
           cacheTtlMs = cacheTtlOf(text)
         } catch {
-          described = { title: 'Untitled session', project: '' }
+          described = { title: 'Untitled session', project: '', cwd: '' }
         }
       }
-      known = { mtimeMs: item.mtimeMs, title: described.title, project: described.project || projectFromDir(dir), cacheTtlMs }
+      known = { mtimeMs: item.mtimeMs, title: described.title, project: described.project || projectFromDir(dir), cacheTtlMs, cwd: described.cwd }
       cache[item.path] = known
       isDirty = true
     }
@@ -224,7 +225,7 @@ async function refreshPast($: EngineInterface) {
       if (!rows.some(r => r.cacheTtlMs !== undefined)) defaultTtl = known.cacheTtlMs
       ttlByPath.set(item.path, known.cacheTtlMs)
     }
-    rows.push({ ...item, title: known.title, project: known.project, cacheTtlMs: known.cacheTtlMs })
+    rows.push({ ...item, title: known.title, project: known.project, cacheTtlMs: known.cacheTtlMs, cwd: known.cwd || undefined })
   }
   if (isDirty) {
     const keep = new Set(found.map(f => f.path))
@@ -338,7 +339,7 @@ async function emptyTrash($: EngineInterface) {
 async function setView($: EngineInterface, patch: Partial<View>) {
   const next = await update($, view, v => ({ ...v, ...patch }))
   // The confirm prompt and the page are per moment, never remembered.
-  await $.store.set(STORE.view, { ...next, confirm: undefined, pastPage: 0, openActivity: undefined, flowOffset: 0 })
+  await $.store.set(STORE.view, { ...next, confirm: undefined, pastPage: 0, openActivity: undefined, flowOffset: 0, openSession: undefined, sessionsAll: undefined })
 }
 
 async function notesFile($: EngineInterface): Promise<string> {
@@ -370,6 +371,16 @@ async function addNote($: EngineInterface, text: string, isToasted = true) {
   await $.store.set(STORE.notes, list)
   await writeNotesFile($, list)
   if (isToasted) $.ui.toast(`Note saved · ${list.length} in your notes`, { timeoutMs: 2500 })
+}
+
+// Shows a folder in Explorer (or Finder / the file manager elsewhere).
+async function openFolder($: EngineInterface, path: string) {
+  try {
+    if (await isWindows($)) await $.process.run(['explorer', path.replace(/\//g, '\\')], { timeoutMs: 10_000 })
+    else await $.process.run(['sh', '-c', 'open "$1" 2>/dev/null || xdg-open "$1"', 'sh', path], { timeoutMs: 10_000 })
+  } catch {
+    $.ui.toast(`That folder is ${path}`)
+  }
 }
 
 async function openNotes($: EngineInterface) {
@@ -591,6 +602,7 @@ function actsFor($: EngineInterface): Act {
         .then(() => update($, draftGen, n => n + 1)))
     },
     openNotes: () => later(openNotes($)),
+    openFolder: path => later(openFolder($, path)),
     setGlance: isOn => later(setGlance($, isOn)),
     openFull: () => later(openPane($)),
     copy: text => {
@@ -785,7 +797,7 @@ export const register: Register = on => {
     await update($, notes, () => savedNotes)
     await update($, actions, () => savedActions)
     const layout: Layout = LAYOUT_IDS.includes(savedView.layout as Layout) ? (savedView.layout as Layout) : DEFAULT_VIEW.layout
-    await update($, view, () => ({ ...DEFAULT_VIEW, ...savedView, layout, confirm: undefined, pastPage: 0, openActivity: undefined, flowOffset: 0 }))
+    await update($, view, () => ({ ...DEFAULT_VIEW, ...savedView, layout, confirm: undefined, pastPage: 0, openActivity: undefined, flowOffset: 0, openSession: undefined, sessionsAll: undefined }))
     // Only what is really in the trash: an entry whose file is gone (emptied
     // by hand, or a move that never landed) is dropped.
     const inTrash: TrashItem[] = []
