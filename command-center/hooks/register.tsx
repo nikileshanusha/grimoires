@@ -450,7 +450,9 @@ async function spawnHelper($: EngineInterface, helper: string, task: string) {
 async function refreshStatus($: EngineInterface) {
   const m = await read($, measure)
   const running = (await read($, agents)).filter(a => a.endedAt === undefined).length
+  // Two lines: the limits first, then this session's cache, helpers and ETA.
   const parts: string[] = []
+  const work: string[] = []
   if (m.context !== undefined) parts.push(`ctx ${Math.round(m.context)}%`)
   const fiveHour = m.limits.find(l => /five|5h/i.test(l.kind))
   if (fiveHour) {
@@ -460,16 +462,17 @@ async function refreshStatus($: EngineInterface) {
   const week = m.limits.find(l => /seven|week|7d/i.test(l.kind))
   if (week) parts.push(`7d ${Math.round(week.percent)}%`)
   const here = (await read($, live)).find(s => s.isHere)
-  if (here?.isBusy) parts.push('cache warm')
+  if (here?.isBusy) work.push('cache warm')
   else if (here?.lastAt !== undefined) {
     const left = cacheLeft(here.lastAt, await $.clock.now(), here.cacheTtlMs ?? defaultTtl)
-    parts.push(left > 0 ? `cache warm ${fmtDuration(left)}` : 'cache cold')
+    work.push(left > 0 ? `cache warm ${fmtDuration(left)}` : 'cache cold')
   }
-  if (running > 0) parts.push(`${running} agent${running === 1 ? '' : 's'}`)
+  if (running > 0) work.push(`${running} agent${running === 1 ? '' : 's'}`)
   const list = await read($, todos)
   const est = eta(list, await $.clock.now(), await stored<number | undefined>($, STORE.taskMedianMs, undefined))
-  if (est.leftMs !== undefined && est.done < est.total) parts.push(`~${fmtDuration(est.leftMs)} left`)
-  $.ui.status(parts.length > 0 ? parts.join(' | ') : 'command center | /cc')
+  if (est.leftMs !== undefined && est.done < est.total) work.push(`~${fmtDuration(est.leftMs)} left`)
+  const lines = [parts, work].filter(l => l.length > 0).map(l => l.join(' | '))
+  $.ui.status(lines.length > 0 ? lines.join('\n') : 'command center | /cc')
 }
 
 // Asks for the usage figures directly: a fresh or reloaded session has had
