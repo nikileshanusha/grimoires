@@ -20,4 +20,6 @@ export const STORE = {
   trash: 'trash',
   taskMedianMs: 'taskMedianMs',
   titles: 'titles',
+  // The last rate-limit readings as the engine gave them, for diagnosis.
+  limitsSeen: 'limitsSeen',
 } as const

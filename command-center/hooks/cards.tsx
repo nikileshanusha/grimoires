@@ -470,7 +470,7 @@ export function MissionCard(k: Kit, d: Data, maxTasks = 5, width?: string): Rend
 
 // ── Gauges ─────────────────────────────────────────────────────────────────
 
-type Gauge = { label: string; icon: IconName; percent: number; calm: string }
+type Gauge = { label: string; icon: IconName; percent: number; calm: string; resetsAt?: string }
 
 function gaugesOf(m: Measure): Gauge[] {
   const out: Gauge[] = []
@@ -482,10 +482,21 @@ function gaugesOf(m: Measure): Gauge[] {
       icon: isWeek ? 'calendar-week' : 'clock-hour-5',
       percent: limit.percent,
       calm: isWeek ? C.green : C.teal,
+      resetsAt: limit.resetsAt,
     })
   }
 
   return out.slice(0, 3)
+}
+
+// When a window resets, short: "4:30 pm", or "Fri 9:00 am" a day or more out.
+export function resetShort(resetsAt: string | undefined, now: number): string | undefined {
+  const at = resetsAt ? Date.parse(resetsAt) : NaN
+  if (!Number.isFinite(at)) return undefined
+  if (at <= now) return 'now'
+  const sameDay = new Date(at).toDateString() === new Date(now).toDateString()
+
+  return sameDay ? fmtTimeOfDay(at) : `${new Date(at).toLocaleDateString('en-US', { weekday: 'short' })} ${fmtTimeOfDay(at)}`
 }
 
 export function GaugesBody(k: Kit, d: Data, compact = false): RenderNode[] {
@@ -494,11 +505,13 @@ export function GaugesBody(k: Kit, d: Data, compact = false): RenderNode[] {
   if (gauges.length === 0) return [<Text dimColor>Limits show after the first reply.</Text>]
 
   if (!k.isRich) {
-    return gauges.map(g =>
-      Row(k, k.icon(g.icon, levelColor(g.percent, g.calm)), <Text>{g.label}</Text>, (
+    return gauges.map(g => {
+      const resets = resetShort(g.resetsAt, d.now)
+
+      return Row(k, k.icon(g.icon, levelColor(g.percent, g.calm)), <Text>{resets ? `${g.label} · resets ${resets}` : g.label}</Text>, (
         <Text color={levelColor(g.percent, g.calm)}>{`${bar(g.percent, 10)} ${Math.round(g.percent)}%`}</Text>
-      )),
-    )
+      ))
+    })
   }
 
   const size = compact ? 30 : 42
@@ -512,6 +525,7 @@ export function GaugesBody(k: Kit, d: Data, compact = false): RenderNode[] {
             {k.icon(g.icon, g.calm, 12)}
             <Text dimColor>{g.label}</Text>
           </Box>
+          {resetShort(g.resetsAt, d.now) ? <Text dimColor>{`resets ${resetShort(g.resetsAt, d.now)}`}</Text> : null}
         </Box>
       ))}
     </Box>,
@@ -997,7 +1011,9 @@ export function GaugeLines(k: Kit, d: Data): RenderNode[] {
   return gauges.map(g => {
     const color = levelColor(g.percent, g.calm)
 
-    return Row(k, k.icon(g.icon, g.calm, 12), <Text dimColor>{g.label}</Text>, <Text color={color}>{`${bar(g.percent, 6)} ${Math.round(g.percent)}%`}</Text>)
+    const resets = resetShort(g.resetsAt, d.now)
+
+    return Row(k, k.icon(g.icon, g.calm, 12), <Text dimColor wrap="truncate-end">{resets ? `${g.label} ↻ ${resets}` : g.label}</Text>, <Text color={color}>{`${bar(g.percent, 6)} ${Math.round(g.percent)}%`}</Text>)
   })
 }
 
@@ -1027,7 +1043,7 @@ export function signals(d: Data): { list: Signal[]; wantsCompact: boolean } {
   const fiveHour = m.limits.find(l => /five|5h/i.test(l.kind))
   if (fiveHour) {
     const isHigh = fiveHour.percent >= 70
-    const sub = fiveHour.resetsAt ? `resets ${resetText(fiveHour.resetsAt, d.now)}` : undefined
+    const sub = fiveHour.resetsAt ? `resets ${resetText(fiveHour.resetsAt, d.now)}` : 'reset time not reported yet'
     list.push({ icon: 'clock-hour-5', color: levelColor(fiveHour.percent, C.teal), text: `5h limit ${Math.round(fiveHour.percent)}%`, sub, strong: isHigh, pinned: true })
   }
   if (ctx >= 70) list.push({ icon: 'stack-2', color: levelColor(ctx, C.mission), text: `Context ${Math.round(ctx)}%`, strong: true })

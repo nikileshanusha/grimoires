@@ -1,13 +1,13 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { AgentRow, CustomAction, FeedItem, Layout, LiveSession, Note, PastSession, ToolKind, TrashItem, View } from '../types'
+import type { AgentRow, CustomAction, FeedItem, Layout, Limit, LiveSession, Note, PastSession, ToolKind, TrashItem, View } from '../types'
 import { Glance, makeKit } from './cards'
 import { EMPTY_AUTO, MISSION_SYSTEM, missionPrompt, parseMission, purposeFrom } from './mission'
 import type { Data } from './cards'
 import { encodePs, moveFailure, moveScript, olderThan, removeScript } from './cleanup'
 import type { Script } from './cleanup'
-import { blendMedian, eta, fmtDuration, mergeTodos } from './eta'
+import { blendMedian, eta, fmtDuration, fmtTimeOfDay, mergeLimits, mergeTodos, toResetIso } from './eta'
 import { Pane } from './layouts'
 import { BUILT_IN_ACTIONS, HELPERS, PANE, TITLE } from './ops'
 import type { Act, Helper } from './ops'
@@ -453,7 +453,10 @@ async function refreshStatus($: EngineInterface) {
   const parts: string[] = []
   if (m.context !== undefined) parts.push(`ctx ${Math.round(m.context)}%`)
   const fiveHour = m.limits.find(l => /five|5h/i.test(l.kind))
-  if (fiveHour) parts.push(`5h ${Math.round(fiveHour.percent)}%`)
+  if (fiveHour) {
+    const at = fiveHour.resetsAt ? Date.parse(fiveHour.resetsAt) : NaN
+    parts.push(`5h ${Math.round(fiveHour.percent)}%${Number.isFinite(at) ? ` ↻ ${fmtTimeOfDay(at)}` : ''}`)
+  }
   const week = m.limits.find(l => /seven|week|7d/i.test(l.kind))
   if (week) parts.push(`7d ${Math.round(week.percent)}%`)
   const here = (await read($, live)).find(s => s.isHere)
@@ -471,15 +474,41 @@ async function refreshStatus($: EngineInterface) {
 
 // Asks for the usage figures directly: a fresh or reloaded session has had
 // no measurement yet, which would leave the gauges and status line blank.
+// The engine's rate-limit readings as the command center keeps them.
+async function takeLimits($: EngineInterface, raw: readonly { kind: string; percentUsed: number; resetsAt?: unknown }[]) {
+  const limits = raw.map(r => ({ kind: r.kind, percent: r.percentUsed, resetsAt: toResetIso(r.resetsAt) }))
+  if (raw.length > 0) void $.store.set(STORE.limitsSeen, raw.map(r => ({ kind: r.kind, percentUsed: r.percentUsed, resetsAt: r.resetsAt ?? null })))
+  const now = await $.clock.now()
+
+  return (prev: Limit[]) => mergeLimits(prev, limits, now)
+}
+
 async function readUsage($: EngineInterface) {
   try {
     const usage = await $.session.usage()
-    const limits = usage.rateLimits.map(r => ({ kind: r.kind, percent: r.percentUsed, resetsAt: r.resetsAt }))
-    await update($, measure, prev => ({ context: usage.context.percent ?? prev.context, limits: limits.length > 0 ? limits : prev.limits }))
+    const merge = await takeLimits($, usage.rateLimits)
+    await update($, measure, prev => ({ context: usage.context.percent ?? prev.context, limits: merge(prev.limits) }))
   } catch {
     // Figures arrive with the next measurement instead.
   }
   await refreshStatus($)
+}
+
+// Everything read again at once: sessions here and elsewhere, helpers,
+// limits, and the mission, even inside its usual 45-second pause.
+async function refreshAll($: EngineInterface) {
+  $.ui.toast('Refreshing…', { timeoutMs: 1500 })
+  // One part failing never stops the others.
+  const results = await Promise.allSettled([
+    refreshLive($).then(() => refreshPast($)),
+    refreshAgents($),
+    readUsage($),
+    deriveMission($, true),
+  ])
+  await update($, tick, n => n + 1)
+  await refreshStatus($).catch(() => undefined)
+  const failed = results.filter(r => r.status === 'rejected').length
+  $.ui.toast(failed === 0 ? 'Everything is up to date.' : `Refreshed, but ${failed} part${failed === 1 ? '' : 's'} could not be read.`, { timeoutMs: 2500 })
 }
 
 // Each threshold speaks once as it is crossed, and again only after the
@@ -540,6 +569,7 @@ function actsFor($: EngineInterface): Act {
     submit: text => void submit($, text),
     spawn: (helper, task) => void spawnHelper($, helper, task),
     refreshPast: () => void refreshPast($),
+    refreshAll: () => void refreshAll($),
     deleteSession: path => void deleteSession($, path),
     cleanupOld: days => void cleanupOld($, days),
     restore: path => void restoreFromTrash($, path),
@@ -676,7 +706,7 @@ let narration: string | undefined
 // After a turn, a small model reads the recent asks and names the mission
 // and the steps toward it. Runs only when something new was asked, at most
 // every 45s, and never while the mission is pinned.
-async function deriveMission($: EngineInterface) {
+async function deriveMission($: EngineInterface, isForced = false) {
   if (isDeriving || (await read($, goal))) return
   const msgs = await $.session.messages()
   const asks = msgs
@@ -686,7 +716,7 @@ async function deriveMission($: EngineInterface) {
   if (asks.length === 0) return
   const prev = await read($, auto)
   const now = await $.clock.now()
-  if (prev.mission && (asks.length === prev.prompts || now - prev.at < 45_000)) return
+  if (!isForced && prev.mission && (asks.length === prev.prompts || now - prev.at < 45_000)) return
   isDeriving = true
   try {
     const lastAnswer = [...msgs].reverse().find(m => m.role === 'assistant' && m.text.trim())?.text ?? ''
@@ -839,8 +869,8 @@ export const register: Register = on => {
   })
 
   on('session.measure', async ($, e, next) => {
-    const limits = e.rateLimits.map(r => ({ kind: r.kind, percent: r.percentUsed, resetsAt: r.resetsAt }))
-    await update($, measure, () => ({ context: e.context.percent, limits }))
+    const merge = await takeLimits($, e.rateLimits)
+    await update($, measure, prev => ({ context: e.context.percent ?? prev.context, limits: merge(prev.limits) }))
     if (e.context.percent !== undefined) {
       crossing($, 'context', e.context.percent, 80, `Context is ${Math.round(e.context.percent)}% full. A /compact soon keeps things sharp.`)
     }

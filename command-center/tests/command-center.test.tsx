@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 import { encodePs, moveFailure, moveScript, olderThan } from '../hooks/cleanup'
-import { eta, median, mergeTodos } from '../hooks/eta'
+import { eta, median, mergeLimits, mergeTodos, toResetIso } from '../hooks/eta'
 import { fitLayout } from '../hooks/layouts'
 import { groupFeed, resetText } from '../hooks/cards'
 import { flowWindow, nextLine, parseMission, purposeFrom, stepsFor } from '../hooks/mission'
@@ -107,6 +107,21 @@ describe('sessions', () => {
     expect(encodePs('A')).toBe('QQA=')
   })
 
+  test('a reset time is read in any shape and kept when a reading drops it', async () => {
+    const iso = '2026-10-11T16:30:00.000Z'
+    const ms = Date.parse(iso)
+    expect(toResetIso(iso)).toBe(iso)
+    expect(toResetIso(ms)).toBe(iso)
+    expect(toResetIso(ms / 1000)).toBe(iso)
+    expect(toResetIso(String(ms / 1000))).toBe(iso)
+    expect(toResetIso(undefined)).toBe(undefined)
+    expect(toResetIso('soon')).toBe(undefined)
+    const before: { kind: string; percent: number; resetsAt?: string }[] = [{ kind: 'five_hour', percent: 40, resetsAt: iso }]
+    expect(mergeLimits(before, [{ kind: 'five_hour', percent: 41 }], ms - 60_000)).toEqual([{ kind: 'five_hour', percent: 41, resetsAt: iso }])
+    expect(mergeLimits(before, [{ kind: 'five_hour', percent: 41 }], ms + 60_000)).toEqual([{ kind: 'five_hour', percent: 41 }])
+    expect(mergeLimits(before, [], ms)).toEqual(before)
+  })
+
   test('a failed move says why in plain words', async () => {
     const clixml = '#< CLIXML <Objs><S S="Error">The process cannot access the file because it is being used by another process._x000D__x000A_</S></Objs>'
     expect(moveFailure(clixml)).toBe('it is open in another window or app; close it there first')
@@ -190,6 +205,23 @@ describe('hooks', () => {
     const ui = await $.ui.mount({ ...mount(160), surface: 'terminal' })
     expect(await ui.find({ text: /run tests/ })).toBeDefined()
     expect(await ui.find({ text: /0 edits · 1 run · 1 error/ })).toBeDefined()
+    await ui.unmount()
+  })
+
+  test('Refresh reads everything again and shows the 5h reset time', async ($, on) => {
+    const clock = mock.clock(on)
+    mock.store(on)
+    mock.env(on, { USERPROFILE: 'C:/home', OS: 'Windows_NT' })
+    const resetsAt = Math.round((clock.now() + 2 * 3_600_000) / 1000)
+    let usageReads = 0
+    on('session.usage', () => {
+      usageReads++
+      return { value: { startedAt: 0, context: { percent: 10 }, rateLimits: [{ kind: 'five_hour', percentUsed: 40, resetsAt }] } } as never
+    })
+    const ui = await $.ui.mount({ ...mount(160), surface: 'desktop' })
+    await ui.press({ key: 'refresh-all' })
+    expect(usageReads).toBeGreaterThan(0)
+    expect(await ui.find({ text: /5h ↻ \d/ })).toBeDefined()
     await ui.unmount()
   })
 

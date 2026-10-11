@@ -64,6 +64,13 @@ function TopBar(k: Kit, d: Data): RenderNode {
       <Text dimColor>{summary.length > 0 ? summary.join(' · ') : 'All quiet'}</Text>
       <Box flexGrow={1} />
       <Box flexDirection="row" gap={1} alignItems="center">
+        {k.icon('refresh', C.teal, 13)}
+        <Button key="refresh-all" plain onPress={() => k.act.refreshAll()}>
+          <Text color={C.teal}>Refresh</Text>
+        </Button>
+      </Box>
+      <Text dimColor>│</Text>
+      <Box flexDirection="row" gap={1} alignItems="center">
         {k.icon('sparkles', d.view.glance ? C.mission : C.muted, 13)}
         <Button key="glance-toggle" plain onPress={() => k.act.setGlance(!d.view.glance)}>
           <Text dimColor>{d.view.glance ? 'Glance above prompt: on' : 'Glance above prompt: off'}</Text>

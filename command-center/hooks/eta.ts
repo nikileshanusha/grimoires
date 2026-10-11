@@ -114,3 +114,30 @@ export function fmtSize(bytes: number): string {
 
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
+
+// A reset time as ISO 8601, whatever shape it came in: an ISO string, or
+// epoch seconds or milliseconds as a number or a string of digits.
+export function toResetIso(value: unknown): string | undefined {
+  if (value === undefined || value === null || value === '') return undefined
+  const asNumber = typeof value === 'number' ? value : /^\d+(\.\d+)?$/.test(String(value)) ? Number(value) : undefined
+  if (asNumber !== undefined) {
+    if (!Number.isFinite(asNumber) || asNumber <= 0) return undefined
+
+    return new Date(asNumber < 1e12 ? asNumber * 1000 : asNumber).toISOString()
+  }
+  const at = Date.parse(String(value))
+
+  return Number.isFinite(at) ? new Date(at).toISOString() : undefined
+}
+
+// New readings replace old ones, but a reading without a reset time keeps
+// the one last seen for that window while it is still ahead.
+export function mergeLimits<L extends { kind: string; resetsAt?: string }>(prev: readonly L[], next: readonly L[], now: number): L[] {
+  if (next.length === 0) return [...prev]
+
+  return next.map(l => {
+    if (l.resetsAt) return l
+    const old = prev.find(p => p.kind === l.kind)?.resetsAt
+    return old && Date.parse(old) > now ? { ...l, resetsAt: old } : l
+  })
+}

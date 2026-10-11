@@ -25,6 +25,7 @@ export type Act = {
   submit: (text: string) => void
   spawn: (helper: string, task: string) => void
   refreshPast: () => void
+  refreshAll: () => void
   deleteSession: (path: string) => void
   cleanupOld: (days: number) => void
   restore: (trashedPath: string) => void
