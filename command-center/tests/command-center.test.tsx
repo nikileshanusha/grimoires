@@ -603,38 +603,110 @@ const DIRS: Record<string, { kind: 'file' | 'dir'; name: string; mtimeMs: number
 }
 const norm = (p: string) => p.replace(/\\/g, '/')
 
-function machine(on: On, unhandled: string[]) {
+// What the plugin asked of the engine, in order, for the tests to check.
+type Call = { event: string; e: Record<string, unknown> }
+
+// PowerShell -EncodedCommand is base64 of UTF-16LE; read the script back.
+function decodePs(b64: string): string {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+  const bytes: number[] = []
+  let bits = 0
+  let value = 0
+  for (const ch of b64.replace(/=+$/, '')) {
+    value = (value << 6) | alphabet.indexOf(ch)
+    bits += 6
+    if (bits >= 8) {
+      bits -= 8
+      bytes.push((value >> bits) & 0xff)
+    }
+  }
+  let out = ''
+  for (let i = 0; i + 1 < bytes.length; i += 2) out += String.fromCharCode((bytes[i] ?? 0) | ((bytes[i + 1] ?? 0) << 8))
+
+  return out
+}
+
+// A fake disk the move and remove scripts really change: a transcript moved
+// to trash leaves its folder and appears in the trash; emptying deletes it.
+// Set by a test to make agent starts be refused.
+const spawnFails = { on: false }
+
+function machine(on: On, log: Call[] = []) {
   const clock = mock.clock(on, { now: NOW } as never)
   mock.store(on)
   mock.env(on, { USERPROFILE: HOME, OS: 'Windows_NT' })
+  const files: Record<string, string> = { ...FILES }
+  const dirs: Record<string, { kind: 'file' | 'dir'; name: string; mtimeMs: number; size: number }[]> = JSON.parse(JSON.stringify(DIRS))
   const ok = (value: unknown) => ({ value }) as never
+  const record = (event: string, e: unknown) => log.push({ event, e: e as Record<string, unknown> })
+  const parent = (path: string) => path.slice(0, path.lastIndexOf('/'))
+  const base = (path: string) => path.slice(path.lastIndexOf('/') + 1)
+  const fromScript = (script: string, name: string) => {
+    const m = script.match(new RegExp(`\\$${name}='([^']*)'`))
+    return m ? norm(m[1]?.replace(/^\\\\\?\\/, '') ?? '') : undefined
+  }
+  const move = (from: string, dest: string) => {
+    const entry = dirs[parent(from)]?.find(x => x.name === base(from))
+    if (!entry) throw new Error(`no such file: ${from}`)
+    dirs[parent(from)] = (dirs[parent(from)] ?? []).filter(x => x !== entry)
+    dirs[parent(dest)] = [...(dirs[parent(dest)] ?? []), { ...entry, name: base(dest) }]
+    if (files[from] !== undefined) files[dest] = files[from] ?? ''
+    delete files[from]
+  }
+
   // Only the fake home answers; anything else (the harness's own reads)
   // goes on to the layers beneath.
   const mine = (e: unknown) => norm(String((e as { path?: string }).path ?? '')).startsWith(HOME)
   on('fs.list', (_$, e, next) => {
     if (!mine(e)) return next(e as never)
-    const list = DIRS[norm((e as { path: string }).path)]
+    const list = dirs[norm((e as { path: string }).path)]
     if (!list) throw new Error(`no such folder: ${(e as { path: string }).path}`)
     return ok(list)
   })
   on('fs.read', (_$, e, next) => {
     if (!mine(e)) return next(e as never)
-    const text = FILES[norm((e as { path: string }).path)]
+    const text = files[norm((e as { path: string }).path)]
     if (text === undefined) throw new Error(`no such file: ${(e as { path: string }).path}`)
     return ok(text)
   })
   on('fs.stat', (_$, e, next) => {
     if (!mine(e)) return next(e as never)
     const path = norm((e as { path: string }).path)
-    if (FILES[path] === undefined) throw new Error(`no such file: ${path}`)
-    return ok({ kind: 'file', size: FILES[path]?.length ?? 0, mtimeMs: NOW - 2 * 60_000, isLink: false })
+    if (files[path] === undefined) throw new Error(`no such file: ${path}`)
+    return ok({ kind: 'file', size: files[path]?.length ?? 0, mtimeMs: NOW - 2 * 60_000, isLink: false })
   })
-  on('fs.exists', (_$, e, next) => (mine(e) ? ok(false) : next(e as never)))
-  on('fs.write', (_$, e, next) => (mine(e) ? ok(undefined) : next(e as never)))
+  on('fs.exists', (_$, e, next) => {
+    if (!mine(e)) return next(e as never)
+    const path = norm((e as { path: string }).path)
+    const isInside = Object.keys(dirs).some(d => d.startsWith(`${path}/`))
+    return ok(files[path] !== undefined || dirs[path] !== undefined || isInside || (dirs[parent(path)] ?? []).some(x => x.name === base(path)))
+  })
+  on('fs.write', (_$, e, next) => {
+    if (!mine(e)) return next(e as never)
+    record('fs.write', e)
+    return ok(undefined)
+  })
   on('process.run', (_$, e) => {
-    const argv = (e as { argv?: string[]; command?: string[] }).argv ?? (e as { command?: string[] }).command ?? []
-    if (JSON.stringify(e).includes('tasklist')) return ok({ exitCode: 0, stdout: '"claude.exe","111","Console","1","1 K"\n"claude.exe","222","Console","1","1 K"\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false })
-    return ok({ exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false, argv })
+    const text = JSON.stringify(e)
+    if (text.includes('tasklist')) return ok({ exitCode: 0, stdout: '"claude.exe","111","Console","1","1 K"\n"claude.exe","222","Console","1","1 K"\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false })
+    const argv = ((e as { argv?: string[] }).argv ?? (e as { command?: string[] }).command ?? []) as string[]
+    const encoded = argv[argv.indexOf('-EncodedCommand') + 1]
+    const script = encoded ? decodePs(encoded) : ''
+    record('script', { script })
+    try {
+      const from = fromScript(script, 'from')
+      const dest = fromScript(script, 'dest')
+      if (from && dest) move(from, dest)
+      const removed = script.match(/Directory\]::Delete\('([^']*)'/)?.[1]
+      if (removed) {
+        const root = norm(removed.replace(/^\\\\\?\\/, ''))
+        for (const key of Object.keys(dirs)) if (key.startsWith(root)) delete dirs[key]
+        for (const key of Object.keys(files)) if (key.startsWith(root)) delete files[key]
+      }
+    } catch (err) {
+      return ok({ exitCode: 1, stdout: '', stderr: String(err), isStdoutTruncated: false, isStderrTruncated: false })
+    }
+    return ok({ exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false })
   })
   on('session.id', () => ok('s-here'))
   on('session.messages', () => ok([{ role: 'user', text: 'Build the command center', toolUses: [] }]))
@@ -643,17 +715,25 @@ function machine(on: On, unhandled: string[]) {
   )
   on('model.complete', () => ok({ text: JSON.stringify({ mission: 'Ship the command center', steps: ['Draw it', 'Test it', 'Share it'] }) }))
   on('agent.list', () => ok([{ id: 'a1', description: 'Scout the notes', type: 'command-center:scout', status: 'running' }]))
-  on('agent.spawn', () => ok({ id: 'a2' }))
+  on('agent.spawn', (_$, e) => {
+    record('agent.spawn', e)
+    if (spawnFails.on) return { deny: 'agents are off here' } as never
+    return { model: String((e as { model?: string }).model ?? 'haiku'), agentId: 'a2' } as never
+  })
   // A prompt sent from the pane goes no further than this test.
-  on('prompt.submit', () => ({ drop: 'test' }) as never)
-  on('command.run', () => ok({ text: '' }))
-  on('ui.copy', () => ok({ isCopied: true }))
+  on('prompt.submit', (_$, e) => (record('prompt.submit', e), { drop: 'test' }) as never)
+  // Commands the engine owns stop here; the plugin's own go on to it.
+  on('command.run', (_$, e, next) => {
+    const name = (e as { command: string }).command
+    if (name === 'clear' || name === 'compact') return (record('command.run', e), ok({ text: '' }))
+    return next(e as never)
+  })
+  on('ui.copy', (_$, e) => (record('ui.copy', e), ok({ isCopied: true })))
   on('ui.open', () => ok({ isPlaced: true }))
   on('ui.close', () => ok(undefined))
-  on('ui.toast', () => ok(undefined))
+  on('ui.toast', (_$, e) => (record('ui.toast', e), ok(undefined)))
   on('ui.status', () => ok(undefined))
-  on('ui.notify', () => ok({ isSent: true, channel: 'test' }))
-  void unhandled
+  on('ui.notify', (_$, e) => (record('ui.notify', e), ok({ isSent: true, channel: 'test' })))
 
   return clock
 }
@@ -700,8 +780,7 @@ describe('sweep', () => {
   for (const surface of ['desktop', 'terminal'] as const) {
     for (const width of WIDTHS) {
       test(`${surface} at ${width} columns: every layout draws and every control presses`, async ($, on) => {
-        const unhandled: string[] = []
-        machine(on, unhandled)
+        machine(on)
         on('tool.call', (_$, e) => ((e as { tool: string }).tool === 'Bash' ? { isError: true, result: 'lint failed' } : { result: {} }) as never)
         on('session.measure', (_$, e) => ({ changed: e.changed }))
         await seed($)
@@ -798,5 +877,194 @@ describe('polish', () => {
         await ui.unmount()
       }
     }
+  })
+})
+
+describe('features end to end', () => {
+  const run = ($: unknown, command: string, args = '') =>
+    ($ as { command: { run: (a: never) => Promise<{ text?: string }> } }).command.run({ command, args, origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 160 } } as never)
+  const keysLike = async (ui: { drawn: () => Promise<unknown> }, prefix: string) => buttonKeys(await ui.drawn()).filter(k => k.startsWith(prefix))
+  const setup = async ($: Parameters<typeof seed>[0], on: On) => {
+    const log: Call[] = []
+    machine(on, log)
+    on('tool.call', (_$, e) => ((e as { tool: string }).tool === 'Bash' ? { isError: true, result: 'lint failed' } : { result: {} }) as never)
+    on('session.measure', (_$, e) => ({ changed: e.changed }))
+    on('turn.complete', (_$, e) => ({ text: (e as { answer: string }).answer }) as never)
+    await seed($)
+
+    return log
+  }
+  const of = (log: Call[], event: string) => log.filter(c => c.event === event).map(c => c.e)
+  // The desktop drawing has fields and selects; the mount's type is general.
+  type Fields = { input: (t: { key: string; text: string; kind: 'change' | 'submit' }) => Promise<unknown>; select: (t: { key: string; value: string }) => Promise<unknown> }
+  const fields = (ui: unknown) => ui as Fields
+
+  test('every slash command does what it says', async ($, on) => {
+    const log = await setup($, on)
+    expect((await run($, 'cc-layout', 'columns')).text).toMatch(/columns/i)
+    expect((await run($, 'cc-layout', 'sideways')).text).toBe('Layouts: rows, columns, strip, focus.')
+    expect((await run($, 'cc-glance', 'banana')).text).toBe('Usage: /cc-glance on | off')
+    expect((await run($, 'cc-glance', 'off')).text).toMatch(/off|hidden/i)
+    expect((await run($, 'mission', 'Ship v1')).text).toBe('Mission pinned: Ship v1')
+    expect((await run($, 'note', '')).text).toBe('Usage: /note <text>')
+    expect((await run($, 'note', 'Remember the README')).text).toMatch(/saved|note/i)
+    await run($, 'spawn', 'tester run the unit tests')
+    const spawned = of(log, 'agent.spawn')
+    expect(spawned).toHaveLength(1)
+    expect(spawned[0]).toMatchObject({ subagent_type: 'command-center:tester', model: 'sonnet', prompt: 'run the unit tests' })
+    await run($, 'spawn', 'find where notes are written')
+    expect(of(log, 'agent.spawn')[1]).toMatchObject({ subagent_type: 'command-center:scout', prompt: 'find where notes are written' })
+    expect((await run($, 'cc-action', 'add Deploy | ship it to staging')).text).toMatch(/Deploy/)
+    expect((await run($, 'cc-action', 'list')).text).toMatch(/Deploy/)
+
+    const ui = await $.ui.mount({ ...PANE(160), surface: 'desktop' } as never)
+    // /cc-layout columns took: the Columns layout's own cards are there.
+    expect(await ui.find({ text: 'Quick actions' })).toBeDefined()
+    expect(await ui.find({ text: /Ship v1/ })).toBeDefined()
+    // The custom action is a pill that sends its prompt.
+    await ui.press({ key: 'act-custom-0' })
+    expect(of(log, 'prompt.submit').at(-1)).toMatchObject({ text: 'ship it to staging' })
+    await ui.unmount()
+
+    expect((await run($, 'cc-action', 'remove Deploy')).text).toMatch(/Deploy|removed/i)
+    expect((await run($, 'mission', '')).text).toMatch(/clear|auto|derived/i)
+  })
+
+  test('a session goes to trash, comes back, old ones clean up, and the trash empties', async ($, on) => {
+    const log = await setup($, on)
+    const ui = await $.ui.mount({ ...PANE(160), surface: 'desktop' } as never)
+    await ui.press({ key: 'layout-rows' })
+    await ui.press({ key: 'refresh-all' })
+    await ui.press({ key: 'tab-past' })
+    // The running sessions cannot be deleted; the old one can.
+    expect(await ui.find({ key: 'del-s-other' })).toBeUndefined()
+    expect(await ui.find({ key: 'del-s-old' })).toBeDefined()
+
+    await ui.press({ key: 'del-s-old' })
+    expect(await ui.find({ key: 'confirm-del-s-old-yes' })).toBeDefined()
+    await ui.press({ key: 'confirm-del-s-old-yes' })
+    expect(of(log, 'script').some(c => String(c.script).includes('s-old.jsonl') && String(c.script).includes('[IO.File]::Move'))).toBe(true)
+    expect(await ui.find({ key: 'del-s-old' })).toBeUndefined()
+    expect(of(log, 'ui.toast').some(c => /Moved to trash/.test(String(c.text)))).toBe(true)
+
+    await ui.press({ key: 'tab-trash' })
+    const restore = (await keysLike(ui, 'restore-'))[0]
+    expect(restore).toBeDefined()
+    await ui.press({ key: restore ?? '' })
+    expect(await ui.find({ text: /Trash is empty/ })).toBeDefined()
+    await ui.press({ key: 'tab-past' })
+    expect(await ui.find({ key: 'del-s-old' })).toBeDefined()
+
+    // Older than 30 days: the same session, in one go.
+    await ui.press({ key: 'cleanup-old' })
+    await ui.press({ key: 'confirm-cleanup-yes' })
+    expect(of(log, 'ui.toast').some(c => /Moved 1 old session to trash/.test(String(c.text)))).toBe(true)
+    expect(await ui.find({ key: 'del-s-old' })).toBeUndefined()
+
+    await ui.press({ key: 'tab-trash' })
+    await ui.press({ key: 'empty-trash' })
+    await ui.press({ key: 'confirm-empty-yes' })
+    expect(of(log, 'script').some(c => /Directory\]::Delete/.test(String(c.script)))).toBe(true)
+    expect(await ui.find({ text: /Trash is empty/ })).toBeDefined()
+    await ui.unmount()
+  })
+
+  test('clearing this chat asks first, then runs /clear', async ($, on) => {
+    const log = await setup($, on)
+    const ui = await $.ui.mount({ ...PANE(160), surface: 'desktop' } as never)
+    await ui.press({ key: 'layout-rows' })
+    await ui.press({ key: 'refresh-all' })
+    await ui.press({ key: 'clear-here' })
+    expect(of(log, 'command.run')).toHaveLength(0)
+    await ui.press({ key: 'confirm-clear-no' })
+    expect(await ui.find({ key: 'confirm-clear-yes' })).toBeUndefined()
+    await ui.press({ key: 'clear-here' })
+    await ui.press({ key: 'confirm-clear-yes' })
+    expect(of(log, 'command.run').at(-1)).toMatchObject({ command: 'clear' })
+    await ui.unmount()
+  })
+
+  test('notes save, send, write the notes file, and delete', async ($, on) => {
+    const log = await setup($, on)
+    const ui = await $.ui.mount({ ...PANE(160), surface: 'desktop' } as never)
+    await ui.press({ key: 'layout-rows' })
+    await fields(ui).input({ key: 'note-draft-0', text: 'Check the trash path', kind: 'submit' })
+    expect(await ui.find({ text: /Check the trash path/ })).toBeDefined()
+    expect(of(log, 'fs.write').some(c => String(c.path).endsWith('command-center-notes.md') && JSON.stringify(c).includes('Check the trash path'))).toBe(true)
+    const send = (await keysLike(ui, 'note-send-')).find(k => k !== 'note-send-draft')
+    await ui.press({ key: send ?? '' })
+    expect(of(log, 'prompt.submit').at(-1)).toMatchObject({ text: 'Check the trash path' })
+    // Save & send: typed, never redrawn mid-word, then saved and sent.
+    await fields(ui).input({ key: 'note-draft-1', text: 'Ask about pacing', kind: 'change' })
+    await ui.press({ key: 'note-send-draft' })
+    expect(of(log, 'prompt.submit').at(-1)).toMatchObject({ text: 'Ask about pacing' })
+    expect(await ui.find({ key: 'note-draft-2' })).toBeDefined()
+    // Delete both.
+    for (const del of await keysLike(ui, 'note-del-')) await ui.press({ key: del })
+    expect(await keysLike(ui, 'note-del-')).toHaveLength(0)
+    await ui.unmount()
+  })
+
+  test('a helper starts from the Agents card with the chosen kind', async ($, on) => {
+    const log = await setup($, on)
+    const ui = await $.ui.mount({ ...PANE(160), surface: 'desktop' } as never)
+    await ui.press({ key: 'layout-rows' })
+    await fields(ui).select({ key: 'spawn-helper', value: 'scribe' })
+    await fields(ui).input({ key: 'spawn-input', text: 'Draft release notes', kind: 'submit' })
+    expect(of(log, 'agent.spawn').at(-1)).toMatchObject({ subagent_type: 'command-center:scribe', model: 'haiku', prompt: 'Draft release notes' })
+    await ui.unmount()
+  })
+
+  test('a helper that fails to start says so', async ($, on) => {
+    const log = await setup($, on)
+    spawnFails.on = true
+    try {
+      await run($, 'spawn', 'scout look around')
+    } finally {
+      spawnFails.on = false
+    }
+    expect(of(log, 'ui.toast').some(c => /Couldn't start Scout: agents are off here/.test(String(c.text)))).toBe(true)
+  })
+
+  test('an activity row copies its whole command and asks for an explanation', async ($, on) => {
+    const log = await setup($, on)
+    const ui = await $.ui.mount({ ...PANE(160), surface: 'desktop' } as never)
+    await ui.press({ key: 'layout-rows' })
+    const rows = (await keysLike(ui, 'feed-')).filter(k => !/^feed-(icon|chevron|copy|explain|close)-/.test(k))
+    // Open each row until the one with the command shows Copy command.
+    let copied = false
+    for (const row of rows) {
+      await ui.press({ key: row })
+      const copy = (await keysLike(ui, 'feed-copy-'))[0]
+      if (!copy) continue
+      await ui.press({ key: copy })
+      copied = true
+      break
+    }
+    expect(copied).toBe(true)
+    expect(of(log, 'ui.copy').at(-1)).toMatchObject({ text: 'npm test\nnpm run lint' })
+    const explain = (await keysLike(ui, 'feed-explain-'))[0]
+    await ui.press({ key: explain ?? '' })
+    expect(String(of(log, 'prompt.submit').at(-1)?.text)).toMatch(/^In two or three sentences: what did "/)
+    await ui.unmount()
+  })
+
+  test('limit alerts speak once per crossing, and a long turn notifies when done', async ($, on) => {
+    const log = await setup($, on)
+    const at = (pct: number) =>
+      $.session.measure({ context: { window: 200_000, percent: 30 }, rateLimits: [{ kind: 'five_hour', percentUsed: pct, resetsAt: new Date(NOW + 3_600_000).toISOString() }], changed: ['rateLimits'] } as never)
+    const alerts = () => of(log, 'ui.toast').filter(c => /five_hour usage is at/.test(String(c.text))).length
+    const before = alerts()
+    await at(91)
+    await at(93)
+    expect(alerts() - before).toBe(1)
+    await at(50)
+    await at(92)
+    expect(alerts() - before).toBe(2)
+
+    await $.turn.complete({ answer: 'ok', durationMs: 2_000, isAborted: false, turnId: 't1', reason: 'answer' } as never)
+    expect(of(log, 'ui.notify')).toHaveLength(0)
+    await $.turn.complete({ answer: 'ok', durationMs: 125_000, isAborted: false, turnId: 't2', reason: 'answer' } as never)
+    expect(of(log, 'ui.notify').at(-1)).toMatchObject({ text: 'Done in 2m' })
   })
 })

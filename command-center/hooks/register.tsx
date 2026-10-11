@@ -59,6 +59,13 @@ async function homeDir($: EngineInterface): Promise<string> {
   return root.slice(0, root.indexOf('/.claude/'))
 }
 
+// Work started in the background and not waited on. Anything it throws
+// later (a session closing mid-read, a reload) is dropped, never left as an
+// unhandled rejection.
+function later(work: Promise<unknown>): void {
+  work.catch(() => undefined)
+}
+
 async function isWindows($: EngineInterface): Promise<boolean> {
   return (await $.env.get('OS')) === 'Windows_NT'
 }
@@ -352,7 +359,14 @@ async function addNote($: EngineInterface, text: string, isToasted = true) {
   const clean = text.trim()
   if (!clean) return
   const now = await $.clock.now()
-  const list = await update($, notes, l => [{ id: `${now}`, text: clean, at: now }, ...l].slice(0, 200))
+  // Unique even for two notes saved in one millisecond: their buttons are
+  // keyed by it.
+  const list = await update($, notes, l => {
+    let id = `${now}`
+    for (let n = 1; l.some(x => x.id === id); n++) id = `${now}-${n}`
+
+    return [{ id, text: clean, at: now }, ...l].slice(0, 200)
+  })
   await $.store.set(STORE.notes, list)
   await writeNotesFile($, list)
   if (isToasted) $.ui.toast(`Note saved · ${list.length} in your notes`, { timeoutMs: 2500 })
@@ -441,13 +455,19 @@ async function spawnHelper($: EngineInterface, helper: string, task: string) {
   if (!clean) return
   const key = helper in HELPERS ? helper : 'scout'
   const spec = HELPERS[key] as Helper
-  const result = await $.agent.spawn({
-    prompt: clean,
-    description: `${spec.label}: ${clean.slice(0, 48)}`,
-    subagentType: `command-center:${key}`,
-    model: spec.model,
-  })
-  if ('deny' in result && result.deny) $.ui.toast(`Couldn't start ${spec.label}: ${result.deny}`)
+  try {
+    const result = await $.agent.spawn({
+      prompt: clean,
+      description: `${spec.label}: ${clean.slice(0, 48)}`,
+      subagentType: `command-center:${key}`,
+      model: spec.model,
+    })
+    if ('deny' in result && result.deny) $.ui.toast(`Couldn't start ${spec.label}: ${result.deny}`)
+    else $.ui.toast(`${spec.label} is on it.`, { timeoutMs: 2500 })
+  } catch (err) {
+    // A start that fails says so instead of failing silently.
+    $.ui.toast(`Couldn't start ${spec.label}: ${String(err).slice(0, 120)}`, { timeoutMs: 5000 })
+  }
   await refreshAgents($)
 }
 
@@ -490,7 +510,7 @@ async function refreshStatus($: EngineInterface) {
 // The engine's rate-limit readings as the command center keeps them.
 async function takeLimits($: EngineInterface, raw: readonly { kind: string; percentUsed: number; resetsAt?: unknown }[]) {
   const limits = raw.map(r => ({ kind: r.kind, percent: r.percentUsed, resetsAt: toResetIso(r.resetsAt) }))
-  if (raw.length > 0) void $.store.set(STORE.limitsSeen, raw.map(r => ({ kind: r.kind, percentUsed: r.percentUsed, resetsAt: r.resetsAt ?? null })))
+  if (raw.length > 0) later($.store.set(STORE.limitsSeen, raw.map(r => ({ kind: r.kind, percentUsed: r.percentUsed, resetsAt: r.resetsAt ?? null }))))
   const now = await $.clock.now()
 
   return (prev: Limit[]) => mergeLimits(prev, limits, now)
@@ -544,20 +564,20 @@ function openPane($: EngineInterface) {
 
 function actsFor($: EngineInterface): Act {
   return {
-    setView: patch => void setView($, patch),
-    askConfirm: key => void setView($, { confirm: key }),
-    cancelConfirm: () => void setView($, { confirm: undefined }),
+    setView: patch => later(setView($, patch)),
+    askConfirm: key => later(setView($, { confirm: key })),
+    cancelConfirm: () => later(setView($, { confirm: undefined })),
     setDraft: text => {
       typed = text
     },
     saveNote: text => {
       if (!text.trim()) return
       typed = ''
-      void addNote($, text).then(() => update($, draftGen, n => n + 1))
+      later(addNote($, text).then(() => update($, draftGen, n => n + 1)))
     },
     sendNote: text => {
       if (!text.trim()) return
-      void submit($, text)
+      later(submit($, text))
     },
     sendDraft: () => {
       const text = typed.trim()
@@ -566,31 +586,31 @@ function actsFor($: EngineInterface): Act {
         return
       }
       typed = ''
-      void addNote($, text, false)
+      later(addNote($, text, false)
         .then(() => submit($, text))
-        .then(() => update($, draftGen, n => n + 1))
+        .then(() => update($, draftGen, n => n + 1)))
     },
-    openNotes: () => void openNotes($),
-    setGlance: isOn => void setGlance($, isOn),
-    openFull: () => void openPane($),
+    openNotes: () => later(openNotes($)),
+    setGlance: isOn => later(setGlance($, isOn)),
+    openFull: () => later(openPane($)),
     copy: text => {
-      void $.ui.copy({ text }).then(r => $.ui.toast(r.isCopied ? 'Copied.' : "Couldn't copy here.", { timeoutMs: 2500 }))
+      later($.ui.copy({ text }).then(r => $.ui.toast(r.isCopied ? 'Copied.' : "Couldn't copy here.", { timeoutMs: 2500 })))
     },
-    pinMission: text => void update($, goal, () => text.trim()),
-    unpinMission: () => void update($, goal, () => '').then(() => deriveMission($)),
-    removeNote: id => void removeNote($, id),
-    submit: text => void submit($, text),
-    spawn: (helper, task) => void spawnHelper($, helper, task),
-    refreshPast: () => void refreshPast($),
-    refreshAll: () => void refreshAll($),
+    pinMission: text => later(update($, goal, () => text.trim())),
+    unpinMission: () => later(update($, goal, () => '').then(() => deriveMission($))),
+    removeNote: id => later(removeNote($, id)),
+    submit: text => later(submit($, text)),
+    spawn: (helper, task) => later(spawnHelper($, helper, task)),
+    refreshPast: () => later(refreshPast($)),
+    refreshAll: () => later(refreshAll($)),
     aboutLimit: text => {
       $.ui.toast(text, { timeoutMs: 5000 })
-      void readUsage($)
+      later(readUsage($))
     },
-    deleteSession: path => void deleteSession($, path),
-    cleanupOld: days => void cleanupOld($, days),
-    restore: path => void restoreFromTrash($, path),
-    emptyTrash: () => void emptyTrash($),
+    deleteSession: path => later(deleteSession($, path)),
+    cleanupOld: days => later(cleanupOld($, days)),
+    restore: path => later(restoreFromTrash($, path)),
+    emptyTrash: () => later(emptyTrash($)),
     clearSession: async () => {
       await setView($, { confirm: undefined })
       await $.command.run({ command: 'clear', args: '' })
@@ -794,23 +814,23 @@ export const register: Register = on => {
 
     // Time labels move every 30s at most; nothing on the pane ticks faster.
     $.clock.every(30_000, () => {
-      void update($, tick, n => n + 1)
-      void readUsage($)
+      later(update($, tick, n => n + 1))
+      later(readUsage($))
     })
-    $.clock.every(10_000, () => void refreshLive($))
-    $.clock.every(5_000, () => void refreshAgents($))
+    $.clock.every(10_000, () => later(refreshLive($)))
+    $.clock.every(5_000, () => later(refreshAgents($)))
     $.clock.every(TICKER_MS, () => {
       tickerAt++
-      void refreshStatus($)
+      later(refreshStatus($))
     })
-    void refreshLive($).then(() => refreshPast($))
-    void deriveMission($)
+    later(refreshLive($).then(() => refreshPast($)))
+    later(deriveMission($))
     // The status line and gauges fill at once, not only after the next reply.
-    void readUsage($)
+    later(readUsage($))
 
     // The glance sits above the prompt; on the desktop the full command
     // center opens beside the transcript as well, as it always has.
-    if (e.surface === 'desktop' || e.surface === 'vscode') void openPane($)
+    if (e.surface === 'desktop' || e.surface === 'vscode') later(openPane($))
 
     return next(e)
   })
@@ -844,7 +864,7 @@ export const register: Register = on => {
       const before = await stored<number | undefined>($, STORE.taskMedianMs, undefined)
       const blended = blendMedian(before, merged)
       if (blended !== undefined && blended !== before) await $.store.set(STORE.taskMedianMs, blended)
-      void refreshStatus($)
+      later(refreshStatus($))
 
       return next(e)
     }
@@ -867,7 +887,7 @@ export const register: Register = on => {
       runs: c.runs + (kind === 'run' ? 1 : 0),
       errors: c.errors + (isError ? 1 : 0),
     }))
-    if (kind === 'agent') void refreshAgents($)
+    if (kind === 'agent') later(refreshAgents($))
 
     return ran
   }).catch(($, e, next) => next(e))
@@ -881,10 +901,10 @@ export const register: Register = on => {
   on('turn.complete', async ($, e, next) => {
     if (e.agentId === undefined) {
       await update($, turnStartedAt, () => 0)
-      if (!e.isAborted && e.durationMs > 60_000) void $.ui.notify(`Done in ${fmtDuration(e.durationMs)}`, { title: 'Claude' })
-      if (!e.isAborted) void deriveMission($)
+      if (!e.isAborted && e.durationMs > 60_000) later($.ui.notify(`Done in ${fmtDuration(e.durationMs)}`, { title: 'Claude' }))
+      if (!e.isAborted) later(deriveMission($))
     }
-    void refreshAgents($)
+    later(refreshAgents($))
 
     return next(e)
   })
@@ -896,13 +916,13 @@ export const register: Register = on => {
       crossing($, 'context', e.context.percent, 80, `Context is ${Math.round(e.context.percent)}% full. A /compact soon keeps things sharp.`)
     }
     for (const r of e.rateLimits) crossing($, `limit:${r.kind}`, r.percentUsed, 90, `${r.kind} usage is at ${Math.round(r.percentUsed)}%.`)
-    void refreshStatus($)
+    later(refreshStatus($))
 
     return next(e)
   })
 
   on('command.run', { command: 'cc' }, async $ => {
-    void refreshLive($).then(() => refreshPast($))
+    later(refreshLive($).then(() => refreshPast($)))
     const opened = await openPane($)
 
     return { text: opened.isPlaced ? 'Command center opened.' : `Command center is ready, but this surface can't show it here (${opened.reason}).` }
@@ -912,7 +932,7 @@ export const register: Register = on => {
     const id = e.args.trim().toLowerCase() as Layout
     if (!LAYOUT_IDS.includes(id)) return { text: `Layouts: ${LAYOUT_IDS.join(', ')}.` }
     await setView($, { layout: id })
-    void openPane($)
+    later(openPane($))
 
     return { text: `Layout set to ${id}.` }
   })
