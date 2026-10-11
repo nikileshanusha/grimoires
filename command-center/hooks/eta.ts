@@ -150,3 +150,40 @@ export function fmtClockShort(at: number): string {
 
   return `${h}${m === 0 ? '' : `:${String(m).padStart(2, '0')}`}${d.getHours() < 12 ? 'a' : 'p'}`
 }
+
+export type StatusFacts = {
+  context?: number
+  fiveHour?: { percent: number; resetsAt?: string }
+  week?: number
+  // Cache time left in ms; 0 when cold; undefined before the first reply.
+  cacheLeftMs?: number
+  helpers: number
+  etaLeftMs?: number
+  now: number
+}
+
+// The status line under the prompt: calm by default, the three limits with
+// room between them; an extra joins only while it needs attention, and the
+// line never holds more than four items.
+export function statusLine(f: StatusFacts): string {
+  const base: string[] = []
+  if (f.context !== undefined) base.push(`ctx ${Math.round(f.context)}%`)
+  if (f.fiveHour) {
+    const pct = Math.round(f.fiveHour.percent)
+    const at = f.fiveHour.resetsAt ? Date.parse(f.fiveHour.resetsAt) : NaN
+    // The reset time matters once the window is running out.
+    base.push(pct >= 70 && Number.isFinite(at) ? `5h ${pct}% until ${fmtClockShort(at)}` : `5h ${pct}%`)
+  }
+  if (f.week !== undefined) base.push(`7d ${Math.round(f.week)}%`)
+
+  const extras: string[] = []
+  if (f.cacheLeftMs !== undefined && f.cacheLeftMs < 10 * 60_000) {
+    extras.push(f.cacheLeftMs > 0 ? `cache ${fmtDuration(f.cacheLeftMs)} left` : 'cache cold')
+  }
+  if (f.helpers > 0) extras.push(`${f.helpers} helper${f.helpers === 1 ? '' : 's'}`)
+  if (f.etaLeftMs !== undefined) extras.push(`~${fmtDuration(f.etaLeftMs)} left`)
+
+  const items = [...base, ...extras].slice(0, 4)
+
+  return items.length > 0 ? items.join(' | ') : 'command center'
+}

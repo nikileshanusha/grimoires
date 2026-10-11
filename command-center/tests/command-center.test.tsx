@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 import { encodePs, moveFailure, moveScript, olderThan } from '../hooks/cleanup'
-import { eta, median, mergeLimits, mergeTodos, toResetIso } from '../hooks/eta'
+import { eta, median, mergeLimits, mergeTodos, statusLine, toResetIso } from '../hooks/eta'
 import { fitLayout } from '../hooks/layouts'
 import { groupFeed, resetText } from '../hooks/cards'
 import { flowWindow, nextLine, parseMission, purposeFrom, stepsFor } from '../hooks/mission'
@@ -120,6 +120,19 @@ describe('sessions', () => {
     expect(mergeLimits(before, [{ kind: 'five_hour', percent: 41 }], ms - 60_000)).toEqual([{ kind: 'five_hour', percent: 41, resetsAt: iso }])
     expect(mergeLimits(before, [{ kind: 'five_hour', percent: 41 }], ms + 60_000)).toEqual([{ kind: 'five_hour', percent: 41 }])
     expect(mergeLimits(before, [], ms)).toEqual(before)
+  })
+
+  test('the status line is calm, and adds only what needs attention', async () => {
+    const now = Date.parse('2026-10-11T14:00:00')
+    const resetsAt = new Date(now + 2.5 * 3_600_000).toISOString()
+    const calm = { context: 32, fiveHour: { percent: 11, resetsAt }, week: 61, cacheLeftMs: 50 * 60_000, helpers: 0, now }
+    expect(statusLine(calm)).toBe('ctx 32% | 5h 11% | 7d 61%')
+    expect(statusLine({ ...calm, fiveHour: { percent: 82, resetsAt } })).toBe('ctx 32% | 5h 82% until 4:30p | 7d 61%')
+    expect(statusLine({ ...calm, cacheLeftMs: 4 * 60_000 })).toBe('ctx 32% | 5h 11% | 7d 61% | cache 4m left')
+    expect(statusLine({ ...calm, cacheLeftMs: 0 })).toBe('ctx 32% | 5h 11% | 7d 61% | cache cold')
+    // Never more than four items, whatever is going on.
+    expect(statusLine({ ...calm, cacheLeftMs: 0, helpers: 2, etaLeftMs: 6 * 60_000 }).split(' | ')).toHaveLength(4)
+    expect(statusLine({ helpers: 0, now })).toBe('command center')
   })
 
   test('a failed move says why in plain words', async () => {
@@ -251,9 +264,9 @@ describe('hooks', () => {
     const line = statuses.filter(Boolean).pop() ?? ''
     expect(line).toContain('|')
     // One lean line: the reset as a short clock time, no line breaks.
-    expect(line).toMatch(/^ctx 28%\|5h 6% \d{1,2}(:\d\d)?[ap]\|7d 61%/)
+    expect(line).toBe('ctx 28% | 5h 6% | 7d 61%')
     expect(line).not.toContain('\n')
-    expect(line.length).toBeLessThan(45)
+    expect(line.length).toBeLessThan(50)
     expect(line).not.toContain('↻')
     expect(line).not.toContain('·')
     await ui.unmount()

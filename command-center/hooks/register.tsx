@@ -7,7 +7,7 @@ import { EMPTY_AUTO, MISSION_SYSTEM, missionPrompt, parseMission, purposeFrom } 
 import type { Data } from './cards'
 import { encodePs, moveFailure, moveScript, olderThan, removeScript } from './cleanup'
 import type { Script } from './cleanup'
-import { blendMedian, eta, fmtClockShort, fmtDuration, mergeLimits, mergeTodos, toResetIso } from './eta'
+import { blendMedian, eta, fmtDuration, mergeLimits, mergeTodos, statusLine, toResetIso } from './eta'
 import { Pane } from './layouts'
 import { BUILT_IN_ACTIONS, HELPERS, PANE, TITLE } from './ops'
 import type { Act, Helper } from './ops'
@@ -450,29 +450,23 @@ async function spawnHelper($: EngineInterface, helper: string, task: string) {
 async function refreshStatus($: EngineInterface) {
   const m = await read($, measure)
   const running = (await read($, agents)).filter(a => a.endedAt === undefined).length
-  // One lean line, so it fits beside the model picker:
-  // "ctx 32%|5h 11% 10:40p|7d 61%|warm 52m". Helpers and the ETA
-  // join only while there are any.
-  const parts: string[] = []
-  if (m.context !== undefined) parts.push(`ctx ${Math.round(m.context)}%`)
+  const now = await $.clock.now()
   const fiveHour = m.limits.find(l => /five|5h/i.test(l.kind))
-  if (fiveHour) {
-    const at = fiveHour.resetsAt ? Date.parse(fiveHour.resetsAt) : NaN
-    parts.push(`5h ${Math.round(fiveHour.percent)}%${Number.isFinite(at) ? ` ${fmtClockShort(at)}` : ''}`)
-  }
   const week = m.limits.find(l => /seven|week|7d/i.test(l.kind))
-  if (week) parts.push(`7d ${Math.round(week.percent)}%`)
   const here = (await read($, live)).find(s => s.isHere)
-  if (here?.isBusy) parts.push('warm')
-  else if (here?.lastAt !== undefined) {
-    const left = cacheLeft(here.lastAt, await $.clock.now(), here.cacheTtlMs ?? defaultTtl)
-    parts.push(left > 0 ? `warm ${fmtDuration(left)}` : 'cold')
-  }
-  if (running > 0) parts.push(`${running} ag`)
-  const list = await read($, todos)
-  const est = eta(list, await $.clock.now(), await stored<number | undefined>($, STORE.taskMedianMs, undefined))
-  if (est.leftMs !== undefined && est.done < est.total) parts.push(`~${fmtDuration(est.leftMs)}`)
-  $.ui.status(parts.length > 0 ? parts.join('|') : '/cc')
+  const cacheLeftMs = here?.isBusy ? undefined : here?.lastAt !== undefined ? cacheLeft(here.lastAt, now, here.cacheTtlMs ?? defaultTtl) : undefined
+  const est = eta(await read($, todos), now, await stored<number | undefined>($, STORE.taskMedianMs, undefined))
+  $.ui.status(
+    statusLine({
+      context: m.context,
+      fiveHour: fiveHour ? { percent: fiveHour.percent, resetsAt: fiveHour.resetsAt } : undefined,
+      week: week?.percent,
+      cacheLeftMs,
+      helpers: running,
+      etaLeftMs: est.leftMs !== undefined && est.done < est.total ? est.leftMs : undefined,
+      now,
+    }),
+  )
 }
 
 // Asks for the usage figures directly: a fresh or reloaded session has had
