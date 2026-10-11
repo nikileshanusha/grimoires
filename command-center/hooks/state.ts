@@ -22,4 +22,6 @@ export const STORE = {
   titles: 'titles',
   // The last rate-limit readings as the engine gave them, for diagnosis.
   limitsSeen: 'limitsSeen',
+  // True after /cc off: the pane no longer opens by itself in new sessions.
+  paneOff: 'paneOff',
 } as const
