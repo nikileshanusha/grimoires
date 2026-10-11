@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 import { encodePs, moveFailure, moveScript, olderThan } from '../hooks/cleanup'
-import { eta, median, mergeLimits, mergeTodos, statusLine, toResetIso } from '../hooks/eta'
+import { TICKER_SLOT, eta, fitSlot, median, mergeLimits, mergeTodos, statusLine, toResetIso } from '../hooks/eta'
 import { fitLayout } from '../hooks/layouts'
 import { groupFeed, resetText } from '../hooks/cards'
 import { flowWindow, nextLine, parseMission, purposeFrom, stepsFor } from '../hooks/mission'
@@ -126,18 +126,27 @@ describe('sessions', () => {
     const now = Date.parse('2026-10-11T14:00:00')
     const resetsAt = new Date(now + 2.5 * 3_600_000).toISOString()
     const calm = { context: 32, fiveHour: { percent: 11, resetsAt }, week: { percent: 61 }, cacheLeftMs: 50 * 60_000, helpers: 0, now }
-    expect(statusLine(calm)).toBe('ctx 32% | 5h 11% | 7d 61% | 5h resets 4:30p')
-    expect(statusLine({ ...calm, fiveHour: { percent: 82, resetsAt } })).toBe('ctx 32% | 5h 82% until 4:30p | 7d 61% | cache warm 50m')
-    expect(statusLine({ ...calm, cacheLeftMs: 4 * 60_000 })).toBe('ctx 32% | 5h 11% | 7d 61% | cache 4m left')
-    expect(statusLine({ ...calm, cacheLeftMs: 0 })).toBe('ctx 32% | 5h 11% | 7d 61% | cache cold')
+    // The slot is padded with figure spaces to one width; trim them to compare.
+    const plain = (s: string) => s.replace(/\u2007+$/, '')
+    expect(plain(statusLine(calm))).toBe('ctx 32% | 5h 11% | 7d 61% | 5h resets 4:30p')
+    expect(plain(statusLine({ ...calm, fiveHour: { percent: 82, resetsAt } }))).toBe('ctx 32% | 5h 82% until 4:30p | 7d 61% | cache warm 50m')
+    expect(plain(statusLine({ ...calm, cacheLeftMs: 4 * 60_000 }))).toBe('ctx 32% | 5h 11% | 7d 61% | cache 4m left')
+    expect(plain(statusLine({ ...calm, cacheLeftMs: 0 }))).toBe('ctx 32% | 5h 11% | 7d 61% | cache cold')
     // A slow ticker: the last slot cycles through calm facts.
     const weekAt = new Date(now + 3 * 86_400_000).toISOString()
     const facts = { ...calm, week: { percent: 61, resetsAt: weekAt }, current: 'Building the ticker', otherBusy: 1 }
-    const slots = [0, 1, 2, 3, 4, 5].map(tick => statusLine({ ...facts, tick }).split(' | ')[3])
-    expect(slots.slice(0, 5)).toEqual(['5h resets 4:30p', `7d resets ${new Date(weekAt).toLocaleDateString('en-US', { weekday: 'short' })} 2p`, 'cache warm 50m', 'now: Building the ticker', '1 other session busy'])
+    const lines = [0, 1, 2, 3, 4, 5].map(tick => statusLine({ ...facts, tick }))
+    // One length every turn: the anchored limits never move.
+    expect(new Set(lines.map(l => l.length)).size).toBe(1)
+    const slots = lines.map(l => plain(l.split(' | ')[3] ?? ''))
+    expect(slots.slice(0, 5)).toEqual(['5h resets 4:30p', `7d resets ${new Date(weekAt).toLocaleDateString('en-US', { weekday: 'short' })} 2p`, 'cache warm 50m', 'now: Building the tic…', '1 other session busy'])
     expect(slots[5]).toBe(slots[0])
     // Urgent items stay pinned: no slot is left for the ticker.
-    expect(statusLine({ ...facts, cacheLeftMs: 0, helpers: 1, tick: 3 })).toBe('ctx 32% | 5h 11% | 7d 61% | cache cold')
+    expect(plain(statusLine({ ...facts, cacheLeftMs: 0, helpers: 1, tick: 3 }))).toBe('ctx 32% | 5h 11% | 7d 61% | cache cold')
+    expect(statusLine({ ...facts, cacheLeftMs: 0, tick: 3 }).length).toBe(lines[0]?.length)
+    // A long item is trimmed to the slot, never widening the line.
+    expect(fitSlot('now: a task with a very long description')).toBe('now: a task with a ve…')
+    expect(fitSlot('ok').length).toBe(TICKER_SLOT)
     // Never more than four items, whatever is going on.
     expect(statusLine({ ...calm, cacheLeftMs: 0, helpers: 2, etaLeftMs: 6 * 60_000 }).split(' | ')).toHaveLength(4)
     expect(statusLine({ helpers: 0, now })).toBe('command center')

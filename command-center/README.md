@@ -8,7 +8,7 @@ It is built for ADHD. Colour is used for meaning, not decoration; icons are thin
 
 **Glance, above the prompt.** One quiet line with only what matters now. The 5h limit always leads, on two lines: how much is used, then the clock time it resets and how long until then. After it come the current task and its ETA, a recent failure, helpers at work, and other busy sessions. **More** opens a little: the mission's steps, the last few actions and quick actions.
 
-**Status line, under the prompt.** A slow ticker: `ctx 34% | 5h 41% | 7d 18% | 5h resets 4:30p`. The three limits stay put; the last slot changes every 6 seconds between the 5h and 7d reset times, cache warmth, the current task and other busy sessions. Anything that needs attention (5h past 70%, cache nearly cold, helpers running, time left) is pinned instead, four items at most.
+**Status line, under the prompt.** A slow ticker: `ctx 34% | 5h 41% | 7d 18% | 5h resets 4:30p`. The three limits stay anchored; the last slot keeps one fixed width (22 characters, padded or trimmed) and changes every 6 seconds between the 5h and 7d reset times, cache warmth, the current task and other busy sessions. Anything that needs attention (5h past 70%, cache nearly cold, helpers running, time left) is pinned instead, four items at most.
 
 **The full command center** (`/cc`), in four layouts you can switch between. **Refresh** at the top reads everything again at once: sessions, helpers, limits and the mission.
 

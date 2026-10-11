@@ -168,7 +168,18 @@ export type StatusFacts = {
   now: number
 }
 
-const TICKER_CURRENT_CHARS = 28
+// The ticker's slot is this many characters wide whatever it holds, so the
+// line keeps one length as it turns. Padding is figure spaces (U+2007): a
+// plain run of spaces may be collapsed, and these are about a letter wide.
+export const TICKER_SLOT = 22
+const FIGURE_SPACE = '\u2007'
+const TICKER_CURRENT_CHARS = TICKER_SLOT - 'now: '.length
+
+export function fitSlot(text: string, width = TICKER_SLOT): string {
+  const cut = text.length > width ? `${text.slice(0, width - 1)}…` : text
+
+  return cut + FIGURE_SPACE.repeat(width - cut.length)
+}
 
 // "Mon 1:30a" a day or more out, "10:40p" the same day.
 function whenShort(at: number, now: number): string {
@@ -213,9 +224,12 @@ export function statusLine(f: StatusFacts): string {
   if (f.helpers > 0) pinned.push(`${f.helpers} helper${f.helpers === 1 ? '' : 's'}`)
   if (f.etaLeftMs !== undefined) pinned.push(`~${fmtDuration(f.etaLeftMs)} left`)
 
-  const items = [...base, ...pinned].slice(0, 4)
+  // The limits stay anchored; the fourth place is the slot, one fixed width
+  // whether it holds something urgent or the ticker's turn.
+  const head = base.slice(0, 3)
   const ticker = tickerItems(f)
-  if (items.length < 4 && ticker.length > 0) items.push(ticker[(f.tick ?? 0) % ticker.length] ?? '')
+  const slot = pinned[0] ?? (ticker.length > 0 ? ticker[(f.tick ?? 0) % ticker.length] : undefined)
+  const items = slot !== undefined ? [...head, fitSlot(slot)] : head
 
   return items.length > 0 ? items.join(' | ') : 'command center'
 }
