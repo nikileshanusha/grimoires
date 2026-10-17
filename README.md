@@ -11,24 +11,15 @@ A **plugin** goes further and changes Claude Code itself: it can bundle several 
 | Name | Kind | What it does | Use it when |
 |---|---|---|---|
 | [**cognia**](cognia/) | Plugin (private) | Turns a paper, slide deck or notes into a learning vault that grows over time: linked concept pages, a prerequisite map, interactive HTML explainers with decoded math, essays to read on the go, spaced recall and explain-back. Built for ADHD. | "Teach me this", "explain the math", "quiz me", "where was I" |
-| [**command-center**](command-center/) | Plugin | Adds a calm, wide command center to every Claude Code session: the mission and its steps with ETAs, the 5h limit and its reset time above the prompt, 7d usage and cache warmth under it, a clickable activity feed, cheaper helper agents, notes, and every Claude Code session on the machine. Built for ADHD. | You want to see where a session stands at a glance |
 | [**survey-sleuth**](survey-sleuth/) | Skill | Audits survey instruments (Word, XLSForm, PDF, pasted text) for measurement error and instrument-integrity problems before fieldwork. It flags issues against explicit criteria and leaves every judgment call to the researcher. | Reviewing a questionnaire or XLSForm before it goes to the field |
 
 Each folder's own README covers how it works, its inputs and its outputs. Cognia is a plugin of ten skills (`/cognia:ingest`, `/cognia:learn` and so on) and is not packaged for others yet.
 
 ## Installing
 
-### A plugin (command-center)
+### A plugin (cognia)
 
-This repo is a Claude Code plugin marketplace. In a Claude Code terminal session run:
-
-```
-/plugin install command-center --marketplace nikileshanusha/grimoires
-```
-
-Answer `y` to add the marketplace, then pick the user scope. The plugin loads in every new session after that, in the terminal, VS Code and the desktop app's Code tab. See [`command-center/README.md`](command-center/README.md) for what it shows and its commands.
-
-Cognia is also a plugin, but a private working copy for now; it is loaded from its folder rather than installed. See [`cognia/README.md`](cognia/README.md).
+Cognia is a private working copy for now; it is loaded from its folder rather than installed. See [`cognia/README.md`](cognia/README.md).
 
 ### A skill (survey-sleuth)
 
@@ -55,11 +46,6 @@ grimoires/
 │   ├── skills/            one folder per command (ingest, learn, review, ...)
 │   ├── core/              shared engine, formats, guides, vault skeleton
 │   ├── hooks/  evals/
-│   └── README.md
-├── command-center/        Claude Code plugin (function hooks)
-│   ├── .claude-plugin/    plugin manifest
-│   ├── hooks/             the hooks module, cards and layouts
-│   ├── types/  tests/
 │   └── README.md
 └── survey-sleuth/         skill
     ├── README.md
