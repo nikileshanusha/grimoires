@@ -1,81 +1,46 @@
 # Grimoires
 
-A grimoire is a book of spells. This repo is mine for an AI: a growing collection of [Claude skills](https://docs.claude.com/en/docs/agents-and-tools/agent-skills/overview) and [Claude Code plugins](https://docs.claude.com/en/docs/claude-code/plugins), each one a capability I want my assistant to have on hand.
+A grimoire is a book of spells. This one is mine for Claude: the skills and plugins I build to work better with AI, kept in one place.
 
-A **skill** is a folder of instructions, references and small scripts. Claude reads only the skill's short description until a task calls for it, then loads the rest. So the skills cost almost nothing until they are used.
-
-A **plugin** goes further and changes Claude Code itself: it can bundle several skills, add slash commands, or draw its own panels into the app.
+- A **skill** is a folder of instructions and small scripts. Claude reads only its one-line description until a task needs it, so an unused skill costs almost nothing.
+- A **plugin** changes Claude Code itself. It can add slash commands, draw panels, react to what Claude does, or bundle several skills.
 
 ## What's here
 
-| Name | Kind | What it does | Use it when |
-|---|---|---|---|
-| [**cognia**](cognia/) | Plugin (private) | Turns a paper, slide deck or notes into a learning vault that grows over time: linked concept pages, a prerequisite map, interactive HTML explainers with decoded math, essays to read on the go, spaced recall and explain-back. Built for ADHD. | "Teach me this", "explain the math", "quiz me", "where was I" |
-| [**sessions**](sessions/) | Plugin | Adds `/sessions`, a pane listing Claude Code sessions from every folder (not just the current one, as `/resume` does), grouped by folder with title, recency and size. Filter, search inside transcripts, open a session in a new Windows Terminal tab, or send it to the Recycle Bin. Windows only. | A session you want is missing from `/resume`, or old sessions need clearing out |
-| [**survey-sleuth**](survey-sleuth/) | Skill | Audits survey instruments (Word, XLSForm, PDF, pasted text) for measurement error and instrument-integrity problems before fieldwork. It flags issues against explicit criteria and leaves every judgment call to the researcher. | Reviewing a questionnaire or XLSForm before it goes to the field |
+| Name | Kind | What it does |
+|---|---|---|
+| [**sessions**](sessions/) | Plugin | `/sessions` lists Claude Code sessions from every folder, which `/resume` doesn't. From the list you can search them, open one in a new terminal tab, or move old ones to the Recycle Bin. Windows only. |
+| [**cognia**](cognia/) | Plugin, private | Turns a paper, slide deck or notes into a learning vault that grows over time: linked concept pages, interactive explainers, spaced recall. Built for ADHD. |
+| [**survey-sleuth**](survey-sleuth/) | Skill | Audits a survey instrument (Word, XLSForm, PDF) for measurement error before fieldwork. It flags issues and leaves the judgment calls to the researcher. |
 
-Each folder's own README covers how it works, its inputs and its outputs. Cognia is a plugin of ten skills (`/cognia:ingest`, `/cognia:learn` and so on) and is not packaged for others yet.
+Each folder's README explains how it works and how to use it.
 
 ## Installing
 
-### A plugin (sessions)
-
-This repo is a Claude Code plugin marketplace. In a Claude Code terminal session run:
+**A plugin.** This repo is a Claude Code plugin marketplace. In a Claude Code session, run:
 
 ```
-/plugin install sessions --marketplace nikileshanusha/grimoires
+/plugin install <name> --marketplace nikileshanusha/grimoires
 ```
 
-Answer `y` to add the marketplace, then pick the user scope. See [`sessions/README.md`](sessions/README.md) for its keys and commands.
+Answer `y` to add the marketplace, then pick the user scope. The plugin loads in every new session after that.
 
-### A plugin (cognia)
+Cognia is not in the marketplace yet. It is loaded from its folder, as [its README](cognia/README.md) explains.
 
-Cognia is a private working copy for now; it is loaded from its folder rather than installed. See [`cognia/README.md`](cognia/README.md).
-
-### A skill (survey-sleuth)
-
-**claude.ai (web or desktop):** download the skill's `.zip` (for example [`survey-sleuth/survey-sleuth.zip`](survey-sleuth/survey-sleuth.zip)). In **Settings → Capabilities → Skills**, upload it.
-
-**Claude Code:** copy the skill folder into your personal skills folder:
+**A skill.** On claude.ai, upload the skill's `.zip` under **Settings → Capabilities → Skills**. In Claude Code, copy the skill's folder into `~/.claude/skills/`:
 
 ```sh
 git clone https://github.com/nikileshanusha/grimoires.git
-cp -r grimoires/survey-sleuth ~/.claude/skills/survey-sleuth
+cp -r grimoires/survey-sleuth ~/.claude/skills/
 ```
 
-To make it available in one project only, copy it into that project's `.claude/skills/` instead. Start a new session, or reload VS Code, so Claude sees the new skill.
+To use it in one project only, copy it into that project's `.claude/skills/` instead. Start a new session so Claude picks it up.
 
-The skill then runs when a task matches its description. You can also ask for it by name.
+## Adding something
 
-## Layout
-
-```
-grimoires/
-├── .claude-plugin/        marketplace.json: the plugins installable from this repo
-├── cognia/                Claude Code plugin (skills)
-│   ├── .claude-plugin/    plugin manifest
-│   ├── skills/            one folder per command (ingest, learn, review, ...)
-│   ├── core/              shared engine, formats, guides, vault skeleton
-│   ├── hooks/  evals/
-│   └── README.md
-├── sessions/              Claude Code plugin (function hooks)
-│   ├── .claude-plugin/    plugin manifest
-│   ├── hooks/             the pane, its command, and tests
-│   ├── types/             state contract
-│   └── README.md
-└── survey-sleuth/         skill
-    ├── README.md
-    └── survey-sleuth.zip
-```
-
-Skill folders ship a README and a zip ready to upload. Plugin folders ship a README and the plugin source.
-
-## Adding a skill or plugin
-
-1. Create a top-level folder named after it.
-   - **Skill:** a `SKILL.md` with its frontmatter (`name`, `description`), and the packaged `.zip`.
-   - **Plugin:** a `.claude-plugin/plugin.json` and its parts (`skills/`, `hooks/`, ...). Run `claude plugin validate <folder>` (and `claude plugin test <folder>` if it has tests).
-2. Add a README for people.
-3. To make a plugin installable, add it to `.claude-plugin/marketplace.json`.
-4. Work on a feature branch, in small commits that each make sense alone, and open a pull request. Stack PRs when one builds on another.
-5. Add a row to the table above.
+1. Make a top-level folder named after it, with a README.
+   - **Skill:** `SKILL.md` (with `name` and `description` in its frontmatter) and the packaged `.zip`.
+   - **Plugin:** `.claude-plugin/plugin.json` and its parts. It must pass `claude plugin validate <folder>`, and `claude plugin test <folder>` too if it has tests.
+2. If it's a plugin, list it in `.claude-plugin/marketplace.json`.
+3. Add a row to the table above.
+4. Work on a branch, in small commits that each make sense alone, and open a pull request. Stack pull requests when one builds on another.
