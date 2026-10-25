@@ -1,5 +1,13 @@
 {
   "name": "grimoires",
-  "owner": { "name": "Nikilesh Anusha Natesan" },
-  "plugins": []
+  "owner": {
+    "name": "Nikilesh Anusha Natesan"
+  },
+  "plugins": [
+    {
+      "name": "sessions",
+      "source": "./sessions",
+      "description": "/sessions: a pane listing Claude Code sessions from every folder, to search, open in a new tab, or recycle them."
+    }
+  ]
 }
