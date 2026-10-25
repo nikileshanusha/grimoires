@@ -11,11 +11,22 @@ A **plugin** goes further and changes Claude Code itself: it can bundle several 
 | Name | Kind | What it does | Use it when |
 |---|---|---|---|
 | [**cognia**](cognia/) | Plugin (private) | Turns a paper, slide deck or notes into a learning vault that grows over time: linked concept pages, a prerequisite map, interactive HTML explainers with decoded math, essays to read on the go, spaced recall and explain-back. Built for ADHD. | "Teach me this", "explain the math", "quiz me", "where was I" |
+| [**sessions**](sessions/) | Plugin | Adds `/sessions`, a pane listing Claude Code sessions from every folder (not just the current one, as `/resume` does), grouped by folder with title, recency and size. Filter, search inside transcripts, open a session in a new Windows Terminal tab, or send it to the Recycle Bin. Windows only. | A session you want is missing from `/resume`, or old sessions need clearing out |
 | [**survey-sleuth**](survey-sleuth/) | Skill | Audits survey instruments (Word, XLSForm, PDF, pasted text) for measurement error and instrument-integrity problems before fieldwork. It flags issues against explicit criteria and leaves every judgment call to the researcher. | Reviewing a questionnaire or XLSForm before it goes to the field |
 
 Each folder's own README covers how it works, its inputs and its outputs. Cognia is a plugin of ten skills (`/cognia:ingest`, `/cognia:learn` and so on) and is not packaged for others yet.
 
 ## Installing
+
+### A plugin (sessions)
+
+This repo is a Claude Code plugin marketplace. In a Claude Code terminal session run:
+
+```
+/plugin install sessions --marketplace nikileshanusha/grimoires
+```
+
+Answer `y` to add the marketplace, then pick the user scope. See [`sessions/README.md`](sessions/README.md) for its keys and commands.
 
 ### A plugin (cognia)
 
@@ -46,6 +57,11 @@ grimoires/
 │   ├── skills/            one folder per command (ingest, learn, review, ...)
 │   ├── core/              shared engine, formats, guides, vault skeleton
 │   ├── hooks/  evals/
+│   └── README.md
+├── sessions/              Claude Code plugin (function hooks)
+│   ├── .claude-plugin/    plugin manifest
+│   ├── hooks/             the pane, its command, and tests
+│   ├── types/             state contract
 │   └── README.md
 └── survey-sleuth/         skill
     ├── README.md

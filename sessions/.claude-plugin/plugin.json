@@ -1,0 +1,10 @@
+{
+  "name": "sessions",
+  "version": "0.2.0",
+  "description": "/sessions: a pane to browse, search, open and delete Claude sessions from every folder",
+  "author": {
+    "name": "Nikilesh Anusha Natesan"
+  },
+  "repository": "https://github.com/nikileshanusha/grimoires",
+  "types": "./types/index.d.ts"
+}
